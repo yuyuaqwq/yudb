@@ -18,7 +18,7 @@
     <ClCompile Include="yudb.c">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="test.c">
+    <ClCompile Include="test.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="db_file.c">
@@ -36,7 +36,7 @@
     <ClCompile Include="import.c">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="cacher.cpp">
+    <ClCompile Include="cacher.c">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="page.c">
@@ -78,6 +78,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="free_table.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="txid.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -11,13 +11,13 @@ static CacheId CacherGetIdFromInfo(Cacher* cacher, CacheInfo* info) {
 
 static void CacherEvict(Cacher* cacher, CacheId cache_id) {
 	Pager* pager = ObjectGetFromField(cacher, Pager, cacher);
-	// 驱逐缓存，是脏页则写回磁盘
 	CacheInfo* cache_info = CacherGetInfo(&pager->cacher, cache_id);
+	  assert(cache_info->reference_count == 0);		// 被驱逐的缓存引用计数必须为0
 	if (cache_info->type == kCacheListDirty) {
-		  assert(cache_info->reference_count == 0);
+		// 是脏页则写回磁盘
 		void* cache = CacherGet(&pager->cacher, cache_id);
 		PagerWrite(pager, cache_info->pgid, cache, 1);
-		// 会从alloc列表中移除，因此不需要解引用了
+		// 会从缓存列表中移除，不需要再解引用了
 	}
 	CacherFree(&pager->cacher, cache_id);
 }

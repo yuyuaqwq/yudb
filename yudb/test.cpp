@@ -1,12 +1,12 @@
+#include <map>
+
 #include <stdlib.h>
 #include <stdio.h>
 
 #include <yudb/yudb.h>
 #include <yudb/transaction.h>
 
-
-
-PageId GetDataBuf(Tx* tx, Data* data, void** data_buf, size_t* data_size);
+extern "C" PageId GetDataBuf(Tx* tx, Data* data, void** data_buf, size_t* data_size);
 
 void PrintBucket(Tx* tx, PageId pgid, int Level, int pos) {
 	BPlusEntry* entry = BPlusEntryGet(tx, pgid);
@@ -40,56 +40,131 @@ void PrintBucket(Tx* tx, PageId pgid, int Level, int pos) {
 		PrintBucket(tx, entry->index.element[i].child_id, Level + 1, i);
 	}
 	free(empty);
+	BPlusEntryDereference(tx, pgid);
 }
 
+int GetBucketCount(Tx* tx) {
+	int count = 0;
+	PageId head_leaf = tx->meta_info.bucket.leaf_list_first;
+	PageId leaf = head_leaf;
+	do {
+		BPlusEntry* entry = BPlusEntryGet(tx, leaf);
+		count += entry->element_count;
+		
+		PageId next_leaf = entry->leaf.list_entry.next;
+		BPlusEntryDereference(tx, leaf);
+		leaf = next_leaf;
+	} while (leaf != head_leaf);
+	return count;
+}
 
-
-
+long long l;
 int main() {
 	int r = 0;
-	
-	int count = 200000;
+	int m = 0;
+
+	int count = 1000;
+	// 第二次会在GetBucketCount中死循环
 
 	YuDb* db = YuDbOpen("Z:\\test.ydb");
+	PageId id;
+	Tx tx;
+	l = GetTickCount64();
+
+	//while (true) {
+	//	TxBegin(db, &tx, kTxReadWrite);
+	//	
+	//	id = PagerAlloc(&db->pager, true, 1);
+	//	CacheId cid = CacherGetIdByBuf(&db->pager.cacher, PagerGet(&db->pager, id));
+	//	printf("%d\t%d\t\t", id, cid);
+	//	if (id == kPageInvalidId) {
+	//		break;
+	//	}
+	//	TxCommit(&tx);
+	//}
+	//l = GetTickCount64() - l;
+	//printf("%dms\n", (int)l);
+
+
+
+	
+	
 	srand(14134);//GetTickCount()
 
-	long long l = GetTickCount64();
-	Tx tx;
-	
-	
+	std::map<int, int> map;
 	for (int i = 0; i < count; i++) {
+		int j = rand() << 16 | rand();
+		map.insert(std::make_pair(j, j));
+	}
+
+
+	l = GetTickCount64();
+	
+	
+	if (m == 1) {
 		TxBegin(db, &tx, kTxReadWrite);
-		if (i == 449) {
-			printf("23");
+	}
+	
+
+	for (auto& iter : map) {
+		if (m == 0) {
+			TxBegin(db, &tx, kTxReadWrite);
+			printf("%d    ", GetBucketCount(&tx));
 		}
 		//if (entry->index.tail_child_id == entry->index.element[entry->element_count-1].child_id) {
 		//	PrintBucket(&tx, tx.meta_info.bucket.root_id, 0, 0);
 		//	printf("\n\n\n\n");
 		//}
-		int j = rand() << 16 | rand();
-		BucketInsert(&tx, &j, 4, &j, 4);
+		
+		if (!BucketInsert(&tx, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
+			printf("NOW!");
+		}
 		//
 		//printf("\n\n\n\n");
+		if (m == 0) {
+			TxCommit(&tx);
+		}
+	}
+	if (m == 1) {
 		TxCommit(&tx);
 	}
-	
+
+
+
+
 	l = GetTickCount64() - l;
+	if (l == 0) {
+		l = 1;
+	}
 	printf("write: %dms, %dtps, %dus/op\n", (int)l, (int)(count * 1000 / l), (int)((l * 1000) / count));
 
 	l = GetTickCount64();
-	srand(14134);//GetTickCount()
-	TxBegin(db, &tx, kTxReadOnly);
-	for (int i = 0; i < count; i++) {
-		
-		int j = rand() << 16 | rand();
-		if (!BucketFind(&tx, &j, 4)) {
-			printf("NO!");
-		}
-		
+
+	if (m == 1) {
+		TxBegin(db, &tx, kTxReadOnly);
 	}
-	TxCommit(&tx);
+	// PrintBucket(&tx, tx.meta_info.bucket.root_id, 0, 0);
+	printf("%d", GetBucketCount(&tx));
+	for (auto& iter : map) {
+		if (m == 0) {
+			TxBegin(db, &tx, kTxReadOnly);
+		}
+		if (!BucketFind(&tx, (void*)&iter.first, 4)) {
+			printf("NOR!, %d  %d  ", iter.first, iter.second);
+		}
+		if (m == 0) {
+			TxBegin(db, &tx, kTxReadOnly);
+		}
+	}
+	if (m == 1) {
+		TxCommit(&tx);
+	}
+	
 	// TxPut(&tx, "dwadad", 6, "123456", 6);
 	l = GetTickCount64() - l;
+	if (l == 0) {
+		l = 1;
+	}
 	printf("read: %dms, %dtps, %dns/op", (int)l, (int)(count * 1000 / l), (int)((l * 1000 * 1000) / count));
 	// YuDbPut(db, );
 	// YuDbPut(db, "dwadad", 6, "123456", 6);

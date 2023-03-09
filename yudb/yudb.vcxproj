@@ -146,7 +146,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="bucket.c" />
-    <ClCompile Include="cacher.cpp" />
+    <ClCompile Include="cacher.c" />
     <ClCompile Include="free_table.c" />
     <ClCompile Include="import.c" />
     <ClCompile Include="meta_info.c" />
@@ -158,7 +158,7 @@
     </ClCompile>
     <ClCompile Include="page.c" />
     <ClCompile Include="pager.c" />
-    <ClCompile Include="test.c" />
+    <ClCompile Include="test.cpp" />
     <ClCompile Include="transaction.c" />
     <ClCompile Include="yudb.c" />
     <ClCompile Include="db_file.c" />
@@ -172,6 +172,7 @@
     <ClInclude Include="page.h" />
     <ClInclude Include="pager.h" />
     <ClInclude Include="transaction.h" />
+    <ClInclude Include="txid.h" />
     <ClInclude Include="yudb.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

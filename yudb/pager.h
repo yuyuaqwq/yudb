@@ -5,16 +5,13 @@
 #include <stdint.h>
 
 #include <yudb/page.h>
+#include <yudb/txid.h>
 #include <yudb/free_table.h>
 #include <yudb/cacher.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif //  __cplusplus
-
-typedef int32_t TxId;
-
-
 
 
 

@@ -7,13 +7,13 @@
 #include <CUtils/container/rb_tree.h>
 
 #include <yudb/page.h>
+#include <yudb/txid.h>
 #include <yudb/meta_info.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif //  __cplusplus
 
-typedef int32_t TxId;
 extern const TxId kTxInvalidId;
 
 typedef enum {

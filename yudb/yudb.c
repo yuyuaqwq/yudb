@@ -6,7 +6,7 @@
 #include "yudb/bucket.h"
 
 #define PAGE_SIZE 4096
-#define CACHE_COUNT 8
+#define CACHE_COUNT 4096
 
 
 bool MetaInfoRead(YuDb* db) {

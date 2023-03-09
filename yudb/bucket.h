@@ -5,8 +5,7 @@
 #include <stdint.h>
 
 #include <yudb/page.h>
-
-typedef int32_t TxId;
+#include <yudb/txid.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -79,7 +78,9 @@ typedef BPlusTree Bucket;
 
 
 
-void BucketInit(struct _YuDb* db, struct _Tx* tx, Bucket* bucket);
+void BucketInit(struct _YuDb* db, struct _Tx* tx);
+bool BucketInsert(struct _Tx* tx, void* key_buf, int16_t key_size, void* value_buf, size_t value_size);
+bool BucketFind(struct _Tx* tx, void* key_buf, int16_t key_size);
 
 #ifdef __cplusplus
 }
