@@ -1,0 +1,167 @@
+
+typedef struct _OverflowBlock {
+	uint16_t free_next;
+	uint16_t len;
+} OverflowBlock;
+
+typedef struct _OverflowPage {
+	uint16_t free_head;
+} OverflowPage;
+
+typedef struct _OverflowPageInfo {
+	PageId overflow_pgid;
+	uint16_t overflow_max_free_block;
+} OverflowPageInfo;
+
+typedef struct _OverflowHead {
+	OverflowPageInfo overflow_page_info[];
+} OverflowHead;
+
+const uint16_t kOverflowInvalidOffset = 0;
+
+
+/*
+* 溢出页面初始化
+*/
+void OverflowPageInit(Tx* tx, OverflowPage* page) {
+	YuDb* db = tx->db;
+	page->free_head = sizeof(*page);
+	OverflowBlock* block = (OverflowBlock*)((uintptr_t)page + sizeof(*page));
+	block->free_next = kOverflowInvalidOffset;
+	block->len = db->meta_info.page_size - sizeof(*page);
+}
+
+/*
+* 溢出头页面初始化
+*/
+void OverflowHeadInit(Tx* tx, OverflowHead* head) {
+	Pager* pager = &tx->db->pager;
+	for (uint16_t i = 1; i < pager->page_size / sizeof(OverflowPageInfo); i++) {
+		head->overflow_page_info[i].overflow_pgid = kPagerPageInvalidId;
+	}
+}
+
+/*
+* 查找可供分配的OverflowPage，返回页面Id
+*/
+PageId OverflowHeadFind(Tx* tx, OverflowHead* head, uint16_t size) {
+	Pager* pager = &tx->db->pager;
+	for (uint16_t i = 1; i < pager->page_size / sizeof(OverflowPageInfo); i++) {
+		OverflowPage* overflow_page;
+		if (head->overflow_page_info[i].overflow_pgid == kPagerPageInvalidId) {
+			head->overflow_page_info[i].overflow_pgid = PageAlloc(tx, true, 1);
+			overflow_page = (OverflowPage*)PageGet(tx, head->overflow_page_info[i].overflow_pgid, true);
+			OverflowPageInit(tx, overflow_page);
+			OverflowBlock* block = (OverflowBlock*)((uintptr_t)overflow_page + overflow_page->free_head);
+			head->overflow_page_info[i].overflow_max_free_block = block->len;
+		}
+		else {
+			overflow_page = (OverflowPage*)PageGet(tx, head->overflow_page_info[i].overflow_pgid, true);
+		}
+		if (head->overflow_page_info[i].overflow_max_free_block >= size) {
+			PageDereference(tx, head->overflow_page_info[i].overflow_pgid);
+			return head->overflow_page_info[i].overflow_pgid;
+		}
+		PageDereference(tx, head->overflow_page_info[i].overflow_pgid);
+	}
+	return kPagerPageInvalidId;
+}
+
+/*
+* 更新最大空闲块
+*/
+void OverflowHeadUpdateMaxFree(Tx* tx, OverflowHead* head) {
+	/*OverflowBlock* prev_block = (OverflowBlock*)((uintptr_t)&page->free_head);
+	uint16_t free_offset = page->free_head;
+	uint16_t max = 0;
+	while (free_offset != kOverflowInvalidOffset) {
+		OverflowBlock* block = (OverflowBlock*)((uintptr_t)page + free_offset);
+		if (block->len > max) {
+			max = block->len;
+		}
+	}
+	CacheId cache_id = CacheGetId(&bucket->db->pager, page);
+	*/
+}
+
+
+
+/*
+* 分配块，返回偏移
+*/
+uint16_t OverflowPageBlockAlloc(Tx* tx, OverflowHead* head, OverflowPage* page, uint16_t len) {
+	if (len & 0x3) len = (len & (~(uint16_t)0x3)) + 4;
+	OverflowBlock* prev_block = (OverflowBlock*)((uintptr_t)&page->free_head);
+	uint16_t free_offset = page->free_head;
+	while (free_offset != kOverflowInvalidOffset) {
+		OverflowBlock* block = (OverflowBlock*)((uintptr_t)page + free_offset);
+		if (block->len > len) {
+			void* mem = (void*)(&block->free_next);
+			OverflowBlock* new_block = (OverflowBlock*)((uintptr_t)page + free_offset + len);
+			new_block->free_next = block->free_next;
+			new_block->len = block->len - len;
+			prev_block->free_next += len;
+			return free_offset;
+		}
+		else if (block->len == len) {
+			prev_block->free_next = block->free_next;
+			return free_offset;
+		}
+		free_offset = block->free_next;
+		prev_block = block;
+	};
+	return 0;
+}
+
+/*
+* 释放块
+*/
+void OverflowPageBlockFree(Bucket* bucket, OverflowHead* head, OverflowPage* page, uint16_t free_offset, uint16_t len) {
+	if (len & 0x3) len = (len & (~(uint16_t)0x3)) + 4;
+	OverflowBlock* free_block = (OverflowBlock*)((uintptr_t)page + free_offset);
+	// 尝试合并与当前块连续的前后空闲块
+	bool prev = false, next = false;
+	uint16_t cur_offset = page->free_head;
+	OverflowBlock* prev_block = (OverflowBlock*)((uintptr_t)&page->free_head);
+	while (cur_offset != kOverflowInvalidOffset) {
+		OverflowBlock* cur_block = (OverflowBlock*)((uintptr_t)page + cur_offset);
+		if (!next && free_offset + len == cur_offset) {
+			// 找到连续的空闲下一块
+			len += cur_block->len;
+			free_block->len = len;
+			free_block->free_next = cur_block->free_next;
+			prev_block->free_next = free_offset;
+			cur_block = free_block;
+			next = true;
+		}
+		else if (!prev && cur_offset + cur_block->len == free_offset) {
+			// 找到连续的空闲上一块
+			free_offset = cur_offset;
+			len += cur_block->len;
+			cur_block->len = len;
+			free_block = cur_block;
+			prev_block->free_next = free_offset;
+			prev = true;
+		}
+		else {
+			// 没有合并才更新，找到连续的空闲下一块也不更新这块逻辑比较复杂
+			// 主要为了使得下一次循环若找到连续的空闲上一块时，prev能够正确的指向合并后的free_block
+			prev_block = cur_block;
+		}
+		if (prev && next) break;
+		cur_offset = cur_block->free_next;
+	}
+	if (!prev && !next) {
+		free_block->free_next = page->free_head;
+		free_block->len = len;
+		page->free_head = free_offset;
+	}
+}
+
+/*
+* 获取块在溢出页面的内存缓冲区
+*/
+void* OverflowPageGet(OverflowPage* page, uint16_t offset) {
+	return (void*)((uintptr_t)page + offset);
+}
+

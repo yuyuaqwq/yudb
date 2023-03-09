@@ -1,0 +1,177 @@
+#include <yudb/pager.h>
+
+#include <yudb/db_file.h>
+#include <yudb/free_table.h>
+#include <yudb/yudb.h>
+
+/*
+* Page
+*/
+
+static int64_t PagerGetPageOffset(Pager* pager, PageId pgid) {
+	return pager->page_size * pgid;
+}
+
+/*
+* 初始化页面管理器
+*/
+bool PagerInit(Pager* pager, uint16_t page_size, PageCount page_count, size_t cache_count) {
+	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+	pager->page_size = page_size;
+	pager->page_count = page_count;
+
+	CacherInit(&pager->cacher, cache_count);
+
+	FreeTableInit(&pager->free_table);
+	return true;
+}
+
+bool PagerRead(Pager* pager, PageId pgid, void* cache, PageCount count) {
+	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+	if (!DbFileSeek(db->db_file, PagerGetPageOffset(&db->pager, pgid), kDbFilePointerSet)) {
+		return false;
+	}
+	if (!DbFileRead(db->db_file, cache, db->meta_info.page_size * count)) {
+		return false;
+	}
+	return true;
+}
+
+bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count) {
+	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+	if (!DbFileSeek(db->db_file, PagerGetPageOffset(&db->pager, pgid), kDbFilePointerSet)) {
+		return false;
+	}
+	if (!DbFileWrite(db->db_file, cache, db->meta_info.page_size * count)) {
+		return false;
+	}
+	return true;
+}
+
+
+// 只有写事务会调用页面分配、释放函数，所以无需加锁
+/*
+* 从db文件中分配页面
+*/
+PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
+	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+	PageId disk_free_pgid;
+	do {
+		int16_t free0_entry_pos;
+		int16_t free1_entry_pos = FreeTableAlloc(&pager->free_table, count, &free0_entry_pos);
+		if (free1_entry_pos == -1) {
+			return kPageInvalidId;
+		}
+		disk_free_pgid = FreeTablePosToPageId(&pager->free_table, free0_entry_pos, free1_entry_pos);
+	} while (false);
+	
+	if (put_cache) {
+		// 申请后可能就会使用，直接挂到缓存中可以避免在PageGet接口发生一次磁盘读取
+		CacheId cache_id = CacherFind(&pager->cacher, disk_free_pgid, true);
+		if (cache_id == kCacheInvalidId) {
+			cache_id = CacherAlloc(&pager->cacher, disk_free_pgid);
+			if (cache_id == kCacheInvalidId) {
+				FreeTableFree(&pager->free_table, disk_free_pgid, count);
+				return kPageInvalidId;
+			}
+		}
+	}
+	return disk_free_pgid;
+}
+
+/*
+* 释放分配的页面
+* 如果引用计数未清零则挂到待释放链表中(或循环等待)等待引用计数清空
+*/
+void PagerFree(Pager* pager, PageId pgid, PageCount count) {
+	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
+	if (cache_id != kCacheInvalidId) {
+		CacherFree(&pager->cacher, cache_id);
+	}
+	FreeTableFree(&pager->free_table, pgid, count);
+}
+
+/*
+* 指定页面置为待决
+* 如果引用计数未清零则挂到待释放链表中(或循环等待)等待引用计数清空
+*/
+void PagerPending(Pager* pager, PageId pgid, PageCount count, PageId first_pgid) {
+	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
+	if (cache_id != kCacheInvalidId) {
+		CacherFree(&pager->cacher, cache_id);
+	}
+	FreeTablePending(&pager->free_table, pgid, count, first_pgid);
+}
+
+/*
+* 将待决状态的页面释放
+*/
+void PagerFreePending(Pager* pager, PageId first_pgid) {
+	FreeTableFreePending(&pager->free_table, first_pgid);
+}
+
+/*
+* 引用页面获取缓存，递增页面引用计数
+*/
+void* PagerGet(Pager* pager, PageId pgid) {
+	CacheId cache_id = CacherFind(&pager->cacher, pgid, true);
+	void* cache;
+	if (cache_id == kCacheInvalidId) {
+		cache_id = CacherAlloc(&pager->cacher, pgid);
+		if (cache_id == kCacheInvalidId) {
+			return NULL;
+		}
+		cache = CacherGet(&pager->cacher, cache_id);
+
+		if (!PagerRead(pager, pgid, cache, 1)) {
+			CacherFree(&pager->cacher, cache_id);
+			// memset(cache, 0, pager->page_size);
+			return NULL;
+		}
+	}
+	else {
+		cache = CacherGet(&pager->cacher, cache_id);
+	}
+	return cache;
+}
+
+/*
+* 解除对指定页面的引用
+*/
+void PagerDereference(Pager* pager, PageId pgid) {
+	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
+	if (cache_id != kCacheInvalidId) {
+		CacherDereference(&pager->cacher, cache_id);
+	}
+}
+
+/*
+* 标记为脏页
+*/
+void PagerMarkDirty(Pager* pager, PageId pgid) {
+	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
+	CacherMarkDirty(&pager->cacher, cache_id);
+}
+
+void PagerWriteAllDirty(Pager* pager) {
+	Cacher* cacher = &pager->cacher;
+	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+	CacheId dirty_cache_id = cacher->cache_dirty_first;
+	while (dirty_cache_id != kCacheInvalidId) {
+		CacheInfo* cache_info = CacherGetInfo(cacher, dirty_cache_id);
+		if (cache_info->type != kCacheListDirty) {
+			break;
+		}
+		  assert(cache_info->reference_count == 0);
+		void* cache = CacherGet(cacher, dirty_cache_id);
+		CacheId next_cache_id = cache_info->dirty_entry.next_index;
+		DoublyStaticListSwitch(&cacher->cache_info_pool, kCacheListDirty, dirty_cache_id, kCacheListClean);
+		cache_info->type = kCacheListClean;
+
+		PagerWrite(pager, cache_info->pgid, cache, 1);
+		CacherDereference(cacher, dirty_cache_id);
+		dirty_cache_id = next_cache_id;
+	}
+	cacher->cache_dirty_first = kCacheInvalidId;
+	// DbFileSync(db->db_file);
+}
