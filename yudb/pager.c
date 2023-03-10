@@ -156,22 +156,34 @@ void PagerMarkDirty(Pager* pager, PageId pgid) {
 void PagerWriteAllDirty(Pager* pager) {
 	Cacher* cacher = &pager->cacher;
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
-	CacheId dirty_cache_id = cacher->cache_dirty_first;
-	while (dirty_cache_id != kCacheInvalidId) {
-		CacheInfo* cache_info = CacherGetInfo(cacher, dirty_cache_id);
-		if (cache_info->type != kCacheListDirty) {
+	// ¾¡¿ÉÄÜË³ÐòÐ´
+	do {
+		CacheId dirty_cache_id = cacher->cache_dirty_first;
+		if (dirty_cache_id == kCacheInvalidId) {
 			break;
 		}
-		  assert(cache_info->reference_count == 0);
-		void* cache = CacherGet(cacher, dirty_cache_id);
-		CacheId next_cache_id = cache_info->dirty_entry.next_index;
-		DoublyStaticListSwitch(&cacher->cache_info_pool, kCacheListDirty, dirty_cache_id, kCacheListClean);
-		cache_info->type = kCacheListClean;
-
-		PagerWrite(pager, cache_info->pgid, cache, 1);
-		CacherDereference(cacher, dirty_cache_id);
-		dirty_cache_id = next_cache_id;
-	}
+		CacheInfo* min_cache_info = NULL;
+		do {
+			CacheInfo* cache_info = CacherGetInfo(cacher, dirty_cache_id);
+			  assert(cache_info->type == kCacheListDirty);
+			  assert(cache_info->reference_count == 0);
+			if (min_cache_info == NULL) {
+				min_cache_info = cache_info;
+			}
+			else if (cache_info->pgid < min_cache_info->pgid) {
+				min_cache_info = cache_info;
+			}
+			dirty_cache_id = cache_info->dirty_entry.next_index;
+		} while (dirty_cache_id != kCacheInvalidId);
+		if (min_cache_info) {
+			dirty_cache_id = CacherGetIdByInfo(cacher, min_cache_info);
+			void* cache = CacherGet(cacher, dirty_cache_id);
+			DoublyStaticListSwitch(&cacher->cache_info_pool, kCacheListDirty, dirty_cache_id, kCacheListClean);
+			min_cache_info->type = kCacheListClean;
+			PagerWrite(pager, min_cache_info->pgid, cache, 1);
+			CacherDereference(cacher, dirty_cache_id);
+		}
+	}  while (true);
 	cacher->cache_dirty_first = kCacheInvalidId;
 	// DbFileSync(db->db_file);
 }

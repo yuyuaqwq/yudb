@@ -49,6 +49,7 @@ CacheId CacherFind(Cacher* cacher, PageId pgid, bool put_first);
 void* CacherGet(Cacher* cacher, CacheId id);
 CacheInfo* CacherGetInfo(Cacher* cacher, CacheId id);
 CacheId CacherGetIdByBuf(Cacher* cacher, void* cache);
+CacheId CacherGetIdByInfo(Cacher* cacher, CacheInfo* info);
 PageId CacherGetPageIdById(Cacher* cacher, CacheId id);
 void CacherMarkDirty(Cacher* cacher, CacheId cache_id);
 void* CacherGet(Cacher* cacher, CacheId cache_id);

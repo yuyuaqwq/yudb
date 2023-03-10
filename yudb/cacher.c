@@ -89,6 +89,12 @@ CacheId CacherGetIdByBuf(Cacher* cacher, void* cache) {
 	return (CacheId)(offset / pager->page_size);
 }
 
+CacheId CacherGetIdByInfo(Cacher* cacher, CacheInfo* info) {
+	Pager* pager = ObjectGetFromField(cacher, Pager, cacher);
+	uintptr_t offset = (uintptr_t)info - (uintptr_t)ArrayGetData(&cacher->cache_info_pool.array);
+	return (CacheId)(offset / sizeof(CacheInfo));
+}
+
 PageId CacherGetPageIdById(Cacher* cacher, CacheId id) {
 	CacheInfo* info = CacherGetInfo(cacher, id);
 	return info->pgid;

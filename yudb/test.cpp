@@ -61,9 +61,7 @@ int GetBucketCount(Tx* tx) {
 long long l;
 int main() {
 	int r = 0;
-	int m = 1;
-
-	// 还有bug，重复开事务写会膨胀体积，好像是没有回收pending？
+	int m = 0;
 
 	int count = 100000;
 
