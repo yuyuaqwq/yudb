@@ -338,6 +338,7 @@ void FreeTableCleanPending(FreeTable* table) {
 			}
 			free1_table[j].status = kFree1Free;
 		}
+		free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(table, free1_table);
 		free0_entry->free1_table_pending = 0;
 		BitmapSet(&table->free0_entry_dirty, i, true);
 		Free1TableMarkDirty(table, free1_table);

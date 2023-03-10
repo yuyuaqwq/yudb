@@ -34,6 +34,7 @@ int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_table_pos
 void FreeTableFree(FreeTable* table, PageId pgid, int16_t count);
 void FreeTablePending(FreeTable* table, PageId pgid, int16_t count, PageId first_pgid);
 void FreeTableFreePending(FreeTable* table, PageId first_pgid);
+void FreeTableCleanPending(FreeTable* table);
 
 #ifdef __cplusplus
 }

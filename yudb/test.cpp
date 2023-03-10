@@ -61,10 +61,11 @@ int GetBucketCount(Tx* tx) {
 long long l;
 int main() {
 	int r = 0;
-	int m = 0;
+	int m = 1;
 
-	int count = 1000;
-	// 第二次会在GetBucketCount中死循环
+	// 还有bug，重复开事务写会膨胀体积，好像是没有回收pending？
+
+	int count = 100000;
 
 	YuDb* db = YuDbOpen("Z:\\test.ydb");
 	PageId id;
@@ -85,9 +86,6 @@ int main() {
 	//l = GetTickCount64() - l;
 	//printf("%dms\n", (int)l);
 
-
-
-	
 	
 	srand(14134);//GetTickCount()
 
@@ -109,7 +107,7 @@ int main() {
 	for (auto& iter : map) {
 		if (m == 0) {
 			TxBegin(db, &tx, kTxReadWrite);
-			printf("%d    ", GetBucketCount(&tx));
+			//printf("%d    ", GetBucketCount(&tx));
 		}
 		//if (entry->index.tail_child_id == entry->index.element[entry->element_count-1].child_id) {
 		//	PrintBucket(&tx, tx.meta_info.bucket.root_id, 0, 0);
@@ -144,7 +142,7 @@ int main() {
 		TxBegin(db, &tx, kTxReadOnly);
 	}
 	// PrintBucket(&tx, tx.meta_info.bucket.root_id, 0, 0);
-	printf("%d", GetBucketCount(&tx));
+	//printf("%d", GetBucketCount(&tx));
 	for (auto& iter : map) {
 		if (m == 0) {
 			TxBegin(db, &tx, kTxReadOnly);

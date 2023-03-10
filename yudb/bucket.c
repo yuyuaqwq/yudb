@@ -42,7 +42,8 @@ void BPlusEntryDelete(Tx* tx, PageId pgid) {
 	}
 }
 
-PageId BPlusEntryCopy(Tx* tx, BPlusEntry* entry) {
+PageId BPlusEntryCopy(Tx* tx, BPlusEntry* entry, PageId entry_pgid) {
+	BPlusTree* tree = BPlusTreeGet(tx);
     PageId copy_pgid = BPlusEntryCreate(tx, entry->type);
 	if (copy_pgid == kPageInvalidId) {
 		return kPageInvalidId;
@@ -52,16 +53,29 @@ PageId BPlusEntryCopy(Tx* tx, BPlusEntry* entry) {
     copy->last_write_tx_id = tx->meta_info.txid;
 	if (copy->type == kBPlusEntryLeaf) {
 		// 当前是叶子节点，需要处理一下叶子节点的前后连接链表
-		PageId prev_pgid = entry->leaf.list_entry.prev;
-		BPlusEntry* prev = BPlusEntryGet(tx, prev_pgid);
-		PageId next_pgid = entry->leaf.list_entry.next;
-		BPlusEntry* next = BPlusEntryGet(tx, next_pgid);
-		prev->leaf.list_entry.next = copy_pgid;
-		next->leaf.list_entry.prev = copy_pgid;
-		PagerMarkDirty(&tx->db->pager, prev_pgid);
-		PagerMarkDirty(&tx->db->pager, next_pgid);
-		BPlusEntryDereference(tx, prev_pgid);
-		BPlusEntryDereference(tx, next_pgid);
+		if (tree->leaf_list_first == entry_pgid) {
+			// 如果被拷贝的是第一个叶子，也要重新指向
+			tree->leaf_list_first = copy_pgid;
+		}
+		if (entry->leaf.list_entry.next == entry_pgid) {
+			// 特殊情况，当前叶子节点同时为根节点，指向自己
+			  assert(entry->leaf.list_entry.prev == entry_pgid)
+			copy->leaf.list_entry.next = copy_pgid;
+			copy->leaf.list_entry.prev = copy_pgid;
+		}
+		else {
+			PageId prev_pgid = entry->leaf.list_entry.prev;
+			BPlusEntry* prev = BPlusEntryGet(tx, prev_pgid);
+			PageId next_pgid = entry->leaf.list_entry.next;
+			BPlusEntry* next = BPlusEntryGet(tx, next_pgid);
+			prev->leaf.list_entry.next = copy_pgid;
+			next->leaf.list_entry.prev = copy_pgid;
+			// copy->next和prev已经拷贝了entry
+			PagerMarkDirty(&tx->db->pager, prev_pgid);
+			PagerMarkDirty(&tx->db->pager, next_pgid);
+			BPlusEntryDereference(tx, prev_pgid);
+			BPlusEntryDereference(tx, next_pgid);
+		}
 	}
     BPlusEntryDereference(tx, copy_pgid);
     return copy_pgid;
