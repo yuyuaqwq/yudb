@@ -63,7 +63,7 @@ int main() {
 	int r = 0;
 	int m = 1;
 
-	int count = 100000;
+	int count = 1000000;
 
 	YuDb* db = YuDbOpen("Z:\\test.ydb", kYuDbSyncNormal);
 	PageId id;
@@ -71,7 +71,7 @@ int main() {
 	l = GetTickCount64();
 
 	//db->update_mode = kYuDbUpdateInPlace;
-	db->update_mode = kYuDbUpdateWal;
+	db->update_mode = kYuDbUpdateInPlace;
 
 	db->log_file = DbFileOpen("Z:\\test.wal", true);
 
@@ -106,8 +106,9 @@ int main() {
 		TxBegin(db, &tx, kTxReadWrite);
 	}
 	
-
+	int i = 0;
 	for (auto& iter : map) {
+		i++;
 		if (m == 0) {
 			TxBegin(db, &tx, kTxReadWrite);
 			//printf("%d    ", GetBucketCount(&tx));
