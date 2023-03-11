@@ -235,7 +235,7 @@ int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_pos
 		CacherDereference(&pager->cacher, cache_id);
 		return -1;
 	}
-	free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(table, free1_table);
+	free0_entry->free1_table_max_free -= count;
 	BitmapSet(&table->free0_entry_dirty, free0_entry_pos_, true);
 	if (free0_entry_pos) {
 		*free0_entry_pos = free0_entry_pos_;
@@ -256,7 +256,7 @@ void FreeTableFree(FreeTable* table, PageId pgid, int16_t count) {
 	CacheId cache_id;
 	Free1Entry* free1_table = Free1TableGet(table, free0_entry_pos, &cache_id);
 	Free1TableFree(table, free1_table, free1_entry_pos, count);
-	free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(table, free1_table);
+	free0_entry->free1_table_max_free += count;
 	BitmapSet(&table->free0_entry_dirty, free0_entry_pos, true);
 	Free1TableMarkDirty(table, free1_table);
 	CacherDereference(&pager->cacher, cache_id);
@@ -315,7 +315,7 @@ void FreeTableFreePending(FreeTable* table, PageId first_pgid) {
 		free1_table[free1_entry_pos].status = kFree1Free;
 	} while (true);
 	if (free0_entry) {
-		free0_entry->free1_table_pending = Free1TableIsPending(table, free1_table);;
+		free0_entry->free1_table_pending = Free1TableIsPending(table, free1_table);
 		free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(table, free1_table);
 		BitmapSet(&table->free0_entry_dirty, free0_entry_pos, true);
 		Free1TableMarkDirty(table, free1_table);

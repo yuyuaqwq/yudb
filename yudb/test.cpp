@@ -61,7 +61,7 @@ int GetBucketCount(Tx* tx) {
 long long l;
 int main() {
 	int r = 0;
-	int m = 0;
+	int m = 1;
 
 	int count = 100000;
 
