@@ -61,11 +61,11 @@ int GetBucketCount(Tx* tx) {
 long long l;
 int main() {
 	int r = 0;
-	int m = 0;
+	int m = 1;
 
 	int count = 100000;
 
-	YuDb* db = YuDbOpen("Z:\\test.ydb");
+	YuDb* db = YuDbOpen("C:\\test.ydb");
 	PageId id;
 	Tx tx;
 	l = GetTickCount64();

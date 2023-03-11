@@ -12,6 +12,7 @@ extern "C" {
 
 typedef struct {
 	uint32_t magic;
+	uint32_t min_version;
 	uint16_t page_size;
 	PageId page_count;
 	Bucket bucket;

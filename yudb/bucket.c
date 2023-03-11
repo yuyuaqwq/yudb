@@ -59,7 +59,7 @@ PageId BPlusEntryCopy(Tx* tx, BPlusEntry* entry, PageId entry_pgid) {
 		}
 		if (entry->leaf.list_entry.next == entry_pgid) {
 			// 特殊情况，当前叶子节点同时为根节点，指向自己
-			  assert(entry->leaf.list_entry.prev == entry_pgid)
+			  assert(entry->leaf.list_entry.prev == entry_pgid);
 			copy->leaf.list_entry.next = copy_pgid;
 			copy->leaf.list_entry.prev = copy_pgid;
 		}

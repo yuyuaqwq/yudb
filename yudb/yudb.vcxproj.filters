@@ -51,6 +51,9 @@
     <ClCompile Include="meta_info.c">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="data_pool.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="yudb.h">
@@ -81,6 +84,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="txid.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="data_pool.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

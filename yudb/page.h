@@ -9,6 +9,8 @@ extern "C" {
 #endif //  __cplusplus
 
 typedef int32_t PageId;
+typedef int16_t PageSize;
+typedef int16_t PageOffset;
 typedef int32_t PageCount;
 
 extern const PageId kPageInvalidId;

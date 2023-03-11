@@ -4,6 +4,7 @@
 #include <CUtils/container/lru_list.c>
 #include <CUtils/container/list.c>
 #include <CUtils/container/singly_list.c>
+#include <CUtils/container/static_list.c>
 #include <CUtils/container/doubly_static_list.c>
 #include <CUtils/container/rb_tree.c>
 #include <CUtils/container/experimental/bs_tree.c>

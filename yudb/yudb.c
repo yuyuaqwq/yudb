@@ -6,7 +6,7 @@
 #include "yudb/bucket.h"
 
 #define PAGE_SIZE 4096
-#define CACHE_COUNT 4096
+#define CACHE_COUNT 1024
 
 
 bool MetaInfoRead(YuDb* db) {
@@ -51,6 +51,7 @@ bool MetaInfoRead(YuDb* db) {
 
 		// meta
 		db->meta_info.magic = 'yudb';
+		db->meta_info.min_version = YUDB_VERSION;
 		db->meta_info.page_size = PAGE_SIZE;
 		db->meta_info.page_count = 6;
 		db->meta_info.txid = 0;
@@ -70,6 +71,10 @@ bool MetaInfoRead(YuDb* db) {
 		DbFileRead(db->db_file, &temp[1], sizeof(temp[1]));
 
 		if (temp[0].magic != 'yudb' && temp[1].magic != 'yudb') {
+			return false;
+		}
+
+		if (YUDB_VERSION < temp[0].min_version) {
 			return false;
 		}
 

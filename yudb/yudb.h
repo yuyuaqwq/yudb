@@ -13,7 +13,7 @@
 extern "C" {
 #endif //  __cplusplus
 
-
+#define YUDB_VERSION 1
 
 typedef struct _YuDb {
 	DbFile* db_file;

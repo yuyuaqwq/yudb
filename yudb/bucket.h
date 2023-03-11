@@ -6,58 +6,21 @@
 
 #include <yudb/page.h>
 #include <yudb/txid.h>
+#include <yudb/data_pool.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif //  __cplusplus
     
 #define CUTILS_CONTAINER_BPLUS_TREE_MODE_DISK
-#pragma pack(1)
-
-typedef struct _MemoryData {
-    void* buf;
-    size_t size;
-} MemoryData;
-typedef enum {
-    kDataEmbed = 0,
-    kDataBlock = 1,
-    kDataEach = 2,
-    kDataMemory = 3,
-} DataType;
-typedef struct _Data {
-    union {
-        struct {
-            uint8_t type : 2;       // 00
-            uint8_t invalid : 3;
-            uint8_t size : 3;
-            uint8_t data[7];        // 最大嵌入7字节的数据
-        } embed;        // 嵌入
-        struct {
-            uint32_t type : 2;      // 01
-            uint32_t offset : 14;       // 4字节对齐，存储时右移2位，使用时左移2位
-            uint32_t size : 16;
-            PageId pgid;
-        } block;        // 页面块
-        struct {
-            uint32_t type : 2;      // 10
-            uint32_t size : 30;     // 暂时只支持1G的数据，如果需要扩展可以使这里为0，具体大小存储到第一个独立页面头部的8字节
-            PageId pgid;
-        } each;     // 独立页面
-        struct {
-            uintptr_t type : 2;     // 11
-            uintptr_t mem_data : sizeof(uintptr_t) * 8 - 2;       // 4字节对齐，左移2位
-        } memory;       // 内存数据
-    };
-} Data;
 typedef Data Key;
 typedef Data Value;
-#pragma pack()
 
 #define CUTILS_CONTAINER_BPLUS_TREE_DEFINE_BPlusEntry \
     typedef struct _BPlusEntry { \
         BPlusEntryType type; \
         uint32_t element_count; \
-        PageId overflow_head_pgid; \
+        PageId first_data_pool[kDataPoolCount]; \
         TxId last_write_tx_id; \
         union { \
             BPlusIndexEntry index; \
