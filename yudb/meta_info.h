@@ -17,8 +17,9 @@ typedef struct {
 	PageId page_count;
 	Bucket bucket;
 	uint32_t txid;
-	uint64_t check_sum;
 } MetaInfo;
+
+bool MetaInfoWrite(struct _YuDb* db, int32_t meta_index);
 
 #ifdef  __cplusplus
 }

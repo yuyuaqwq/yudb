@@ -138,8 +138,8 @@ void* PagerGet(Pager* pager, PageId pgid) {
 /*
 * 解除对指定页面的引用
 */
-void PagerDereference(Pager* pager, PageId pgid) {
-	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
+void PagerDereference(Pager* pager, void* cache) {
+	CacheId cache_id = CacherGetIdByBuf(&pager->cacher, cache);
 	if (cache_id != kCacheInvalidId) {
 		CacherDereference(&pager->cacher, cache_id);
 	}
@@ -148,11 +148,13 @@ void PagerDereference(Pager* pager, PageId pgid) {
 /*
 * 标记为脏页
 */
-void PagerMarkDirty(Pager* pager, PageId pgid) {
-	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
-	CacherMarkDirty(&pager->cacher, cache_id);
+void PagerMarkDirty(Pager* pager, void* cache) {
+	CacherMarkDirty(&pager->cacher, CacherGetIdByBuf(&pager->cacher, cache));
 }
 
+/*
+* 所有脏页落盘
+*/
 void PagerWriteAllDirty(Pager* pager) {
 	Cacher* cacher = &pager->cacher;
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
@@ -185,5 +187,4 @@ void PagerWriteAllDirty(Pager* pager) {
 		}
 	}  while (true);
 	cacher->cache_dirty_first = kCacheInvalidId;
-	// DbFileSync(db->db_file);
 }

@@ -9,6 +9,7 @@
 #include <CUtils/container/rb_tree.c>
 #include <CUtils/container/experimental/bs_tree.c>
 #include <CUtils/algorithm/hash_map.c>
+#include <CUtils/algorithm/crc32.c>
 
 
 #include <CUtils/object.c>

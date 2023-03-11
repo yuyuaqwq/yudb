@@ -33,8 +33,8 @@ void PagerFreePending(Pager* pager, PageId first_pgid);
 bool PagerRead(Pager* pager, PageId pgid, void* cache, PageCount count);
 bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count);
 void* PagerGet(Pager* pager, PageId pgid);
-void PagerDereference(Pager* pager, PageId pgid);
-void PagerMarkDirty(Pager* pager, PageId pgid);
+void PagerDereference(Pager* pager, void* cache);
+void PagerMarkDirty(Pager* pager, void* cache);
 
 
 #ifdef __cplusplus

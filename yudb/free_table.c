@@ -346,11 +346,11 @@ void FreeTableCleanPending(FreeTable* table) {
 	}
 }
 
-bool FreeTableWrite(FreeTable* table, TxId cur_txid) {
+bool FreeTableWrite(FreeTable* table, int32_t meta_index) {
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 
-	int64_t offset = (2 + (cur_txid % 2)) * pager->page_size;
+	int64_t offset = ((int64_t)kFree0ListStartId + meta_index) * pager->page_size;
 	ptrdiff_t pos = BitmapFindBit(&table->free0_entry_dirty, 0, true);
 	if (pos == kBitmapInvalidIndex) {
 		return true;

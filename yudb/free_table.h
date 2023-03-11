@@ -35,6 +35,7 @@ void FreeTableFree(FreeTable* table, PageId pgid, int16_t count);
 void FreeTablePending(FreeTable* table, PageId pgid, int16_t count, PageId first_pgid);
 void FreeTableFreePending(FreeTable* table, PageId first_pgid);
 void FreeTableCleanPending(FreeTable* table);
+bool FreeTableWrite(FreeTable* table, int32_t meta_index);
 
 #ifdef __cplusplus
 }

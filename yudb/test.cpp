@@ -40,7 +40,7 @@ void PrintBucket(Tx* tx, PageId pgid, int Level, int pos) {
 		PrintBucket(tx, entry->index.element[i].child_id, Level + 1, i);
 	}
 	free(empty);
-	BPlusEntryDereference(tx, pgid);
+	BPlusEntryDereference(tx, entry);
 }
 
 int GetBucketCount(Tx* tx) {
@@ -52,7 +52,7 @@ int GetBucketCount(Tx* tx) {
 		count += entry->element_count;
 		
 		PageId next_leaf = entry->leaf.list_entry.next;
-		BPlusEntryDereference(tx, leaf);
+		BPlusEntryDereference(tx, entry);
 		leaf = next_leaf;
 	} while (leaf != head_leaf);
 	return count;
@@ -61,14 +61,19 @@ int GetBucketCount(Tx* tx) {
 long long l;
 int main() {
 	int r = 0;
-	int m = 1;
+	int m = 0;
 
 	int count = 100000;
 
-	YuDb* db = YuDbOpen("C:\\test.ydb");
+	YuDb* db = YuDbOpen("Z:\\test.ydb", kYuDbSyncNormal);
 	PageId id;
 	Tx tx;
 	l = GetTickCount64();
+
+	//db->update_mode = kYuDbUpdateInPlace;
+	db->update_mode = kYuDbUpdateWal;
+
+	db->log_file = DbFileOpen("Z:\\test.wal", true);
 
 	//while (true) {
 	//	TxBegin(db, &tx, kTxReadWrite);
@@ -165,6 +170,10 @@ int main() {
 	// YuDbPut(db, );
 	// YuDbPut(db, "dwadad", 6, "123456", 6);
 	printf("\n");
+
+
+	YuDbClose(db);
+
 	system("pause");
 }
 

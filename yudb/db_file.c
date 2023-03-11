@@ -8,12 +8,17 @@
 /*
 * 打开文件
 */
-DbFile* DbFileOpen(const char* path) {
+DbFile* DbFileOpen(const char* path, bool use_system_buf) {
 	DbFile* db_file = (DbFile*)malloc(sizeof(DbFile));
 	if (!db_file) {
 		return NULL;
 	}
-	db_file->file = CreateFileA(path, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_FLAG_WRITE_THROUGH, NULL);
+	if (use_system_buf) {
+		db_file->file = CreateFileA(path, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	}
+	else {
+		db_file->file = CreateFileA(path, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_FLAG_WRITE_THROUGH, NULL);
+	}
 	if (db_file->file == INVALID_HANDLE_VALUE) {
 		free(db_file);
 		return NULL;

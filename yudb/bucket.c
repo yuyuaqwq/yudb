@@ -9,36 +9,37 @@ BPlusTree* BPlusTreeGet(Tx* tx) {
 }
 
 BPlusEntry* BPlusEntryGet(Tx* tx, PageId pgid) {
-    return PagerGet(&tx->db->pager, pgid);
+    return (BPlusEntry*)PagerGet(&tx->db->pager, pgid);
 }
 
-void BPlusEntryDereference(Tx* tx, PageId pgid) {
-    PagerDereference(&tx->db->pager, pgid);
+void BPlusEntryDereference(Tx* tx, BPlusEntry* entry) {
+    PagerDereference(&tx->db->pager, entry);
 }
 
 PageId BPlusEntryCreate(Tx* tx, BPlusEntryType type) {
     BPlusTree* tree = BPlusTreeGet(tx);
     PageId entry_id = PagerAlloc(&tx->db->pager, true, 1);
-	PagerMarkDirty(&tx->db->pager, entry_id);
     BPlusEntry* entry = BPlusEntryGet(tx, entry_id);
+	PagerMarkDirty(&tx->db->pager, entry);
     entry->type = type;
     entry->element_count = 0;
     entry->last_write_tx_id = tx->meta_info.txid;
-    BPlusEntryDereference(tx, entry_id);
+    BPlusEntryDereference(tx, entry);
     return entry_id;
 }
 
 void BPlusEntryDelete(Tx* tx, PageId pgid) {
 	BPlusEntry* entry = BPlusEntryGet(tx, pgid);
+	// wal模式时最后持久化的pending不能释放，要想个办法
 	if (entry->last_write_tx_id == tx->meta_info.txid) {
-		BPlusEntryDereference(tx, pgid);
+		BPlusEntryDereference(tx, entry);
 		PagerFree(&tx->db->pager, pgid, 1);
 	}
 	else {
-		BPlusEntryDereference(tx, pgid);
+		BPlusEntryDereference(tx, entry);
 		TxPendingListEntry* free_list_entry = (TxPendingListEntry*)RbTreeFindEntryByKey(&tx->db->tx_manager.pending_page_list, &tx->meta_info.txid);
-		PagerPending(&tx->db->pager, pgid, 1, free_list_entry->first_pgid);
-		free_list_entry->first_pgid = pgid;
+		PagerPending(&tx->db->pager, pgid, 1, free_list_entry->first_pending_pgid);
+		free_list_entry->first_pending_pgid = pgid;
 	}
 }
 
@@ -71,26 +72,26 @@ PageId BPlusEntryCopy(Tx* tx, BPlusEntry* entry, PageId entry_pgid) {
 			prev->leaf.list_entry.next = copy_pgid;
 			next->leaf.list_entry.prev = copy_pgid;
 			// copy->next和prev已经拷贝了entry
-			PagerMarkDirty(&tx->db->pager, prev_pgid);
-			PagerMarkDirty(&tx->db->pager, next_pgid);
-			BPlusEntryDereference(tx, prev_pgid);
-			BPlusEntryDereference(tx, next_pgid);
+			PagerMarkDirty(&tx->db->pager, prev);
+			PagerMarkDirty(&tx->db->pager, next);
+			BPlusEntryDereference(tx, prev);
+			BPlusEntryDereference(tx, next);
 		}
 	}
-    BPlusEntryDereference(tx, copy_pgid);
+    BPlusEntryDereference(tx, copy);
     return copy_pgid;
 }
 
 void BPlusElementSetChildId(Tx* tx, BPlusEntry* index, int i, PageId id);
 
 
-PageId GetDataBuf(Tx* tx, Data* data, void** data_buf, size_t* data_size) {
+void* GetDataBuf(Tx* tx, Data* data, void** data_buf, size_t* data_size) {
 	Bucket* bucket = (Bucket*)tx;
 	if (data->block.type == kDataBlock) {
-		void* page = PagerGet(&tx->db->pager, data->block.pgid, false);
+		void* page = PagerGet(&tx->db->pager, data->block.pgid);
 		*data_buf = (void*)((uintptr_t)page + (data->block.offset << 2));
 		*data_size = data->block.size;
-		return data->block.pgid;
+		return page;
 	}
 	else if (data->embed.type == kDataEmbed) {
 		*data_buf = data->embed.data;
@@ -106,7 +107,7 @@ PageId GetDataBuf(Tx* tx, Data* data, void** data_buf, size_t* data_size) {
 		*data_buf = mem_data->buf;
 		*data_size = mem_data->size;
 	}
-	return kPageInvalidId;
+	return NULL;
 }
 
 static void SetDataBuf(Tx* tx, BPlusEntry* entry, Data* data, void* data_buf, size_t data_size) {
@@ -130,7 +131,7 @@ static void SetDataBuf(Tx* tx, BPlusEntry* entry, Data* data, void* data_buf, si
 			page_count++;
 		}
 		PageId pgid = PagerAlloc(&tx->db->pager, true, page_count);
-		PagerWrite(&tx->db, pgid, data_buf, page_count);
+		PagerWrite(&tx->db->pager, pgid, data_buf, page_count);
 		data->each.type = kDataEach;
 		data->each.pgid = pgid;
 		data->each.size = data_size;
@@ -173,14 +174,17 @@ void BPlusElementSet(Tx* tx, BPlusEntry* entry, int i, BPlusElement* element) {
 
 
 ptrdiff_t BPlusKeyCmp(Tx* tx, const Key* key1, const Key* key2) {
-	PageId key1_pgid, key2_pgid;
 	size_t key1_size, key2_size;
 	void* key1_buf, * key2_buf;
-	key1_pgid = GetDataBuf(tx, key1, &key1_buf, &key1_size);
-	key2_pgid = GetDataBuf(tx, key2, &key2_buf, &key2_size);
+	void* cache1 = GetDataBuf(tx, key1, &key1_buf, &key1_size);
+	void* cache2 = GetDataBuf(tx, key2, &key2_buf, &key2_size);
 	ptrdiff_t res = MemoryCmpR2(key1_buf, key1_size, key2_buf, key2_size);
-	PagerDereference(&tx->db->pager, key1_pgid);
-	PagerDereference(&tx->db->pager, key2_pgid);
+	if (cache1) {
+		PagerDereference(&tx->db->pager, cache1);
+	}
+	if (cache2) {
+		PagerDereference(&tx->db->pager, cache2);
+	}
 	return res;
 }
 
@@ -222,7 +226,7 @@ bool BucketInsert(Tx* tx, void* key_buf, int16_t key_size, void* value_buf, size
 				success = false;
 				break;
 			}
-			BPlusEntryDereference(tx, cur->entry_id);
+			BPlusEntryDereference(tx, entry);
 			BPlusEntryDelete(tx, cur->entry_id);
 
 			cur->entry_id = copy_id;		// 回溯的id修改为拷贝的节点
@@ -232,7 +236,7 @@ bool BucketInsert(Tx* tx, void* key_buf, int16_t key_size, void* value_buf, size
 			if (up) {
 				BPlusEntry* up_entry = BPlusEntryGet(tx, up->entry_id);
 				BPlusElementSetChildId(tx, up_entry, up->element_idx, copy_id);
-				BPlusEntryDereference(tx, up->entry_id);
+				BPlusEntryDereference(tx, up_entry);
 				BPlusCursorDown(tx, &cursor);
 			}
 			else {
@@ -240,7 +244,7 @@ bool BucketInsert(Tx* tx, void* key_buf, int16_t key_size, void* value_buf, size
 			}
 		}
 		else {
-			BPlusEntryDereference(tx, cur->entry_id);
+			BPlusEntryDereference(tx, entry);
 		}
 		
 		if (status != kBPlusCursorNext) {
@@ -265,8 +269,6 @@ bool BucketFind(Tx* tx, void* key_buf, int16_t key_size) {
 	key.memory.mem_data = ((uintptr_t)&key_data) >> 2;;
 	return BPlusTreeFind(tx, &key);
 }
-
-
 
 
 #include <CUtils/container/bplus_tree.c>

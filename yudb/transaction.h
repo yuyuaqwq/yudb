@@ -24,18 +24,21 @@ typedef enum {
 typedef struct _Tx {
 	TxType type;
 	struct _YuDb* db;
+	int32_t meta_index;		// 当前若为写事务，提交时落盘的索引
 	MetaInfo meta_info;
 } Tx;
 
 typedef struct _TxPendingListEntry {
 	TxId txid;
-	PageId first_pgid;
+	PageId first_pending_pgid;
 	RbEntry rb_entry;
 } TxPendingListEntry;
 
 typedef struct _TxManager {
 	RbTree pending_page_list;		// 不同事务释放的待决页面
 	TxId min_read_txid;		// 当前正在进行的最小读事务id
+
+	TxId last_persistent_txid;		// 最后持久化事务id，wal模式使用
 } TxManager;
 
 void TxManagerInit(TxManager* tx_manager);

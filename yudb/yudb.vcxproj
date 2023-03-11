@@ -75,6 +75,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <RunCodeAnalysis>true</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -161,6 +162,7 @@
     <ClCompile Include="pager.c" />
     <ClCompile Include="test.cpp" />
     <ClCompile Include="transaction.c" />
+    <ClCompile Include="wal.c" />
     <ClCompile Include="yudb.c" />
     <ClCompile Include="db_file.c" />
   </ItemGroup>
@@ -175,6 +177,7 @@
     <ClInclude Include="pager.h" />
     <ClInclude Include="transaction.h" />
     <ClInclude Include="txid.h" />
+    <ClInclude Include="wal.h" />
     <ClInclude Include="yudb.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

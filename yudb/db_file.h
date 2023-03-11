@@ -25,7 +25,7 @@ typedef enum {
 #else
 #endif // _MSC_VER
 
-DbFile* DbFileOpen(const char* path);
+DbFile* DbFileOpen(const char* path, bool use_system_buf);
 void DbFileClose(DbFile* db_file);
 bool DbFileSeek(DbFile* db_file, int64_t offset, DbFilePointerMode fromwhere);
 int64_t DbFileTell(DbFile* db_file);
