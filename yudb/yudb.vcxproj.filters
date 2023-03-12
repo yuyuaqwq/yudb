@@ -1,99 +1,32 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="源文件">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="头文件">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
-    <Filter Include="资源文件">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
+    <ClCompile Include="bucket.c" />
+    <ClCompile Include="cacher.c" />
+    <ClCompile Include="data_pool.c" />
+    <ClCompile Include="free_table.c" />
+    <ClCompile Include="import.c" />
+    <ClCompile Include="meta_info.c" />
+    <ClCompile Include="page.c" />
+    <ClCompile Include="pager.c" />
+    <ClCompile Include="test.cpp" />
+    <ClCompile Include="transaction.c" />
+    <ClCompile Include="wal.c" />
+    <ClCompile Include="yudb.c" />
+    <ClCompile Include="db_file.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="yudb.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="test.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="db_file.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="bucket.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="pager.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="transaction.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="import.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="cacher.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="page.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="overflow.cpp-">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="free_table.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="meta_info.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="data_pool.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="wal.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="yudb.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="pager.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="db_file.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="bucket.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="transaction.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="meta_info.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="cacher.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="page.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="free_table.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="txid.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="data_pool.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="wal.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
+    <ClInclude Include="bucket.h" />
+    <ClInclude Include="cacher.h" />
+    <ClInclude Include="data_pool.h" />
+    <ClInclude Include="db_file.h" />
+    <ClInclude Include="free_table.h" />
+    <ClInclude Include="meta_info.h" />
+    <ClInclude Include="page.h" />
+    <ClInclude Include="pager.h" />
+    <ClInclude Include="transaction.h" />
+    <ClInclude Include="txid.h" />
+    <ClInclude Include="wal.h" />
+    <ClInclude Include="yudb.h" />
   </ItemGroup>
 </Project>

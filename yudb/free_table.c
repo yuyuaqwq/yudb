@@ -1,5 +1,7 @@
 #include "yudb/free_table.h"
 
+#include "CUtils/container/static_table.h"
+
 #include "yudb/db_file.h"
 #include "yudb/pager.h"
 #include "yudb/yudb.h"
@@ -8,23 +10,13 @@ const PageId kMetaStartId = 0;
 const PageId kFree0ListStartId = 2;
 const PageId kFree1TableStartId = 4;
 
-// Pending仍有优化空间
-// 如free1_table头部添加字段next_pending_table，不同free1_table的pending通过这个连接
-// 节省空间则entry使用位图可以从4字节降到2位
-// 提高性能则内部通过添加字段pending_first，静态连接当前free1_table的所有pending_entry
+typedef uint32_t Free1Entry;
+typedef struct _Free1Table {
+	StaticTable block_table;
+	uint16_t first_pending_block;		// 给StaticBlockTable用的
 
-typedef enum _Free1EntryStatus {
-	kFree1Free = 0,
-	kFree1Alloc = -1,
-	// kFree1Pending,
-} Free1EntryStatus;
-
-typedef struct _Free1Entry {
-	union {
-		Free1EntryStatus status;
-		PageId next_pending_pgid;
-	};
-} Free1Entry;
+	PageId next_pending_table;		// 连接到下一待决f1表中
+} Free1Table;
 
 
 static int16_t Free0TableGetMaxCount(FreeTable* free_table) {
@@ -39,83 +31,41 @@ static int16_t Free1TableGetMaxCount(FreeTable* free_table) {
 }
 
 
-int16_t Free1TableGetMaxFreeCount(FreeTable* free_table, Free1Entry* free1_table) {
-	int16_t free1_entry_count = 0;
-	int16_t free1_entry_max_count = 0;
-	for (int16_t i = 0; i < Free1TableGetMaxCount(free_table); i++) {
-		if (free1_table[i].status == kFree1Free) {
-			free1_entry_count++;
-		}
-		else {
-			if (free1_entry_count > free1_entry_max_count) {
-				free1_entry_max_count = free1_entry_count;
-			}
-			free1_entry_count = 0;
-		}
-	}
-	if (free1_entry_count > free1_entry_max_count) {
-		free1_entry_max_count = free1_entry_count;
-	}
-	return free1_entry_max_count;
+int16_t Free1TableGetMaxFreeCount(FreeTable* free_table, Free1Table* free1_table) {
+	return StaticTableGetMaxBlockSize(free1_table, 0);
 }
 
-bool Free1TableIsPending(FreeTable* free_table, Free1Entry* free1_table) {
-	int16_t free1_entry_count = 0;
-	int16_t free1_entry_max_count = 0;
-	for (int16_t i = 0; i < Free1TableGetMaxCount(free_table); i++) {
-		if (free1_table[i].status != kFree1Free && free1_table[i].status != kFree1Alloc) {
-			return true;
-		}
-	}
-	return false;
+bool Free1TableIsPending(FreeTable* free_table, Free1Table* free1_table) {
+	//int16_t free1_entry_count = 0;
+	//int16_t free1_entry_max_count = 0;
+	//for (int16_t i = 0; i < Free1TableGetMaxCount(free_table); i++) {
+	//	if (free1_table[i].status != kFree1Free && free1_table[i].status != kFree1Alloc) {
+	//		return true;
+	//	}
+	//}
+	//return false;
 }
 
 
-void Free1TableMarkDirty(FreeTable* table, Free1Entry* free1_table) {
+void Free1TableMarkDirty(FreeTable* table, Free1Table* free1_table) {
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
 	CacheId cache_id = CacherGetIdByBuf(&pager->cacher, free1_table);
 	CacheInfo* cache_info = CacherGetInfo(&pager->cacher, cache_id);
 	CacherMarkDirty(&pager->cacher, cache_id);
 }
 
-void Free1TableInit(FreeTable* free_table, Free1Entry* free1_table) {
-	// 前两个page已被free1_table0和free1_table1占用
-	free1_table[0].status = kFree1Alloc;
-	free1_table[1].status = kFree1Alloc;
-	for (int16_t i = 2; i < Free1TableGetMaxCount(free_table); i++) {
-		free1_table[i].status = kFree1Free;
-	}
+void Free1TableInit(FreeTable* free_table, Free1Table* free1_table) {
+	Pager* pager = ObjectGetFromField(free_table, Pager, free_table);
+	StaticTableInit(free1_table, 2, pager->page_size);
 }
 
 
-int16_t Free1TableAlloc(FreeTable* free_table, Free1Entry* free1_table, int16_t count) {
-	int16_t free1_entry_pos = 0;
-	int16_t free1_entry_count = 0;
-	for (int16_t i = 0; i < Free1TableGetMaxCount(free_table); i++) {
-		if (free1_table[i].status == kFree1Free) {
-			if (free1_entry_pos == 0) {
-				free1_entry_pos = i;
-			}
-			free1_entry_count++;
-			if (free1_entry_count >= count) {
-				for (int16_t i = 0; i < free1_entry_count; i++) {
-					free1_table[i + free1_entry_pos].status = kFree1Alloc;
-				}
-				return free1_entry_pos;
-			}
-		}
-		else {
-			free1_entry_pos = 0;
-			free1_entry_count = 0;
-		}
-	}
-	return -1;
+int16_t Free1TableAlloc(FreeTable* free_table, Free1Table* free1_table, int16_t count) {
+	StaticTablePop(free1_table, 0, count * sizeof(Free1Entry));
 }
 
 void Free1TableFree(FreeTable* free_table, Free1Entry* free1_table, int16_t free1_entry_pos, int16_t count) {
-	for (int16_t i = 0; i < count; i++) {
-		free1_table[free1_entry_pos + i].status = kFree1Free;
-	}
+	StaticTablePush(free1_table, 0, free1_entry_pos * sizeof(Free1Entry), count * sizeof(Free1Entry));
 }
 
 void Free1TablePending(FreeTable* free_table, int16_t free0_entry_pos, Free1Entry* free1_table, int16_t free1_entry_pos, int16_t count, PageId old_first_pgid) {
@@ -131,7 +81,7 @@ void Free1TablePending(FreeTable* free_table, int16_t free0_entry_pos, Free1Entr
 	}
 }
 
-Free1Entry* Free1TableGet(FreeTable* free_table, int16_t free0_entry_pos, CacheId* cache_id) {
+Free1Table* Free1TableGet(FreeTable* free_table, int16_t free0_entry_pos, CacheId* cache_id) {
 	Pager* pager = ObjectGetFromField(free_table, Pager, free_table);
 	YuDb* db = ObjectGetFromField(pager, Pager, free_table);
 

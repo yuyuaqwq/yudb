@@ -85,14 +85,30 @@ int main() {
 	
 	printf("read: %dms", (int)(GetTickCount64() - l));
 
-	for (int i = 0; i < count; i++) {
-		for (int i = 0; i < 1023; i++) {
-			printf("%d\t", Free1TableAlloc_((Free1Table_*)table, 4));
-		}
-	}
+	//for (int i = 0; i < count; i++) {
+	//	for (int i = 0; i < 1023; i++) {
+	//		printf("%d\t", Free1TableAlloc_((Free1Table_*)table, 4));
+	//	}
+	//}
 
 
 	YuDb* db = YuDbOpen("Z:\\test.ydb", kYuDbSyncNormal);
+
+	l = GetTickCount64();
+	for (int i = 0; i < count; i++) {
+		for (int i = 0; i < 900; i++) {
+			PagerAlloc(&db->pager, false, 1);
+		}
+		for (int i = 0; i < 900; i++) {
+			PagerFree(&db->pager, i+6, 1);
+		}
+	}
+	printf("read: %dms", (int)(GetTickCount64() - l));
+
+
+
+	PagerAlloc(&db->pager, false, 1);
+
 	PageId id;
 	Tx tx;
 	l = GetTickCount64();
