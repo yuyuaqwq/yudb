@@ -26,8 +26,9 @@ static void TxBeginReadOnly(Tx* tx) {
 static void TxBeginReadWrite(Tx* tx) {
 	memcpy(&tx->meta_info, &tx->db->meta_info, sizeof(tx->meta_info));
 	tx->meta_info.txid++;
-	tx->meta_index = (tx->db->meta_index + 1) % 2;
-	
+	tx->meta_index = (tx->db->meta_index + 1) % 2;		// 不直接覆写已持久化的meta
+
+
 	// 将低于最低读事务id的写事务待决页面释放
 	RbTreeIterator iter;
 	TxPendingListEntry* pending_list_entry = RbTreeFirst(&tx->db->tx_manager.pending_page_list, &iter);
@@ -94,5 +95,7 @@ void TxCommit(Tx* tx) {
 	else if (tx->db->update_mode == kYuDbUpdateWal) {
 		LogAppendCommit(tx->db->log_file);
 	}
-	tx->db->meta_index = tx->meta_index;
+	if (tx->db->update_mode == kYuDbUpdateInPlace) {
+		tx->db->meta_index = tx->meta_index;
+	}  // Wal模式不在提交时更新，因为元信息并未落盘
 }

@@ -132,9 +132,10 @@ void Free1TablePending(FreeTable* free_table, int16_t free0_entry_pos, Free1Entr
 }
 
 Free1Entry* Free1TableGet(FreeTable* free_table, int16_t free0_entry_pos, CacheId* cache_id) {
-	Free0Entry* free0_entry = ArrayAt(&free_table->free0_table, free0_entry_pos, Free0Entry);
-	int16_t free1_table_select = free0_entry->free1_table_select;
+	Pager* pager = ObjectGetFromField(free_table, Pager, free_table);
+	YuDb* db = ObjectGetFromField(pager, Pager, free_table);
 
+	Free0Entry* free0_entry = ArrayAt(&free_table->free0_table, free0_entry_pos, Free0Entry);
 	PageId free1_table_pgid_start;
 	if (free0_entry_pos == 0) {
 		free1_table_pgid_start = kFree1TableStartId;		// meta  free_level0_list  free_level1_list
@@ -142,47 +143,47 @@ Free1Entry* Free1TableGet(FreeTable* free_table, int16_t free0_entry_pos, CacheI
 	else {
 		free1_table_pgid_start = free0_entry_pos * Free1TableGetMaxCount(free_table);
 	}
-	// 读取从有效的一端读取，写入则写到另一侧
-	PageId free1_table_pgid_read = free1_table_pgid_start + free1_table_select;
-	PageId free1_table_pgid_write = free1_table_pgid_start + ((free1_table_select + 1) % 2);
-
-	Pager* pager = ObjectGetFromField(free_table, Pager, free_table);
-
-	Free1Entry* read_cache, * write_cache;
-	CacheId write_cache_id = CacherFind(&pager->cacher, free1_table_pgid_write, true);
 	
-	// write_cache如果是脏缓存，则返回，否则从read中拷贝
-	if (write_cache_id != kCacheInvalidId) {
-		if (cache_id) { *cache_id = write_cache_id; }
-		write_cache = (Free1Entry*)CacherGet(&pager->cacher, write_cache_id);
-		CacheInfo* write_cache_info = CacherGetInfo(&pager->cacher, write_cache_id);
-		if (write_cache_info->type == kCacheListDirty) {
-			return write_cache;
-		}
+	// 从一端读取，写入到另一端
+	PageId free1_table_pgid_read = free1_table_pgid_start + free0_entry->free1_table_read_select;
+	PageId free1_table_pgid_write = free1_table_pgid_start + free0_entry->free1_table_write_select;
+	
+	Free1Entry* read_cache, * write_cache;
+
+	CacheId read_cache_id = CacherFind(&pager->cacher, free1_table_pgid_read, true);
+	CacheId write_cache_id;
+	if (free1_table_pgid_read != free1_table_pgid_write) {
+		write_cache_id = CacherFind(&pager->cacher, free1_table_pgid_write, true);
 	}
 	else {
-		write_cache_id = CacherAlloc(&pager->cacher, free1_table_pgid_write);
-		if (write_cache_id == kCacheInvalidId) {
-			return NULL;
-		}
-		if (cache_id) { *cache_id = write_cache_id; }
-		write_cache = (Free1Entry*)CacherGet(&pager->cacher, write_cache_id);
+		write_cache_id = read_cache_id;
 	}
-	CacheId read_cache_id = CacherFind(&pager->cacher, free1_table_pgid_read, true);
+	if (write_cache_id == kCacheInvalidId) {
+		write_cache_id = CacherAlloc(&pager->cacher, free1_table_pgid_write);
+	}
+	write_cache = CacherGet(&pager->cacher, write_cache_id);
 	if (read_cache_id == kCacheInvalidId) {
 		if (!PagerRead(pager, free1_table_pgid_read, write_cache, 1)) {
 			// 如果读取失败，若是从未使用过的f1则将其初始化
 			if (free0_entry->free1_table_max_free != Free1TableGetMaxCount(free_table)) {
-				CacherDereference(&pager->cacher, write_cache_id);
 				return NULL;
 			}
 			Free1TableInit(free_table, write_cache);
 		}
-		return write_cache;
 	}
-	read_cache = (Free1Entry*)CacherGet(&pager->cacher, read_cache_id);
-	memcpy(write_cache, read_cache, pager->page_size);
-	CacherDereference(&pager->cacher, read_cache_id);
+	else {
+		if (free1_table_pgid_read != free1_table_pgid_write) {
+			read_cache = (Free1Entry*)CacherGet(&pager->cacher, read_cache_id);
+			memcpy(write_cache, read_cache, pager->page_size);
+			CacherDereference(&pager->cacher, read_cache_id);
+		}
+	}
+
+	if (free0_entry->free1_table_read_select != free0_entry->free1_table_write_select) {
+		// 初次读之后，由于read的内容会被拷贝到write，并且write可能会被修改，故read需要置为与write同一端
+		free0_entry->free1_table_read_select = free0_entry->free1_table_write_select;
+	}
+	if (cache_id) { *cache_id = write_cache_id; }
 	return write_cache;
 }
 
@@ -204,11 +205,12 @@ bool FreeTableInit(FreeTable* table) {
 	// free0_table常驻内存
 	ArrayInit(&table->free0_table, pager->page_size / sizeof(Free0Entry), sizeof(Free0Entry));
 	ArraySetCount(&pager->free_table.free0_table, pager->page_size / sizeof(Free0Entry));
-	PageId free0_table_pgid = 2 + (db->meta_info.txid % 2);
+	PageId free0_table_pgid = kFree0ListStartId + db->meta_index;
 	if (!PagerRead(pager, free0_table_pgid, pager->free_table.free0_table.objArr, 1)) {
 		ArrayRelease(&pager->free_table.free0_table);
 		return false;
 	}
+
 	BitmapInit(&table->free0_entry_dirty, pager->page_size / sizeof(Free0Entry));
 	return true;
 }
@@ -357,7 +359,11 @@ bool FreeTableWrite(FreeTable* table, int32_t meta_index) {
 	}
 	do {
 		Free0Entry* entry = ArrayAt(&table->free0_table, pos, Free0Entry);
-		entry->free1_table_select = (entry->free1_table_select + 1) % 2;
+
+		// 落盘时read和write是相同的，write切到另一侧
+		  assert(entry->free1_table_write_select == entry->free1_table_read_select);
+		entry->free1_table_write_select = (entry->free1_table_read_select + 1) % 2;
+		
 		pos = BitmapFindBit(&table->free0_entry_dirty, pos + 1, true);
 	} while (pos != kBitmapInvalidIndex);
 	DbFileSeek(db->db_file, offset, kDbFilePointerSet);

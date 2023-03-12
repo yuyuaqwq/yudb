@@ -1,7 +1,6 @@
 #include "yudb/wal.h"
 
 static bool LogAppend(DbFile* log_file, LogType type, bool write_buf_size, size_t buf_count, ...) {
-	return true;
 	LogEntry entry;
 	uint32_t crc32;
 	entry.head.crc32 = 0;

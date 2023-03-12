@@ -16,11 +16,12 @@ bool MetaInfoRead(YuDb* db, uint16_t page_size) {
 #define Free1Entry uint32_t
 		// free0_table
 		Free0Entry* free0_table = empty_page;
-		free0_table[0].free1_table_max_free = page_size / sizeof(Free1Entry) - 6;
-		for (int i = 1; i < page_size / sizeof(Free0Entry); i++) {
+		for (int i = 0; i < page_size / sizeof(Free0Entry); i++) {
 			free0_table[i].free1_table_max_free = page_size / sizeof(Free1Entry);
-			free0_table[i].free1_table_select = 0;
+			free0_table[i].free1_table_read_select = 1;
+			free0_table[i].free1_table_write_select = 0;
 		}
+		free0_table[0].free1_table_max_free = page_size / sizeof(Free1Entry) - 6;
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
 		DbFileWrite(db->db_file, empty_page, page_size);
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);

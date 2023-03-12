@@ -39,7 +39,7 @@ YuDb* YuDbOpen(const char* path, YuDbSyncMode sync_mode) {
 void YuDbClose(YuDb* db) {
 	if (db->update_mode == kYuDbUpdateWal) {
 		PagerWriteAllDirty(&db->pager);
-		// db->meta_index = (db->meta_index + 1) % 2;
+		db->meta_index = (db->meta_index + 1) % 2;
 		FreeTableWrite(&db->pager.free_table, db->meta_index);
 		MetaInfoWrite(db, db->meta_index);
 	}

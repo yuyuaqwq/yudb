@@ -58,12 +58,39 @@ int GetBucketCount(Tx* tx) {
 	return count;
 }
 
+#include <yudb/freetable.h>
+#include <yudb/free_table.h>
+
 long long l;
 int main() {
 	int r = 0;
 	int m = 1;
 
-	int count = 1000000;
+	int count = 10000;
+
+
+	void* table = malloc(4096);
+	Free1TableInit_((Free1Table_*)table, 4096);
+
+	l = GetTickCount64();
+	
+	for (int i = 0; i < count; i++) {
+		for (int i = 0; i < 1000; i++) {
+			Free1TableAlloc_((Free1Table_*)table, 4);
+		}
+		for (int i = 0; i < 1000; i++) {
+			Free1TableFree_((Free1Table_*)table, (i + 1) * 4, 4);
+		}
+	}
+	
+	printf("read: %dms", (int)(GetTickCount64() - l));
+
+	for (int i = 0; i < count; i++) {
+		for (int i = 0; i < 1023; i++) {
+			printf("%d\t", Free1TableAlloc_((Free1Table_*)table, 4));
+		}
+	}
+
 
 	YuDb* db = YuDbOpen("Z:\\test.ydb", kYuDbSyncNormal);
 	PageId id;
@@ -71,7 +98,7 @@ int main() {
 	l = GetTickCount64();
 
 	//db->update_mode = kYuDbUpdateInPlace;
-	db->update_mode = kYuDbUpdateInPlace;
+	db->update_mode = kYuDbUpdateWal;
 
 	db->log_file = DbFileOpen("Z:\\test.wal", true);
 
@@ -109,6 +136,9 @@ int main() {
 	int i = 0;
 	for (auto& iter : map) {
 		i++;
+		if (i == 236094) {
+			printf("??");
+		}
 		if (m == 0) {
 			TxBegin(db, &tx, kTxReadWrite);
 			//printf("%d    ", GetBucketCount(&tx));

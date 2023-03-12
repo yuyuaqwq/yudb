@@ -36,7 +36,7 @@ typedef struct _YuDb {
 	DbFile* log_file;
 	YuDbSyncMode sync_mode;
 	YuDbUpdateMode update_mode;
-	int32_t meta_index;		// 当前最新完成提交的事务的meta索引，仅wal模式使用
+	int32_t meta_index;		// 当前最新完成提交的事务的meta索引
 	MetaInfo meta_info;
 	Pager pager;		// 页面管理器
 	TxManager tx_manager;		// 事务管理器

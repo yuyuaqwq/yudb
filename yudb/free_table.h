@@ -15,9 +15,10 @@ extern "C" {
 
 typedef struct _Free0Entry {
 	struct {
-		uint16_t free1_table_select : 1;		// 选择哪一个f1，0 or 1
+		uint16_t free1_table_read_select : 1;		// 读取是选择f0还是f1
+		uint16_t free1_table_write_select : 1;		// 写入是选择f0还是f1
 		uint16_t free1_table_pending : 1;	// 该f1是否存在pending
-		uint16_t invalid : 14;
+		uint16_t invalid : 13;
 	};
 	int16_t free1_table_max_free;		// f1最大连续空闲位
 } Free0Entry;
