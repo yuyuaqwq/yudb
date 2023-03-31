@@ -13,6 +13,8 @@
 extern "C" {
 #endif //  __cplusplus
 
+CUTILS_CONTAINER_LRU_LIST_DECLARATION(Cache, PageId)
+
 typedef int32_t CacheId;
 
 typedef enum {
@@ -21,25 +23,26 @@ typedef enum {
 	kCacheListDirty = 2,
 } CacheListType;
 
+CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_1(Cache, int16_t)
 typedef struct _CacheInfo {
 	CacheListType type;
 	union {
-		DoublyStaticListEntry free_entry;
-		DoublyStaticListEntry clean_entry;
-		DoublyStaticListEntry dirty_entry;
+		CacheDoublyStaticListEntry free_entry;
+		CacheDoublyStaticListEntry clean_entry;
+		CacheDoublyStaticListEntry dirty_entry;
 	};
-	LruEntry lru_entry;
-	PageId pgid;
-	int reference_count;
+	CacheLruListEntry lru_entry;
+	PageId pgid;		// 对应的页面id
+	uint32_t reference_count;
 } CacheInfo;
+CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_2(Cache, int16_t, CacheInfo, 3)
+
+
 
 typedef struct _Cacher {
-	DoublyStaticList cache_info_pool;
-	// CacheId cache_free_first;		// 连接所有未被使用的缓存页，在cache_info_pool中已经包含
-	CacheId cache_clean_first;		// 连接所有已被分配的干净页
-	CacheId cache_dirty_first;		// 连接所有已被分配的脏页
+	CacheLruList cache_lru_list;		// 基于LRU策略管理已被使用的缓存
 	void* cache_pool;
-	LruList cache_lru_list;		// 基于LRU策略管理已被使用的缓存
+	CacheDoublyStaticList cache_info_pool;
 } Cacher;
 
 void CacherInit(Cacher* cacher, size_t count);

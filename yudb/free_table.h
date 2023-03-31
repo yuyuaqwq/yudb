@@ -6,6 +6,7 @@
 
 #include <CUtils/container/vector.h>
 #include <CUtils/container/space_manager.h>
+#include <CUtils/container/bitmap.h>
 
 #include <yudb/page.h>
 
@@ -18,16 +19,16 @@ typedef struct _Free0Entry {
 		uint16_t free1_table_read_select : 1;		// 读取是选择f0还是f1
 		uint16_t free1_table_write_select : 1;		// 写入是选择f0还是f1
 		uint16_t free1_table_pending : 1;	// 该f1是否存在pending
-		uint16_t invalid : 13;
+		uint16_t free1_table_dirty : 1;		// 是否为脏条目
+		uint16_t : 12;
 	};
 	int16_t free1_table_max_free;		// f1最大连续空闲位
 } Free0Entry;
 
-CUTILS_CONTAINER_SPACE_MANAGER_DECLARATION(FreeL0, int16_t, 1)
+CUTILS_CONTAINER_SPACE_MANAGER_DECLARATION(Free0, int16_t, Free0Entry, 1)
 
 typedef struct _FreeTable {
-	Array free0_table;		// 常驻内存
-	Bitmap free0_entry_dirty;	// 标记被修改的f0_entry
+	Free0SpaceHead space_head;
 } FreeTable;
 
 PageId FreeTablePosToPageId(FreeTable* free_table, int16_t free0_entry_pos, int16_t free1_entry_pos);

@@ -5,8 +5,8 @@
 
 const CacheId kCacheInvalidId = -1;
 
-static CacheId CacherGetIdFromInfo(Cacher* cacher, CacheInfo* info) {
-	return info - (CacheInfo*)cacher->cache_info_pool.array.objArr;
+static inline CacheId CacherGetIdFromInfo(Cacher* cacher, CacheInfo* info) {
+	return info - (CacheInfo*)cacher->cache_info_pool.obj_arr;
 }
 
 static void CacherEvict(Cacher* cacher, CacheId cache_id) {
@@ -25,45 +25,46 @@ static void CacherEvict(Cacher* cacher, CacheId cache_id) {
 void CacherInit(Cacher* cacher, size_t count) {
 	Pager* pager = ObjectGetFromField(cacher, Pager, cacher);
 	cacher->cache_pool = malloc(pager->page_size * count);
-	DoublyStaticListInit(&cacher->cache_info_pool, count, sizeof(CacheInfo), ObjectGetFieldOffset(CacheInfo, free_entry), 3);
-	LruListInitByField(&cacher->cache_lru_list, count, CacheInfo, lru_entry, pgid);
+	CacheDoublyStaticListInit(&cacher->cache_info_pool, count);
+	CacheLruListInit(&cacher->cache_lru_list, count);
 }
 
 CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
-	Pager* pager = ObjectGetFromField(cacher, Pager, cacher);
-
-	CacheId cache_id = DoublyStaticListPop(&cacher->cache_info_pool, kCacheListFree);
+	CacheId cache_id = CacheDoublyStaticListPop(&cacher->cache_info_pool, kCacheListFree);
 	CacheInfo* evict_cache_info;
 	if (cache_id == kCacheInvalidId) {
-		evict_cache_info = (CacheInfo*)LruListPop(&cacher->cache_lru_list);
-		  assert(evict_cache_info != NULL);
+		CacheLruListEntry* lru_entry = CacheLruListPop(&cacher->cache_lru_list);
+		  assert(lru_entry != NULL);
+		evict_cache_info = ObjectGetFromField(lru_entry, CacheInfo, lru_entry);
 		CacherEvict(cacher, CacherGetIdFromInfo(cacher, evict_cache_info));
-		cache_id = DoublyStaticListPop(&cacher->cache_info_pool, kCacheListFree);
+		cache_id = CacheDoublyStaticListPop(&cacher->cache_info_pool, kCacheListFree);
 		  assert(cache_id != kCacheInvalidId);
 	}
-	DoublyStaticListPush(&cacher->cache_info_pool, kCacheListClean, cache_id);
+	CacheDoublyStaticListPush(&cacher->cache_info_pool, kCacheListClean, cache_id);
 	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
 	cache_info->pgid = pgid;
 	cache_info->reference_count = 0;
 	cache_info->type = kCacheListClean;
-	evict_cache_info = (CacheInfo*)LruListPut(&cacher->cache_lru_list, &cache_info->lru_entry);
-	  assert(evict_cache_info == NULL);
+	CacheLruListEntry * lru_entry = CacheLruListPut(&cacher->cache_lru_list, &cache_info->lru_entry);
+	  assert(lru_entry == NULL);
+	evict_cache_info = ObjectGetFromField(lru_entry, CacheInfo, lru_entry);
 	return cache_id;
 }
 
 void CacherFree(Cacher* cacher, CacheId cache_id) {
 	// 原子比较等待引用计数归0
 	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
-	LruListDelete(&cacher->cache_lru_list, &cache_info->pgid);
-	DoublyStaticListSwitch(&cacher->cache_info_pool, cache_info->type, cache_id, kCacheListFree);
+	CacheLruListDelete(&cacher->cache_lru_list, &cache_info->pgid);
+	CacheDoublyStaticListSwitch(&cacher->cache_info_pool, cache_info->type, cache_id, kCacheListFree);
 	cache_info->type = kCacheListFree;
 }
 
 CacheId CacherFind(Cacher* cacher, PageId pgid, bool put_first) {
-	CacheInfo* cache_info = (CacheInfo*)LruListGet(&cacher->cache_lru_list, &pgid, put_first);
-	if (!cache_info) {
+	CacheLruListEntry* lru_entry = CacheLruListGet(&cacher->cache_lru_list, &pgid, put_first);
+	if (!lru_entry) {
 		return kCacheInvalidId;
 	}
+	CacheInfo* cache_info = ObjectGetFromField(lru_entry, CacheInfo, lru_entry);
 	return CacherGetIdFromInfo(cacher, cache_info);
 }
 
@@ -79,8 +80,8 @@ void CacherDereference(Cacher* cacher, CacheId cache_id) {
 	cache_info->reference_count--;
 }
 
-CacheInfo* CacherGetInfo(Cacher* cacher, CacheId id) {
-	return DoublyStaticListAt(&cacher->cache_info_pool, id, CacheInfo);
+inline CacheInfo* CacherGetInfo(Cacher* cacher, CacheId id) {
+	return (CacheInfo*)&cacher->cache_info_pool.obj_arr[id];
 }
 
 CacheId CacherGetIdByBuf(Cacher* cacher, void* cache) {
@@ -91,7 +92,7 @@ CacheId CacherGetIdByBuf(Cacher* cacher, void* cache) {
 
 CacheId CacherGetIdByInfo(Cacher* cacher, CacheInfo* info) {
 	Pager* pager = ObjectGetFromField(cacher, Pager, cacher);
-	uintptr_t offset = (uintptr_t)info - (uintptr_t)ArrayGetData(&cacher->cache_info_pool.array);
+	uintptr_t offset = (uintptr_t)info - (uintptr_t)&cacher->cache_info_pool.obj_arr;
 	return (CacheId)(offset / sizeof(CacheInfo));
 }
 
@@ -103,7 +104,7 @@ PageId CacherGetPageIdById(Cacher* cacher, CacheId id) {
 void CacherMarkDirty(Cacher* cacher, CacheId cache_id) {
 	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
 	if (cache_info->type != kCacheListDirty) {
-		DoublyStaticListSwitch(&cacher->cache_info_pool, cache_info->type, cache_id, kCacheListDirty);
+		CacheDoublyStaticListSwitch(&cacher->cache_info_pool, cache_info->type, cache_id, kCacheListDirty);
 		cache_info->type = kCacheListDirty;
 	}
 }

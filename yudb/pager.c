@@ -19,9 +19,7 @@ bool PagerInit(Pager* pager, uint16_t page_size, PageCount page_count, size_t ca
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 	pager->page_size = page_size;
 	pager->page_count = page_count;
-
 	CacherInit(&pager->cacher, cache_count);
-
 	FreeTableInit(&pager->free_table);
 	return true;
 }
@@ -160,7 +158,7 @@ void PagerWriteAllDirty(Pager* pager) {
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 	// ¾¡¿ÉÄÜË³ÐòÐ´
 	do {
-		CacheId dirty_cache_id = cacher->cache_dirty_first;
+		CacheId dirty_cache_id = cacher->cache_info_pool.list_first[kCacheListDirty];
 		if (dirty_cache_id == kCacheInvalidId) {
 			break;
 		}
@@ -175,16 +173,16 @@ void PagerWriteAllDirty(Pager* pager) {
 			else if (cache_info->pgid < min_cache_info->pgid) {
 				min_cache_info = cache_info;
 			}
-			dirty_cache_id = cache_info->dirty_entry.next_index;
+			dirty_cache_id = cache_info->dirty_entry.next;
 		} while (dirty_cache_id != kCacheInvalidId);
 		if (min_cache_info) {
 			dirty_cache_id = CacherGetIdByInfo(cacher, min_cache_info);
 			void* cache = CacherGet(cacher, dirty_cache_id);
-			DoublyStaticListSwitch(&cacher->cache_info_pool, kCacheListDirty, dirty_cache_id, kCacheListClean);
+			CacheDoublyStaticListSwitch(&cacher->cache_info_pool, kCacheListDirty, dirty_cache_id, kCacheListClean);
 			min_cache_info->type = kCacheListClean;
 			PagerWrite(pager, min_cache_info->pgid, cache, 1);
 			CacherDereference(cacher, dirty_cache_id);
 		}
 	}  while (true);
-	cacher->cache_dirty_first = kCacheInvalidId;
+	cacher->cache_info_pool.list_first[kCacheListDirty] = kCacheInvalidId;
 }

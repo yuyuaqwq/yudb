@@ -146,9 +146,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="bucket.c" />
+    <ClCompile Include="bucket.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="cacher.c" />
-    <ClCompile Include="data_pool.c" />
+    <ClCompile Include="data_pool.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="free_table.c" />
     <ClCompile Include="import.c" />
     <ClCompile Include="meta_info.c" />
@@ -161,9 +165,13 @@
     <ClCompile Include="db_file.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="bucket.h" />
+    <ClInclude Include="bucket.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="cacher.h" />
-    <ClInclude Include="data_pool.h" />
+    <ClInclude Include="data_pool.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="db_file.h" />
     <ClInclude Include="free_table.h" />
     <ClInclude Include="meta_info.h" />
