@@ -13,8 +13,6 @@
 extern "C" {
 #endif //  __cplusplus
 
-
-
 typedef struct _Pager {
 	int16_t page_size;
 	PageCount page_count;
@@ -35,7 +33,6 @@ bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count);
 void* PagerGet(Pager* pager, PageId pgid);
 void PagerDereference(Pager* pager, void* cache);
 void PagerMarkDirty(Pager* pager, void* cache);
-
 
 #ifdef __cplusplus
 }

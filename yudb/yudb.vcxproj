@@ -146,7 +146,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="bucket.c" />
     <ClCompile Include="cacher.c" />
     <ClCompile Include="data_pool.c" />
     <ClCompile Include="free_table.c" />
@@ -161,7 +160,6 @@
     <ClCompile Include="db_file.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="bucket.h" />
     <ClInclude Include="cacher.h" />
     <ClInclude Include="data_pool.h" />
     <ClInclude Include="db_file.h" />

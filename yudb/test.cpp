@@ -8,57 +8,57 @@
 
 extern "C" PageId GetDataBuf(Tx* tx, Data* data, void** data_buf, size_t* data_size);
 
-void PrintBucket(Tx* tx, PageId pgid, int Level, int pos) {
-	BPlusEntry* entry = BPlusEntryGet(tx, pgid);
-	if (!entry) return;
-	char* empty = (char*)malloc(Level * 8 + 1);
-	memset(empty, ' ', Level * 8);
-	empty[Level * 8] = 0;
+//void PrintBucket(Tx* tx, PageId pgid, int Level, int pos) {
+//	BPlusEntry* entry = BPlusEntryGet(tx, pgid);
+//	if (!entry) return;
+//	char* empty = (char*)malloc(Level * 8 + 1);
+//	memset(empty, ' ', Level * 8);
+//	empty[Level * 8] = 0;
+//
+//	if (entry->type == 1) {
+//		for (int i = entry->element_count - 1; i >= 0; i--) {
+//			void* key;
+//			size_t size;
+//			GetDataBuf(tx, &entry->leaf.element[i].key, &key, &size);
+//			printf("%sleaf:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)key, empty, Level, empty/*, pos ? ((BPlusEntry*)PageGet(tree, entry->, 1))->indexElement[pos].key : 0*/);
+//		}
+//		free(empty);
+//		return;
+//	}
+//
+//
+//
+//	for (int i = entry->element_count; i >= 0; i--) {
+//		if (i == entry->element_count) {
+//			PrintBucket(tx, entry->index.tail_child_id, Level + 1, i - 1);
+//			continue;
+//		}
+//		void* key;
+//		size_t size;
+//		GetDataBuf(tx, &entry->index.element[i].key, &key, &size);
+//		printf("%sindex:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)key, empty, Level, empty/*, entry->parentId != kPageInvalidId ? ((BPlusEntry*)PageGet(tree, entry->parentId))->indexElement[pos].key: 0*/);
+//		PrintBucket(tx, entry->index.element[i].child_id, Level + 1, i);
+//	}
+//	free(empty);
+//	BPlusEntryDereference(tx, entry);
+//}
+//
+//int GetBucketCount(Tx* tx) {
+//	int count = 0;
+//	PageId head_leaf = tx->meta_info.bucket.leaf_list_first;
+//	PageId leaf = head_leaf;
+//	do {
+//		BPlusEntry* entry = BPlusEntryGet(tx, leaf);
+//		count += entry->element_count;
+//		
+//		PageId next_leaf = entry->leaf.list_entry.next;
+//		BPlusEntryDereference(tx, entry);
+//		leaf = next_leaf;
+//	} while (leaf != head_leaf);
+//	return count;
+//}
 
-	if (entry->type == 1) {
-		for (int i = entry->element_count - 1; i >= 0; i--) {
-			void* key;
-			size_t size;
-			GetDataBuf(tx, &entry->leaf.element[i].key, &key, &size);
-			printf("%sleaf:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)key, empty, Level, empty/*, pos ? ((BPlusEntry*)PageGet(tree, entry->, 1))->indexElement[pos].key : 0*/);
-		}
-		free(empty);
-		return;
-	}
 
-
-
-	for (int i = entry->element_count; i >= 0; i--) {
-		if (i == entry->element_count) {
-			PrintBucket(tx, entry->index.tail_child_id, Level + 1, i - 1);
-			continue;
-		}
-		void* key;
-		size_t size;
-		GetDataBuf(tx, &entry->index.element[i].key, &key, &size);
-		printf("%sindex:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)key, empty, Level, empty/*, entry->parentId != kPageInvalidId ? ((BPlusEntry*)PageGet(tree, entry->parentId))->indexElement[pos].key: 0*/);
-		PrintBucket(tx, entry->index.element[i].child_id, Level + 1, i);
-	}
-	free(empty);
-	BPlusEntryDereference(tx, entry);
-}
-
-int GetBucketCount(Tx* tx) {
-	int count = 0;
-	PageId head_leaf = tx->meta_info.bucket.leaf_list_first;
-	PageId leaf = head_leaf;
-	do {
-		BPlusEntry* entry = BPlusEntryGet(tx, leaf);
-		count += entry->element_count;
-		
-		PageId next_leaf = entry->leaf.list_entry.next;
-		BPlusEntryDereference(tx, entry);
-		leaf = next_leaf;
-	} while (leaf != head_leaf);
-	return count;
-}
-
-#include <yudb/freetable.h>
 #include <yudb/free_table.h>
 
 long long l;
@@ -69,21 +69,6 @@ int main() {
 	int count = 10000;
 
 
-	void* table = malloc(4096);
-	Free1TableInit_((Free1Table_*)table, 4096);
-
-	l = GetTickCount64();
-	
-	for (int i = 0; i < count; i++) {
-		for (int i = 0; i < 1000; i++) {
-			Free1TableAlloc_((Free1Table_*)table, 4);
-		}
-		for (int i = 0; i < 1000; i++) {
-			Free1TableFree_((Free1Table_*)table, (i + 1) * 4, 4);
-		}
-	}
-	
-	printf("read: %dms", (int)(GetTickCount64() - l));
 
 	//for (int i = 0; i < count; i++) {
 	//	for (int i = 0; i < 1023; i++) {
