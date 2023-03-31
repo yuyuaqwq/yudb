@@ -13,6 +13,7 @@
     <ClCompile Include="yudb.c" />
     <ClCompile Include="db_file.c" />
     <ClCompile Include="free_table.c" />
+    <ClCompile Include="bucket.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cacher.h" />
@@ -26,5 +27,6 @@
     <ClInclude Include="wal.h" />
     <ClInclude Include="yudb.h" />
     <ClInclude Include="free_table.h" />
+    <ClInclude Include="bucket.h" />
   </ItemGroup>
 </Project>
