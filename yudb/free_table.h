@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <CUtils/container/array.h>
-#include <CUtils/container/bitmap.h>
+#include <CUtils/container/vector.h>
+#include <CUtils/container/space_manager.h>
 
 #include <yudb/page.h>
 
@@ -22,6 +22,8 @@ typedef struct _Free0Entry {
 	};
 	int16_t free1_table_max_free;		// f1最大连续空闲位
 } Free0Entry;
+
+CUTILS_CONTAINER_SPACE_MANAGER_DECLARATION(FreeL0, int16_t, 1)
 
 typedef struct _FreeTable {
 	Array free0_table;		// 常驻内存
