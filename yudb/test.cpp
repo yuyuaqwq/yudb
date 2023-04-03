@@ -66,7 +66,7 @@ int main() {
 	int r = 0;
 	int m = 1;
 
-	int count = 1000;
+	int count = 10000;
 
 
 
@@ -75,23 +75,32 @@ int main() {
 	//		printf("%d\t", Free1TableAlloc_((Free1Table_*)table, 4));
 	//	}
 	//}
-
+	
+	int seed =11323;
+	srand(seed);
+	const int qqq = 900;
+	int arr[qqq];
+	for (int i = 0; i < qqq; i++) {
+		arr[i] = i;
+	}
+	//for (int i = 0; i < qqq; i++) {
+	//	int j = rand() % qqq;
+	//	int temp = arr[j];
+	//	int k = rand() % qqq;
+	//	arr[j] = arr[k];
+	//	arr[k] = temp;
+	//}
 
 	YuDb* db = YuDbOpen("Z:\\test.ydb", kYuDbSyncNormal);
 
 	// 静态链表队列交换还有问题，为[1]设置值修改断点
-	// 现在是最后释放时的合并有问题
 	l = GetTickCount64();
 	for (int i = 0; i < count; i++) {
-		for (int j = 0; j < 900; j++) {
+		for (int j = 0; j < qqq; j++) {
 			PagerAlloc(&db->pager, false, 1);
-			
 		}
-		for (int j = 0; j < 900; j++) {
-			if (j == 899) {
-				printf("?");
-			}
-			PagerFree(&db->pager, j+6, 1);
+		for (int j = 0; j < qqq; j++) {
+			PagerFree(&db->pager, arr[j]+6, 1);
 		}
 	}
 	printf("read: %dms", (int)(GetTickCount64() - l));
