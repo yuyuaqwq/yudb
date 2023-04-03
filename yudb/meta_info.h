@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-//#include <yudb/bucket.h>
+#include <yudb/bucket.h>
 
 #ifdef  __cplusplus
 extern "C" {

@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include <CUtils/container/bplus_tree.h>
+
 #include <yudb/page.h>
 #include <yudb/txid.h>
 #include <yudb/data_pool.h>
@@ -12,38 +14,21 @@
 extern "C" {
 #endif //  __cplusplus
     
-#define CUTILS_CONTAINER_BPLUS_TREE_MODE_DISK
-typedef Data Key;
-typedef Data Value;
+CUTILS_CONTAINER_BPLUS_TREE_DECLARATION(YuDb, PageId, int32_t, int32_t)
 
-#define CUTILS_CONTAINER_BPLUS_TREE_DEFINE_BPlusEntry \
-    typedef struct _BPlusEntry { \
-        BPlusEntryType type; \
-        uint32_t element_count; \
-        PageId first_data_pool[kDataPoolCount]; \
-        TxId last_write_tx_id; \
-        union { \
-            BPlusIndexEntry index; \
-            BPlusLeafEntry leaf; \
-        }; \
-    } BPlusEntry; \
+typedef struct _BucketEntry {
+    PageId first_data_pool[kDataPoolCount];
+    TxId last_write_tx_id;
+    YuDbBPlusEntry bp_entry;
+} BucketEntry;
 
-#define CUTILS_CONTAINER_BPLUS_TREE_DEFINE_BPlusTree \
-    typedef struct _BPlusTree { \
-        PageId root_id; \
-        PageId leaf_list_first; \
-        uint32_t index_m; \
-        uint32_t leaf_m; \
-    } BPlusTree; \
+typedef struct _Bucket {
+    YuDbBPlusTree bp_tree;
+} Bucket;
 
-#include <CUtils/container/bplus_tree.h>
-typedef BPlusTree Bucket;
-
-
-
-void BucketInit(struct _YuDb* db, struct _Tx* tx);
-bool BucketInsert(struct _Tx* tx, void* key_buf, int16_t key_size, void* value_buf, size_t value_size);
-bool BucketFind(struct _Tx* tx, void* key_buf, int16_t key_size);
+void BucketInit(struct _YuDb* db, Bucket* tx);
+bool BucketPut(Bucket* tx, void* key_buf, int16_t key_size, void* value_buf, size_t value_size);
+bool BucketFind(Bucket* tx, void* key_buf, int16_t key_size);
 
 #ifdef __cplusplus
 }

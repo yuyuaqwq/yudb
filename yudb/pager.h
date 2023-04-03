@@ -30,7 +30,7 @@ void PagerPending(Pager* pager, PageId pgid, PageCount count, PageId first_pgid)
 void PagerFreePending(Pager* pager, PageId first_pgid);
 bool PagerRead(Pager* pager, PageId pgid, void* cache, PageCount count);
 bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count);
-void* PagerGet(Pager* pager, PageId pgid);
+void* PagerReference(Pager* pager, PageId pgid);
 void PagerDereference(Pager* pager, void* cache);
 void PagerMarkDirty(Pager* pager, void* cache);
 

@@ -89,29 +89,29 @@ void PagerFree(Pager* pager, PageId pgid, PageCount count) {
 	FreeTableFree(&pager->free_table, pgid, count);
 }
 
-/*
-* 指定页面置为待决
-* 如果引用计数未清零则挂到待释放链表中(或循环等待)等待引用计数清空
-*/
-void PagerPending(Pager* pager, PageId pgid, PageCount count, PageId first_pgid) {
-	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
-	if (cache_id != kCacheInvalidId) {
-		CacherFree(&pager->cacher, cache_id);
-	}
-	FreeTablePending(&pager->free_table, pgid, count, first_pgid);
-}
-
-/*
-* 将待决状态的页面释放
-*/
-void PagerFreePending(Pager* pager, PageId first_pgid) {
-	FreeTableFreePending(&pager->free_table, first_pgid);
-}
+///*
+//* 指定页面置为待决
+//* 如果引用计数未清零则挂到待释放链表中(或循环等待)等待引用计数清空
+//*/
+//void PagerPending(Pager* pager, PageId pgid, PageCount count, PageId first_pgid) {
+//	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
+//	if (cache_id != kCacheInvalidId) {
+//		CacherFree(&pager->cacher, cache_id);
+//	}
+//	FreeTablePending(&pager->free_table, pgid, count, first_pgid);
+//}
+//
+///*
+//* 将待决状态的页面释放
+//*/
+//void PagerFreePending(Pager* pager, PageId first_pgid) {
+//	FreeTableFreePending(&pager->free_table, first_pgid);
+//}
 
 /*
 * 引用页面获取缓存，递增页面引用计数
 */
-void* PagerGet(Pager* pager, PageId pgid) {
+void* PagerReference(Pager* pager, PageId pgid) {
 	CacheId cache_id = CacherFind(&pager->cacher, pgid, true);
 	void* cache;
 	if (cache_id == kCacheInvalidId) {
@@ -158,7 +158,7 @@ void PagerWriteAllDirty(Pager* pager) {
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 	// 尽可能顺序写
 	do {
-		CacheId dirty_cache_id = cacher->cache_info_pool.list_first[kCacheListDirty];
+		CacheId dirty_cache_id = cacher->cache_info_pool->list_first[kCacheListDirty];
 		if (dirty_cache_id == kCacheInvalidId) {
 			break;
 		}
@@ -184,5 +184,5 @@ void PagerWriteAllDirty(Pager* pager) {
 			CacherDereference(cacher, dirty_cache_id);
 		}
 	}  while (true);
-	cacher->cache_info_pool.list_first[kCacheListDirty] = kCacheInvalidId;
+	cacher->cache_info_pool->list_first[kCacheListDirty] = kCacheInvalidId;
 }

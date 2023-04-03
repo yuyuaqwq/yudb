@@ -66,12 +66,12 @@ int main() {
 	int r = 0;
 	int m = 1;
 
-	int count = 10000;
+	int count = 1000;
 
 
 
 	//for (int i = 0; i < count; i++) {
-	//	for (int i = 0; i < 1023; i++) {
+	//	for (int i = 0; i < 1023; i+^+) {
 	//		printf("%d\t", Free1TableAlloc_((Free1Table_*)table, 4));
 	//	}
 	//}
@@ -79,13 +79,19 @@ int main() {
 
 	YuDb* db = YuDbOpen("Z:\\test.ydb", kYuDbSyncNormal);
 
+	// 静态链表队列交换还有问题，为[1]设置值修改断点
+	// 现在是最后释放时的合并有问题
 	l = GetTickCount64();
 	for (int i = 0; i < count; i++) {
-		for (int i = 0; i < 900; i++) {
+		for (int j = 0; j < 900; j++) {
 			PagerAlloc(&db->pager, false, 1);
+			
 		}
-		for (int i = 0; i < 900; i++) {
-			PagerFree(&db->pager, i+6, 1);
+		for (int j = 0; j < 900; j++) {
+			if (j == 899) {
+				printf("?");
+			}
+			PagerFree(&db->pager, j+6, 1);
 		}
 	}
 	printf("read: %dms", (int)(GetTickCount64() - l));
@@ -149,7 +155,7 @@ int main() {
 		//	printf("\n\n\n\n");
 		//}
 		
-		if (!BucketInsert(&tx, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
+		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
 			printf("NOW!");
 		}
 		//
@@ -182,7 +188,7 @@ int main() {
 		if (m == 0) {
 			TxBegin(db, &tx, kTxReadOnly);
 		}
-		if (!BucketFind(&tx, (void*)&iter.first, 4)) {
+		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter.first, 4)) {
 			printf("NOR!, %d  %d  ", iter.first, iter.second);
 		}
 		if (m == 0) {

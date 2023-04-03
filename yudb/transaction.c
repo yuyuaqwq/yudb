@@ -3,13 +3,13 @@
 #include "yudb/yudb.h"
 #include "yudb/wal.h"
 
-#define TX_RB_TREE_ACCESSOR_DEFALUT_GetKey(TREE, ENTRY) (ObjectGetFromField(ENTRY, TxPendingListEntry, rb_entry)->key)
-#define TX_RB_TREE_ACCESSOR_DEFALUT_GetParent(TREE, ENTRY) ((TxRbEntry*)(((uintptr_t)(((TxRbEntry*)ENTRY)->parent_color) & (~((uintptr_t)0x1)))))
-#define TX_RB_TREE_ACCESSOR_DEFALUT_GetColor(TREE, ENTRY) ((RbColor)(((uintptr_t)((TxRbEntry*)ENTRY)->parent_color) & 0x1))
-#define TX_RB_TREE_ACCESSOR_DEFALUT_SetParent(TREE, ENTRY, NEW_PARENT_ID) (((TxRbEntry*)ENTRY)->parent_color = (TxRbEntry*)(((uintptr_t)NEW_PARENT_ID) | ((uintptr_t)INT_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY))));
-#define TX_RB_TREE_ACCESSOR_DEFALUT_SetColor(TREE, ENTRY, COLOR) (ENTRY->parent_color = (TxRbEntry*)(((uintptr_t)INT_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY)) | ((uintptr_t)COLOR)))
-#define TX_RB_TREE_ACCESSOR_DEFALUT INT_RB_TREE_ACCESSOR_DEFALUT
-CUTILS_CONTAINER_RB_TREE_DEFINE(Tx, TxRbEntry*, TxId, CUTILS_OBJECT_REFERENCER_DEFALUT, TX_RB_TREE_ACCESSOR_DEFALUT, CUTILS_OBJECT_COMPARER_DEFALUT)
+#define TX_RB_TREE_ACCESSOR_GetKey(TREE, ENTRY) (ObjectGetFromField(ENTRY, TxPendingListEntry, rb_entry)->txid)
+#define TX_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY) ((TxRbEntry*)(((uintptr_t)(((TxRbEntry*)ENTRY)->parent_color) & (~((uintptr_t)0x1)))))
+#define TX_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY) ((RbColor)(((uintptr_t)((TxRbEntry*)ENTRY)->parent_color) & 0x1))
+#define TX_RB_TREE_ACCESSOR_SetParent(TREE, ENTRY, NEW_PARENT_ID) (((TxRbEntry*)ENTRY)->parent_color = (TxRbEntry*)(((uintptr_t)NEW_PARENT_ID) | ((uintptr_t)TX_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY))));
+#define TX_RB_TREE_ACCESSOR_SetColor(TREE, ENTRY, COLOR) (ENTRY->parent_color = (TxRbEntry*)(((uintptr_t)TX_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY)) | ((uintptr_t)COLOR)))
+#define TX_RB_TREE_ACCESSOR TX_RB_TREE_ACCESSOR
+CUTILS_CONTAINER_RB_TREE_DEFINE(Tx, TxRbEntry*, TxId, CUTILS_OBJECT_REFERENCER_DEFALUT, TX_RB_TREE_ACCESSOR, CUTILS_OBJECT_COMPARER_DEFALUT)
 
 const TxId kTxInvalidId = -1;
 
@@ -30,14 +30,14 @@ static void TxBeginReadWrite(Tx* tx) {
 	TxRbEntry* entry = TxRbTreeIteratorFirst(&tx->db->tx_manager.pending_page_list);
 	if (!entry) {
 		// 初次开启写事务时，清理所有pending页面
-		FreeTableCleanPending(&tx->db->pager.free_table);
+		//FreeTableCleanPending(&tx->db->pager.free_table);
 	}
 	TxPendingListEntry* pending_list_entry;
 	while (entry) {
 		pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
 		if (tx->db->tx_manager.min_read_txid == kTxInvalidId || pending_list_entry->txid < tx->db->tx_manager.min_read_txid) {
 			if (pending_list_entry->first_pending_pgid != kPageInvalidId) {
-				PagerFreePending(&tx->db->pager, pending_list_entry->first_pending_pgid);
+				//PagerFreePending(&tx->db->pager, pending_list_entry->first_pending_pgid);
 			}
 			TxPendingListEntry* next = TxRbTreeIteratorNext(&tx->db->tx_manager.pending_page_list, entry);
 			TxRbTreeDelete(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
@@ -45,8 +45,8 @@ static void TxBeginReadWrite(Tx* tx) {
 			pending_list_entry = next;
 		}
 		else {
-			RbTreeDeleteEntry(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
-			ObjectDelete(pending_list_entry);
+			TxRbTreeDelete(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
+			ObjectRelease(pending_list_entry);
 			break;
 		}
 	}
@@ -70,7 +70,7 @@ void TxBegin(YuDb* db, Tx* tx, TxType type) {
 	else {
 		TxBeginReadOnly(tx);
 	}
-	if (tx->meta_info.bucket.root_id == 0) {
+	if (tx->meta_info.bucket.bp_tree.root_id == 0) {
 		// 未初始化的Bucket
 		BucketInit(db, tx);
 	}

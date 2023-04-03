@@ -10,7 +10,7 @@
 #include <yudb/txid.h>
 #include <yudb/meta_info.h>
 
-CUTILS_CONTAINER_RB_TREE_DECLARATION(Tx, struct _TxRbEntry*, int)
+CUTILS_CONTAINER_RB_TREE_DECLARATION(Tx, struct _TxRbEntry*, TxId)
 
 #ifdef  __cplusplus
 extern "C" {
@@ -39,7 +39,6 @@ typedef struct _TxPendingListEntry {
 typedef struct _TxManager {
 	TxRbTree pending_page_list;		// 不同事务释放的待决页面
 	TxId min_read_txid;		// 当前正在进行的最小读事务id
-
 	TxId last_persistent_txid;		// 最后持久化事务id，wal模式使用
 } TxManager;
 

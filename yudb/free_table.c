@@ -7,40 +7,110 @@
 
 #define YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId (-1)
 #define YUDB_FREE_TABLE_FREE_REFERENCER YUDB_FREE_TABLE_FREE_REFERENCER
-CUTILS_CONTAINER_SPACE_MANAGER_DEFINE(Free0, int16_t, Free0Entry, YUDB_FREE_TABLE_FREE_REFERENCER, 1)
+CUTILS_CONTAINER_SPACE_MANAGER_DEFINE(Free0, int16_t, Free0Entry, YUDB_FREE_TABLE_FREE_REFERENCER, 4)
 
+#define YUDB_FREE_TABLE_FREE0_ACCESSOR_GetNext(list, element) (element.entry_list_next)
+#define YUDB_FREE_TABLE_FREE0_ACCESSOR_SetNext(list, element, new_next) ((element).entry_list_next = new_next)
+#define YUDB_FREE_TABLE_FREE0_ACCESSOR YUDB_FREE_TABLE_FREE0_ACCESSOR
+CUTILS_CONTAINER_STATIC_LIST_DEFINE(Free0, int16_t, Free0Entry, YUDB_FREE_TABLE_FREE_REFERENCER, YUDB_FREE_TABLE_FREE0_ACCESSOR, 4)
 
 const PageId kMetaStartId = 0;
 const PageId kFree0ListStartId = 2;
 const PageId kFree1TableStartId = 4;
 
 
-typedef enum {
-	kFree1ListFree = 0,
-	kFree1ListPending = 1,
-} Free1ListType;
-typedef int32_t Free1Entry;
-CUTILS_CONTAINER_SPACE_MANAGER_DECLARATION(Free1, int16_t, Free1Entry, 2)
-typedef struct _Free1Table {
-	Free1SpaceHead space_head;
-} Free1Table;
 
-
-CUTILS_CONTAINER_SPACE_MANAGER_DEFINE(Free1, int16_t, Free1Entry, YUDB_FREE_TABLE_FREE_REFERENCER, 1)
-
-static int16_t Free0TableGetMaxCount(FreeTable* free_table) {
-	Pager* pager = ObjectGetFromField(free_table, Pager, free_table);
-	return (pager->page_size - sizeof(Free0SpaceHead)) / sizeof(Free0Entry);
+//CUTILS_CONTAINER_SPACE_MANAGER_DEFINE(Free1, int16_t, Free1Entry, YUDB_FREE_TABLE_FREE_REFERENCER, 1)
+void Free1SpaceManagerInit(Free1SpaceHead* head, int16_t element_count) {
+	head->first_block[0] = 0;
+	for (int16_t i = 1; i < 1; i++) {
+		head->first_block[i] = (-1);
+	}
+	Free1SpaceBlock* block = (Free1SpaceBlock*)(&head->obj_arr[0]);
+	block->next_block_offset = (-1);
+	block->count = element_count;
+}
+int16_t Free1SpaceManagerAlloc(Free1SpaceHead* head, int16_t list_order, int16_t count) {
+	Free1SpaceBlock* prev_block = (Free1SpaceBlock*)(&head->first_block[list_order]);
+	int16_t free_offset = head->first_block[list_order];
+	while (free_offset != (-1)) {
+		Free1SpaceBlock* block = (Free1SpaceBlock*)(&head->obj_arr[free_offset]);
+		if (block->count > count) {
+			Free1SpaceBlock* new_block = (Free1SpaceBlock*)(&head->obj_arr[free_offset + count]);
+			new_block->next_block_offset = block->next_block_offset;
+			new_block->count = block->count - count;
+			prev_block->next_block_offset += count;
+			return free_offset;
+		}
+		else if (block->count == count) {
+			prev_block->next_block_offset = block->next_block_offset;
+			return free_offset;
+		}
+		free_offset = block->next_block_offset;
+		prev_block = block;
+	}
+	;
+	return (-1);
+}
+void Free1SpaceManagerFree(Free1SpaceHead* head, int16_t list_order, int16_t free_offset, int16_t count) {
+	int16_t cur_offset = head->first_block[list_order];
+	Free1SpaceBlock* prev_block = (Free1SpaceBlock*)(&head->first_block[list_order]);
+	Free1SpaceBlock* cur_block = (Free1SpaceBlock*)(&head->obj_arr[free_offset]);
+	_Bool prev = 0, next = 0;
+	while (cur_offset != (-1)) {
+		Free1SpaceBlock* cur_block = (Free1SpaceBlock*)(&head->obj_arr[cur_offset]);
+		if (!next && free_offset + count == cur_offset) {
+			count += cur_block->count;
+			cur_block->count = count;
+			prev_block->next_block_offset = free_offset;
+			next = 1;
+		}
+		else if (!prev && cur_offset + cur_block->count == free_offset) {
+			free_offset = cur_offset;
+			count += cur_block->count;
+			cur_block->count = count;
+			prev_block->next_block_offset = free_offset;
+			prev = 1;
+		}
+		else {
+			prev_block = cur_block;
+		}
+		if (prev && next) break;
+		cur_offset = cur_block->next_block_offset;
+	}
+	if (!prev && !next) {
+		cur_block->next_block_offset = head->first_block[list_order];
+		cur_block->count = count;
+		head->first_block[list_order] = free_offset;
+	}
+}
+int16_t Free1SpaceManagerGetMaxFreeBlockSize(Free1SpaceHead* head, int16_t list_order) {
+	Free1SpaceBlock* prev_block = (Free1SpaceBlock*)((uintptr_t)&head->first_block[list_order]);
+	int16_t free_offset = head->first_block[list_order];
+	int16_t max = 0;
+	while (free_offset != (-1)) {
+		Free1SpaceBlock* block = (Free1SpaceBlock*)(&head->obj_arr[free_offset]);
+		if (block->count > max) {
+			max = block->count;
+		}
+		free_offset = block->next_block_offset;
+	}
+	return max;
 }
 
-static int16_t Free1TableGetMaxCount(FreeTable* free_table) {
-	Pager* pager = ObjectGetFromField(free_table, Pager, free_table);
-	return (pager->page_size - sizeof(Free1SpaceHead))/ sizeof(Free1Entry);
+
+
+static int16_t Free0TableGetMaxCount(int16_t page_size) {
+	return (page_size - sizeof(Free0SpaceHead)) / sizeof(Free0Entry);
+}
+
+static int16_t Free1TableGetMaxCount(int16_t page_size) {
+	return (page_size/* - sizeof(Free1SpaceHead)*/) / sizeof(Free1Entry);
 }
 
 
-int16_t Free1TableGetMaxFreeCount(FreeTable* free_table, Free1Table* free1_table) {
-	return Free1SpaceManagerGetMaxFreeBlockSize(free1_table, kFree1ListFree);
+int16_t Free1TableGetMaxFreeCount(Free1Table* free1_table) {
+	return Free1SpaceManagerGetMaxFreeBlockSize(&free1_table->space_head, kFree1EntryListFree);
 }
 
 //bool Free1TableIsPending(FreeTable* free_table, Free1Table* free1_table) {
@@ -61,17 +131,29 @@ void Free1TableMarkDirty(FreeTable* table, Free1Table* free1_table) {
 	CacherMarkDirty(&pager->cacher, cache_id);
 }
 
-void Free1TableInit(FreeTable* free_table, Free1Table* free1_table) {
-	Free1SpaceManagerInit(&free1_table->space_head, Free1TableGetMaxCount(free_table));
+void Free1TableInit(Free1Table* free1_table, int16_t page_size) {
+	Free1SpaceManagerInit(&free1_table->space_head, Free1TableGetMaxCount(page_size) - 2);
 }
 
-int16_t Free1TableAlloc(FreeTable* free_table, Free1Table* free1_table, int16_t count) {
-	return Free1SpaceManagerAlloc(&free1_table->space_head, kFree1ListFree, count);
+int16_t Free1TableAlloc(Free1Table* free1_table, int16_t count) {
+	return Free1SpaceManagerAlloc(&free1_table->space_head, kFree1EntryListFree, count);
 }
 
-void Free1TableFree(FreeTable* free_table, Free1Table* free1_table, int16_t free1_entry_pos, int16_t count) {
-	return Free1SpaceManagerFree(&free1_table->space_head, kFree1ListFree, free1_entry_pos, count);
+void Free1TableFree(Free1Table* free1_table, int16_t free1_entry_pos, int16_t count) {
+	return Free1SpaceManagerFree(&free1_table->space_head, kFree1EntryListFree, free1_entry_pos, count);
 }
+
+
+void Free0TableInit(Free0Table* free0_table, int16_t page_size) {
+	int16_t max_count = Free0TableGetMaxCount(page_size);
+	Free0SpaceManagerInit(&free0_table->space_head, max_count);
+	for (int i = 0; i < max_count; i++) {
+		free0_table->space_head.obj_arr[i].max_free = Free1TableGetMaxCount(page_size);
+		free0_table->space_head.obj_arr[i].read_select = 1;
+		free0_table->space_head.obj_arr[i].write_select = 0;
+	}
+}
+
 
 //void Free1TablePending(FreeTable* free_table, int16_t free0_entry_pos, Free1Entry* free1_table, int16_t free1_entry_pos, int16_t count, PageId old_first_pgid) {
 //	for (int16_t i = 0; i < count - 1; i++) {
@@ -88,9 +170,9 @@ void Free1TableFree(FreeTable* free_table, Free1Table* free1_table, int16_t free
 
 Free1Table* Free1TableGet(FreeTable* free_table, int16_t free0_entry_pos, CacheId* cache_id) {
 	Pager* pager = ObjectGetFromField(free_table, Pager, free_table);
-	YuDb* db = ObjectGetFromField(pager, Pager, free_table);
+	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 
-	Free0Entry* free0_entry = &free_table->space_head.obj_arr[free0_entry_pos];
+	Free0Entry* free0_entry = &free_table->free0_table->space_head.obj_arr[free0_entry_pos];
 	PageId free1_table_pgid_start;
 	if (free0_entry_pos == 0) {
 		free1_table_pgid_start = kFree1TableStartId;		// meta  free_level0_list  free_level1_list
@@ -100,8 +182,8 @@ Free1Table* Free1TableGet(FreeTable* free_table, int16_t free0_entry_pos, CacheI
 	}
 	
 	// 从一端读取，写入到另一端
-	PageId free1_table_pgid_read = free1_table_pgid_start + free0_entry->free1_table_read_select;
-	PageId free1_table_pgid_write = free1_table_pgid_start + free0_entry->free1_table_write_select;
+	PageId free1_table_pgid_read = free1_table_pgid_start + free0_entry->read_select;
+	PageId free1_table_pgid_write = free1_table_pgid_start + free0_entry->write_select;
 	
 	Free1Entry* read_cache, * write_cache;
 
@@ -120,10 +202,10 @@ Free1Table* Free1TableGet(FreeTable* free_table, int16_t free0_entry_pos, CacheI
 	if (read_cache_id == kCacheInvalidId) {
 		if (!PagerRead(pager, free1_table_pgid_read, write_cache, 1)) {
 			// 如果读取失败，若是从未使用过的f1则将其初始化
-			if (free0_entry->free1_table_max_free != Free1TableGetMaxCount(free_table)) {
+			if (free0_entry->max_free != Free1TableGetMaxCount(free_table)) {
 				return NULL;
 			}
-			Free1TableInit(free_table, write_cache);
+			Free1TableInit(write_cache, pager->page_size);
 		}
 	}
 	else {
@@ -134,9 +216,9 @@ Free1Table* Free1TableGet(FreeTable* free_table, int16_t free0_entry_pos, CacheI
 		}
 	}
 
-	if (free0_entry->free1_table_read_select != free0_entry->free1_table_write_select) {
+	if (free0_entry->read_select != free0_entry->write_select) {
 		// 初次读之后，由于read的内容会被拷贝到write，并且write可能会被修改，故read需要置为与write同一端
-		free0_entry->free1_table_read_select = free0_entry->free1_table_write_select;
+		free0_entry->read_select = free0_entry->write_select;
 	}
 	if (cache_id) { *cache_id = write_cache_id; }
 	return write_cache;
@@ -157,50 +239,69 @@ bool FreeTableInit(FreeTable* table) {
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 
+	int16_t max_count = Free0TableGetMaxCount(table);
+	table->free0_table = malloc(pager->page_size);
+
 	// free0_table常驻内存
-	Free0SpaceManagerInit(&table->space_head, Free0TableGetMaxCount(table));
 	PageId free0_table_pgid = kFree0ListStartId + db->meta_index;
-	if (!PagerRead(pager, free0_table_pgid, pager->free_table.free0_table.objArr, 1)) {
+	if (!PagerRead(pager, free0_table_pgid, db->pager.free_table.free0_table, 1)) {
 		return false;
 	}
 	return true;
 }
 
-int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_pos) {
+int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id) {
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
 
-	int16_t free0_entry_pos_ = Free0SpaceManagerAlloc(&table->space_head, 0, 1);
-	if (free0_entry_pos_ == -1) {
-		return -1;
+	int16_t free0_entry_prev_id = YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId;
+	int16_t free0_entry_id_ = Free0StaticListIteratorFirst(&table->free0_table->static_list, kFree0EntryListAlloc);
+	while (true) {
+		if (free0_entry_id_ == YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId) {
+			free0_entry_id_ = Free0SpaceManagerAlloc(&table->free0_table->space_head, kFree0EntryListFree, 1);
+			if (free0_entry_id_ == YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId) {
+				return YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId;
+			}
+			Free0StaticListPush(&table->free0_table->static_list, kFree0EntryListAlloc, free0_entry_id_);
+		}
+		if (table->free0_table->static_list.obj_arr[free0_entry_id_].max_free >= count) {
+			break;
+		}
+		free0_entry_prev_id = free0_entry_id_;
+		free0_entry_id_ = Free0StaticListIteratorNext(&table->free0_table->static_list, free0_entry_id_);
 	}
-	Free0Entry* free0_entry = &table->space_head.obj_arr[free0_entry_pos_];
+	
+	Free0Entry* free0_entry = &table->free0_table->static_list.obj_arr[free0_entry_id_];
 	CacheId cache_id;
-	Free1Entry* free1_table = Free1TableGet(table, free0_entry_pos_, &cache_id);
-	int16_t free1_entry_pos = Free1TableAlloc(table, free1_table, count);
+	Free1Table* free1_table = Free1TableGet(table, free0_entry_id_, &cache_id);
+	int16_t free1_entry_pos = Free1TableAlloc(free1_table, count);
 	if (free1_entry_pos == -1) {
 		CacherDereference(&pager->cacher, cache_id);
 		return -1;
 	}
-	free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(table, free1_table);
+	free0_entry->max_free = Free1TableGetMaxFreeCount(free1_table);
+	if (free0_entry->max_free == 0) {
+		Free0StaticListSwitch(&table->free0_table->static_list, kFree0EntryListAlloc, free0_entry_prev_id, free0_entry_id_, kFree0EntryListFull);
+	}
 	free0_entry->free1_table_dirty = true;
-	if (free0_entry_pos) {
-		*free0_entry_pos = free0_entry_pos_;
+	if (free0_entry_id) {
+		*free0_entry_id = free0_entry_id_;
 	}
 	Free1TableMarkDirty(table, free1_table);
 	CacherDereference(&pager->cacher, cache_id);
-	return free1_entry_pos;
+	return free1_entry_pos + 2;
 }
 
 void FreeTableFree(FreeTable* table, PageId pgid, int16_t count) {
+	pgid -= 2;
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
 	int16_t free0_entry_pos;
 	int16_t free1_entry_pos;
 	FreeTableGetPosFromPageId(table, pgid, &free0_entry_pos, &free1_entry_pos);
-	Free0Entry* free0_entry = &table->space_head.obj_arr[free0_entry_pos];
+	Free0Entry* free0_entry = &table->free0_table->space_head.obj_arr[free0_entry_pos];
 	CacheId cache_id;
-	Free1Entry* free1_table = Free1TableGet(table, free0_entry_pos, &cache_id);
-	Free1TableFree(table, free1_table, free1_entry_pos, count);
-	free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(table, free1_table);
+	Free1Table* free1_table = Free1TableGet(table, free0_entry_pos, &cache_id);
+	Free1TableFree(free1_table, free1_entry_pos, count);
+	free0_entry->max_free = Free1TableGetMaxFreeCount(free1_table);
 	free0_entry->free1_table_dirty = true;
 	Free1TableMarkDirty(table, free1_table);
 	CacherDereference(&pager->cacher, cache_id);
@@ -241,7 +342,7 @@ void FreeTableFree(FreeTable* table, PageId pgid, int16_t count) {
 //		if (free0_entry_pos != free0_entry_old_pos) {
 //			if (free0_entry) {
 //				free0_entry->free1_table_pending = Free1TableIsPending(table, free1_table);
-//				free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(table, free1_table);
+//				free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(free1_table);
 //				
 //				BitmapSet(&table->free0_entry_dirty, free0_entry_pos, true);
 //				Free1TableMarkDirty(table, free1_table);
@@ -260,7 +361,7 @@ void FreeTableFree(FreeTable* table, PageId pgid, int16_t count) {
 //	} while (true);
 //	if (free0_entry) {
 //		free0_entry->free1_table_pending = Free1TableIsPending(table, free1_table);
-//		free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(table, free1_table);
+//		free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(free1_table);
 //		BitmapSet(&table->free0_entry_dirty, free0_entry_pos, true);
 //		Free1TableMarkDirty(table, free1_table);
 //		CacherDereference(&pager->cacher, cache_id);
@@ -282,7 +383,7 @@ void FreeTableFree(FreeTable* table, PageId pgid, int16_t count) {
 //			}
 //			free1_table[j].status = kFree1Free;
 //		}
-//		free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(table, free1_table);
+//		free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(free1_table);
 //		free0_entry->free1_table_pending = 0;
 //		BitmapSet(&table->free0_entry_dirty, i, true);
 //		Free1TableMarkDirty(table, free1_table);
@@ -293,21 +394,25 @@ void FreeTableFree(FreeTable* table, PageId pgid, int16_t count) {
 bool FreeTableWrite(FreeTable* table, int32_t meta_index) {
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+	PageId pgid = ((int64_t)kFree0ListStartId + meta_index);
 
-	int64_t offset = ((int64_t)kFree0ListStartId + meta_index) * pager->page_size;
-	ptrdiff_t pos = BitmapFindBit(&table->free0_entry_dirty, 0, true);
-	if (pos == kBitmapInvalidIndex) {
-		return true;
+	bool dirty = false;
+	Free0EntryListType list_type[] = { kFree0EntryListAlloc, kFree0EntryListFull};
+	for (int i = 0; i < sizeof(list_type) / sizeof(Free0EntryListType); i++) {
+		int16_t free0_entry_id_ = Free0StaticListIteratorFirst(&table->free0_table->static_list, list_type[i]);
+		while (free0_entry_id_ != YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId) {
+			Free0Entry* free0_entry = &table->free0_table->static_list.obj_arr[free0_entry_id_];
+			if (free0_entry->free1_table_dirty == true) {
+				// 落盘时read和write是相同的，write切到另一侧
+				  assert(free0_entry->write_select == free0_entry->read_select);
+				free0_entry->write_select = (free0_entry->read_select + 1) % 2;
+				free0_entry->free1_table_dirty = false;
+				dirty = true;
+			}
+			free0_entry_id_ = Free0StaticListIteratorNext(&table->free0_table->static_list, free0_entry_id_);
+		}
 	}
-	do {
-		Free0Entry* entry = ArrayAt(&table->free0_table, pos, Free0Entry);
-
-		// 落盘时read和write是相同的，write切到另一侧
-		  assert(entry->free1_table_write_select == entry->free1_table_read_select);
-		entry->free1_table_write_select = (entry->free1_table_read_select + 1) % 2;
-		
-		pos = BitmapFindBit(&table->free0_entry_dirty, pos + 1, true);
-	} while (pos != kBitmapInvalidIndex);
-	DbFileSeek(db->db_file, offset, kDbFilePointerSet);
-	DbFileWrite(db->db_file, ArrayGetData(&table->free0_table), ArrayGetByteCount(&table->free0_table));
+	if (dirty) {
+		PagerWrite(pager, pgid, &table->free0_table, 1);
+	}
 }

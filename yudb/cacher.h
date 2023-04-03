@@ -27,6 +27,7 @@ CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_1(Cache, int16_t)
 typedef struct _CacheInfo {
 	CacheListType type;
 	union {
+		CacheDoublyStaticListEntry entry;
 		CacheDoublyStaticListEntry free_entry;
 		CacheDoublyStaticListEntry clean_entry;
 		CacheDoublyStaticListEntry dirty_entry;
@@ -42,7 +43,7 @@ CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_2(Cache, int16_t, CacheInfo, 3)
 typedef struct _Cacher {
 	CacheLruList cache_lru_list;		// 基于LRU策略管理已被使用的缓存
 	void* cache_pool;
-	CacheDoublyStaticList cache_info_pool;
+	CacheDoublyStaticList* cache_info_pool;
 } Cacher;
 
 void CacherInit(Cacher* cacher, size_t count);

@@ -1,5 +1,6 @@
 #include "yudb/meta_info.h"
 
+#include "yudb/free_table.h"
 #include "yudb/yudb.h"
 
 bool MetaInfoRead(YuDb* db, uint16_t page_size) {
@@ -13,15 +14,12 @@ bool MetaInfoRead(YuDb* db, uint16_t page_size) {
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
 		DbFileWrite(db->db_file, empty_page, page_size);
 
-#define Free1Entry uint32_t
+
 		// free0_table
-		Free0Entry* free0_table = empty_page;
-		for (int i = 0; i < page_size / sizeof(Free0Entry); i++) {
-			free0_table[i].free1_table_max_free = page_size / sizeof(Free1Entry);
-			free0_table[i].free1_table_read_select = 1;
-			free0_table[i].free1_table_write_select = 0;
-		}
-		free0_table[0].free1_table_max_free = page_size / sizeof(Free1Entry) - 6;
+		Free0Table* free0_table = empty_page;
+		Free0TableInit(free0_table, page_size);
+		free0_table->space_head.obj_arr[0].max_free -= 6;
+
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
 		DbFileWrite(db->db_file, empty_page, page_size);
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
@@ -30,12 +28,10 @@ bool MetaInfoRead(YuDb* db, uint16_t page_size) {
 
 		memset(empty_page, 0, page_size);
 		// free1_table
-
-		Free1Entry* free1_table = empty_page;
-		for (int i = 0; i < 6; i++) {
-			free1_table[i] = -1;
-		}
-#undef Free1Entry
+		Free1Table* free1_table = empty_page;
+		Free1TableInit(free1_table, page_size);
+		Free1TableAlloc(free1_table, 4);		// 前6个页面不可分配
+		
 
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
 		DbFileWrite(db->db_file, empty_page, page_size);
