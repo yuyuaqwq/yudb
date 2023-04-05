@@ -14,25 +14,25 @@ bool MetaInfoRead(YuDb* db, uint16_t page_size) {
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
 		DbFileWrite(db->db_file, empty_page, page_size);
 
-
 		// free0_table
 		Free0Table* free0_table = empty_page;
 		Free0TableInit(free0_table, page_size);
-		free0_table->space_head.obj_arr[0].max_free -= 6;
+		Free0StaticList* static_list = Free0TableGetStaticList(free0_table);
 
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
 		DbFileWrite(db->db_file, empty_page, page_size);
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
 		DbFileWrite(db->db_file, empty_page, page_size);
 
-
-		memset(empty_page, 0, page_size);
 		// free1_table
+		memset(empty_page, 0, page_size);
 		Free1Table* free1_table = empty_page;
 		Free1TableInit(free1_table, page_size);
-		Free1TableAlloc(free1_table, 4);		// 前6个页面不可分配
-		
+		// 前6个页面不可分配
+		Free1TableAlloc(free1_table, 4);
+		Free1TableAlloc(free1_table, 2);
 
+		
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
 		DbFileWrite(db->db_file, empty_page, page_size);
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
