@@ -60,7 +60,7 @@ CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
 	cache_info->pgid = pgid;
 	cache_info->reference_count = 0;
 	cache_info->type = kCacheListClean;
-	CacheLruListEntry * lru_entry = CacheLruListPut(&cacher->cache_lru_list, &cache_info->lru_entry);
+	CacheLruListEntry* lru_entry = CacheLruListPut(&cacher->cache_lru_list, &cache_info->lru_entry);
 	  assert(lru_entry == NULL);
 	evict_cache_info = ObjectGetFromField(lru_entry, CacheInfo, lru_entry);
 	return cache_id;
