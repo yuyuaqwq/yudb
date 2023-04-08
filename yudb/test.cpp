@@ -66,7 +66,7 @@ int main() {
 	int r = 0;
 	int m = 1;
 
-	int count = 10000;
+	int count = 1000;
 
 
 
@@ -78,7 +78,7 @@ int main() {
 	
 	int seed =11323;
 	srand(seed);
-	const int qqq = 1000;
+	const int qqq = 10000;
 	int arr[qqq];
 	for (int i = 0; i < qqq; i++) {
 		arr[i] = i;
