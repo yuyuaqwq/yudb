@@ -72,7 +72,7 @@ void TxBegin(YuDb* db, Tx* tx, TxType type) {
 	}
 	if (tx->meta_info.bucket.bp_tree.root_id == 0) {
 		// Î´³õÊ¼»¯µÄBucket
-		BucketInit(db, tx);
+		BucketInit(db, &tx->meta_info.bucket);
 	}
 }
 

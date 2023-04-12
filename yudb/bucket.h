@@ -26,9 +26,9 @@ typedef struct _Bucket {
     YuDbBPlusTree bp_tree;
 } Bucket;
 
-void BucketInit(struct _YuDb* db, Bucket* tx);
-bool BucketPut(Bucket* tx, void* key_buf, int16_t key_size, void* value_buf, size_t value_size);
-bool BucketFind(Bucket* tx, void* key_buf, int16_t key_size);
+void BucketInit(struct _YuDb* db, Bucket* bucket);
+bool BucketPut(Bucket* bucket, void* key_buf, int16_t key_size, void* value_buf, size_t value_size);
+bool BucketFind(Bucket* bucket, void* key_buf, int16_t key_size);
 
 #ifdef __cplusplus
 }

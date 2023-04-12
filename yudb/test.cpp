@@ -94,16 +94,16 @@ int main() {
 	YuDb* db = YuDbOpen("Z:\\test.ydb", kYuDbSyncNormal);
 
 	// 静态链表队列交换还有问题，为[1]设置值修改断点
-	l = GetTickCount64();
-	for (int i = 0; i < count; i++) {
-		for (int j = 0; j < qqq; j++) {
-			arr[j] = PagerAlloc(&db->pager, false, 1);
-		}
-		for (int j = 0; j < qqq; j++) {
-			PagerFree(&db->pager, arr[j], 1);
-		}
-	}
-	printf("read: %dms", (int)(GetTickCount64() - l));
+	//l = GetTickCount64();
+	//for (int i = 0; i < count; i++) {
+	//	for (int j = 0; j < qqq; j++) {
+	//		arr[j] = PagerAlloc(&db->pager, false, 1);
+	//	}
+	//	for (int j = 0; j < qqq; j++) {
+	//		PagerFree(&db->pager, arr[j], 1);
+	//	}
+	//}
+	//printf("read: %dms", (int)(GetTickCount64() - l));
 
 
 	PagerAlloc(&db->pager, false, 1);
