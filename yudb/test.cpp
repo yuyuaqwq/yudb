@@ -66,7 +66,7 @@ int main() {
 	int r = 0;
 	int m = 1;
 
-	int count = 1000;
+	int count = 10000;
 
 
 
@@ -78,11 +78,11 @@ int main() {
 	
 	int seed =11323;
 	srand(seed);
-	const int qqq = 10000;
-	int arr[qqq];
-	for (int i = 0; i < qqq; i++) {
-		arr[i] = i;
-	}
+	const int qqq = 1000;
+	int* arr = (int*)malloc(qqq * 4);
+	//for (int i = 0; i < qqq; i++) {
+	//	arr[i] = i;
+	//}
 	//for (int i = 0; i < qqq; i++) {
 	//	int j = rand() % qqq;
 	//	int temp = arr[j];
@@ -100,13 +100,11 @@ int main() {
 			arr[j] = PagerAlloc(&db->pager, false, 1);
 		}
 		for (int j = 0; j < qqq; j++) {
-			if (j == 1018) {
-				printf("???");
-			}
 			PagerFree(&db->pager, arr[j], 1);
 		}
 	}
 	printf("read: %dms", (int)(GetTickCount64() - l));
+
 
 	PagerAlloc(&db->pager, false, 1);
 

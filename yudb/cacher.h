@@ -42,6 +42,10 @@ CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_2(Cache, int16_t, CacheInfo, 3)
 
 typedef struct _Cacher {
 	CacheLruList cache_lru_list;		// 基于LRU策略管理已被使用的缓存
+	struct {
+		PageId pgid;
+		CacheId cacheid;
+	} fast_map[4];
 	void* cache_pool;
 	CacheDoublyStaticList* cache_info_pool;
 } Cacher;
