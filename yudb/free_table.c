@@ -371,30 +371,32 @@ void FreeTableFree(FreeTable* table, PageId pgid) {
 //}
 
 /*
-* 空闲表落盘
+* 空闲表f0写入
 */
 bool FreeTableWrite(FreeTable* table, int32_t meta_index) {
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
-	//YuDb* db = ObjectGetFromField(pager, YuDb, pager);
-	//PageId pgid = ((int64_t)kFree0ListStartId + meta_index);
+	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+	PageId pgid = ((int64_t)kFree0ListStartId + meta_index);
 
-	//bool dirty = false;
-	//Free0EntryListType list_type[] = { kFree0EntryListAlloc, kFree0EntryListFull};
-	//for (int i = 0; i < sizeof(list_type) / sizeof(Free0EntryListType); i++) {
-	//	int16_t free0_entry_id_ = Free0StaticListIteratorFirst(&table->free0_table->static_list, list_type[i]);
-	//	while (free0_entry_id_ != YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId) {
-	//		Free0Entry* free0_entry = &table->free0_table->static_list.obj_arr[free0_entry_id_];
-	//		if (free0_entry->free1_table_dirty == true) {
-	//			// 落盘时read和write是相同的，write切到另一侧
-	//			  assert(free0_entry->write_select == free0_entry->read_select);
-	//			free0_entry->write_select = (free0_entry->read_select + 1) % 2;
-	//			free0_entry->free1_table_dirty = false;
-	//			dirty = true;
-	//		}
-	//		free0_entry_id_ = Free0StaticListIteratorNext(&table->free0_table->static_list, free0_entry_id_);
-	//	}
-	//}
-	//if (dirty) {
-	//	PagerWrite(pager, pgid, &table->free0_table, 1);
-	//}
+	bool dirty = false;
+	Free0EntryListType list_type[] = { kFree0EntryListAlloc, kFree0EntryListFull };
+	Free0StaticList* static_list = Free0TableGetStaticList(table->free0_table);
+	for (int i = 0; i < sizeof(list_type) / sizeof(Free0EntryListType); i++) {
+		int16_t free0_entry_id = Free0StaticListIteratorFirst(static_list, list_type[i]);
+		while (free0_entry_id != YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId) {
+			Free0Entry* free0_entry = &static_list->obj_arr[free0_entry_id];
+			// 有f1脏页的话，f0需要更新对应的select
+			if (free0_entry->free1_table_dirty == true) {
+				// 落盘时read和write是相同的，write切到另一侧
+				  assert(free0_entry->write_select == free0_entry->read_select);
+				free0_entry->write_select = (free0_entry->read_select + 1) % 2;
+				free0_entry->free1_table_dirty = false;
+				dirty = true;
+			}
+			free0_entry_id = Free0StaticListIteratorNext(static_list, free0_entry_id);
+		}
+	}
+	if (dirty) {
+		PagerWrite(pager, pgid, table->free0_table, 1);
+	}
 }
