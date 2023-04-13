@@ -7,10 +7,8 @@
 
 CUTILS_SPACE_MANAGER_BUDDY_DEFINE(Free, int16_t, CUTILS_SPACE_MANAGER_BUDDY_4BIT_INDEXER, CUTILS_OBJECT_ALLOCATOR_DEFALUT)
 
-
 #define YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId (-1)
 #define YUDB_FREE_TABLE_FREE_REFERENCER YUDB_FREE_TABLE_FREE_REFERENCER
-
 #define YUDB_FREE_TABLE_FREE0_ACCESSOR_GetNext(list, element) ((element)->entry_list_next)
 #define YUDB_FREE_TABLE_FREE0_ACCESSOR_SetNext(list, element, new_next) ((element)->entry_list_next = new_next)
 #define YUDB_FREE_TABLE_FREE0_ACCESSOR YUDB_FREE_TABLE_FREE0_ACCESSOR
@@ -19,22 +17,13 @@ CUTILS_CONTAINER_STATIC_LIST_DEFINE(Free0, int16_t, Free0Entry, YUDB_FREE_TABLE_
 CUTILS_CONTAINER_STATIC_LIST_DEFINE(Free1, int16_t, Free1Entry, YUDB_FREE_TABLE_FREE_REFERENCER, YUDB_FREE_TABLE_FREE0_ACCESSOR, 2)
 
 
-
 const PageId kMetaStartId = 0;
 const PageId kFree0ListStartId = 2;
 const PageId kFree1TableStartId = 4;
 
 
-static int16_t Free0TableGetMaxCount(int16_t page_size) {
-	return (page_size - (page_size / 4)) / sizeof(Free0Entry);
-}
-
 static int16_t Free1TableGetMaxCount(int16_t page_size) {
 	return (page_size - (page_size / 4)) / sizeof(Free1Entry);
-}
-
-static int16_t Free0GetPageSize(Free0Table* free0_table) {
-	return FreeBuddyGetMaxCount(&free0_table->buddy) * 4;
 }
 
 static int16_t Free1GetPageSize(Free1Table* free1_table) {
@@ -49,24 +38,6 @@ int16_t Free1TableGetMaxFreeCount(Free1Table* free1_table) {
 	return FreeBuddyGetMaxFreeCount(&free1_table->buddy);
 }
 
-//bool Free1TableIsPending(FreeTable* free_table, Free1Table* free1_table) {
-//	//int16_t free1_entry_count = 0;
-//	//int16_t free1_entry_max_count = 0;
-//	//for (int16_t i = 0; i < Free1TableGetMaxCount(free_table); i++) {
-//	//	if (free1_table[i].status != kFree1Free && free1_table[i].status != kFree1Alloc) {
-//	//		return true;
-//	//	}
-//	//}
-//	//return false;
-//}
-
-void Free1TableMarkDirty(FreeTable* table, Free1Table* free1_table) {
-	Pager* pager = ObjectGetFromField(table, Pager, free_table);
-	CacheId cache_id = CacherGetIdByBuf(&pager->cacher, free1_table);
-	CacheInfo* cache_info = CacherGetInfo(&pager->cacher, cache_id);
-	CacherMarkDirty(&pager->cacher, cache_id);
-}
-
 void Free1TableInit(Free1Table* free1_table, int16_t page_size) {
 	int16_t max_count = Free1TableGetMaxCount(page_size);
 	FreeBuddyInit(&free1_table->buddy, max_count);
@@ -78,11 +49,39 @@ int16_t Free1TableAlloc(Free1Table* free1_table, int16_t count) {
 	return FreeBuddyAlloc(&free1_table->buddy, count);
 }
 
-void Free1TableFree(Free1Table* free1_table, int16_t free1_entry_pos) {
-	FreeBuddyFree(&free1_table->buddy, free1_entry_pos);
+void Free1TablePending(Free1Table* free1_table, int16_t free1_entry_id) {
+	Free1StaticList* static_list = Free1TableGetStaticList(free1_table);
+	Free1Entry* free1_entry = &static_list->obj_arr[free1_entry_id];
+	free1_entry->is_pending = true;
+	Free1StaticListPush(static_list, kFree1EntryListPending, free1_entry_id);
+}
+
+void Free1TableFree(Free1Table* free1_table, int16_t free1_entry_id) {
+	Free1StaticList* static_list = Free1TableGetStaticList(free1_table);
+	Free1Entry* free1_entry = &static_list->obj_arr[free1_entry_id];
+	if (free1_entry->is_pending) {
+		free1_entry->is_pending = false;
+		// 将其从Pending链表中摘除
+	}
+	FreeBuddyFree(&free1_table->buddy, free1_entry_id);
+}
+
+void Free1TableMarkDirty(FreeTable* table, Free1Table* free1_table) {
+	Pager* pager = ObjectGetFromField(table, Pager, free_table);
+	CacheId cache_id = CacherGetIdByBuf(&pager->cacher, free1_table);
+	CacheInfo* cache_info = CacherGetInfo(&pager->cacher, cache_id);
+	CacherMarkDirty(&pager->cacher, cache_id);
 }
 
 
+
+static int16_t Free0TableGetMaxCount(int16_t page_size) {
+	return (page_size - (page_size / 4)) / sizeof(Free0Entry);
+}
+
+static int16_t Free0GetPageSize(Free0Table* free0_table) {
+	return FreeBuddyGetMaxCount(&free0_table->buddy) * 4;
+}
 
 Free0StaticList* Free0TableGetStaticList(Free0Table* free0_table) {
 	return (Free0StaticList*)((uintptr_t)free0_table + FreeBuddyGetMaxCount(&free0_table->buddy));
@@ -91,30 +90,19 @@ Free0StaticList* Free0TableGetStaticList(Free0Table* free0_table) {
 void Free0TableInit(Free0Table* free0_table, int16_t page_size) {
 	int16_t max_count = Free0TableGetMaxCount(page_size);
 	FreeBuddyInit(&free0_table->buddy, max_count);
-	max_count -= 3;
+	max_count -= 2;
 	Free0StaticList* static_list = Free0TableGetStaticList(free0_table);
 	Free0StaticListInit(static_list, max_count);
 	for (int i = 0; i < max_count; i++) {
 		static_list->obj_arr[i].max_free_log = CUTILS_SPACE_MANAGER_BUDDY_TO_EXPONENT_OF_2(Free1TableGetMaxCount(page_size));
 		static_list->obj_arr[i].read_select = 1;
 		static_list->obj_arr[i].write_select = 0;
+		static_list->obj_arr[i].free1_table_pending = false;
 	}
 	static_list->obj_arr[0].max_free_log -= 1;
 }
 
 
-//void Free1TablePending(FreeTable* free_table, int16_t free0_entry_pos, Free1Entry* free1_table, int16_t free1_entry_pos, int16_t count, PageId old_first_pgid) {
-//	for (int16_t i = 0; i < count - 1; i++) {
-//		free1_table[free1_entry_pos + i].next_pending_pgid = FreeTablePosToPageId(free_table, free0_entry_pos, free1_entry_pos + i + 1);
-//	}
-//	if (old_first_pgid == kPageInvalidId) {
-//		// 第一个first_pgid始终指向自己
-//		free1_table[free1_entry_pos + count - 1].next_pending_pgid = FreeTablePosToPageId(free_table, free0_entry_pos, free1_entry_pos);
-//	}
-//	else {
-//		free1_table[free1_entry_pos + count - 1].next_pending_pgid = old_first_pgid;
-//	}
-//}
 
 Free1Table* Free1TableGet(FreeTable* free_table, int16_t free0_entry_pos, CacheId* cache_id) {
 	Pager* pager = ObjectGetFromField(free_table, Pager, free_table);
@@ -170,7 +158,6 @@ Free1Table* Free1TableGet(FreeTable* free_table, int16_t free0_entry_pos, CacheI
 	return write_cache;
 }
 
-
 PageId FreeTablePosToPageId(FreeTable* free_table, int16_t free0_entry_pos, int16_t free1_entry_pos) {
 	return free0_entry_pos * Free1TableGetMaxCount(Free0GetPageSize(free_table->free0_table)) + free1_entry_pos;
 }
@@ -180,7 +167,9 @@ void FreeTableGetPosFromPageId(FreeTable* free_table, PageId pgid, int16_t* free
 	*free1_entry_pos = pgid % Free1TableGetMaxCount(Free0GetPageSize(free_table->free0_table));
 }
 
-
+/*
+* 初始化空闲表
+*/
 bool FreeTableInit(FreeTable* free_table) {
 	Pager* pager = ObjectGetFromField(free_table, Pager, free_table);
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
@@ -197,9 +186,9 @@ bool FreeTableInit(FreeTable* free_table) {
 }
 
 /*
-* 分配页面
+* 从空闲表中分配页面，返回f1_id
 */
-int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id_) {
+int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id_out) {
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
 
 	// 从f0中查找足够分配的f1
@@ -233,8 +222,8 @@ int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id_
 		// 初次分配的f1，前2页提前占用
 		Free1TableAlloc(free1_table, 2);
 	}
-	int16_t free1_entry_pos = Free1TableAlloc(free1_table, count);
-	if (free1_entry_pos == -1) {
+	int16_t free1_entry_id = Free1TableAlloc(free1_table, count);
+	if (free1_entry_id == -1) {
 		CacherDereference(&pager->cacher, cache_id);
 		return -1;
 	}
@@ -248,17 +237,39 @@ int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id_
 
 	// 该f1表已是脏页
 	free0_entry->free1_table_dirty = true;
-	if (free0_entry_id_) {
-		*free0_entry_id_ = free0_entry_id;
+	if (free0_entry_id_out) {
+		*free0_entry_id_out = free0_entry_id;
 	}
 	Free1TableMarkDirty(table, free1_table);
 
 	CacherDereference(&pager->cacher, cache_id);
-	return free1_entry_pos;
+	return free1_entry_id;
 }
 
 /*
-* 释放页面
+* 从空闲表中将页面置为待决状态
+*/
+void FreeTablePending(FreeTable* table, PageId pgid) {
+	Pager* pager = ObjectGetFromField(table, Pager, free_table);
+	Free0StaticList* static_list = Free0TableGetStaticList(table->free0_table);
+	int16_t free0_entry_id;
+	int16_t free1_entry_id;
+	FreeTableGetPosFromPageId(table, pgid, &free0_entry_id, &free1_entry_id);
+
+	CacheId cache_id;
+	Free1Entry* free1_table = Free1TableGet(table, free0_entry_id, &cache_id);
+	Free1TablePending(free1_table, free1_entry_id);
+	Free1TableMarkDirty(table, free1_table);
+
+	Free0Entry* free0_entry = &static_list->obj_arr[free0_entry_id];
+	free0_entry->free1_table_dirty = true;
+	free0_entry->free1_table_pending = true;
+
+	CacherDereference(&pager->cacher, cache_id);
+}
+
+/*
+* 从空闲表中释放页面
 */
 void FreeTableFree(FreeTable* table, PageId pgid) {
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
@@ -272,103 +283,44 @@ void FreeTableFree(FreeTable* table, PageId pgid) {
 	CacheId cache_id;
 	Free1Table* free1_table = Free1TableGet(table, free0_entry_id, &cache_id);
 	  assert(free1_table != NULL);
-
 	Free1TableFree(free1_table, free1_entry_id);
+	Free1TableMarkDirty(table, free1_table);
+
 	if (free0_entry->max_free_log == 0) {
 		// 挂回可分配队列
 		//Free0StaticListSwitch(static_list, kFree0EntryListFull, free0_entry_prev_id, free0_entry_id, kFree0EntryListAlloc);
 	}
 	free0_entry->max_free_log = CUTILS_SPACE_MANAGER_BUDDY_TO_EXPONENT_OF_2(Free1TableGetMaxFreeCount(free1_table));
-
 	free0_entry->free1_table_dirty = true;
-	Free1TableMarkDirty(table, free1_table);
 
 	CacherDereference(&pager->cacher, cache_id);
 }
 
-//void FreeTablePending(FreeTable* table, PageId pgid, int16_t count, PageId first_pgid) {
-//	Pager* pager = ObjectGetFromField(table, Pager, free_table);
-//	
-//	int16_t free0_entry_pos;
-//	int16_t free1_entry_pos;
-//	FreeTableGetPosFromPageId(table, pgid, &free0_entry_pos, &free1_entry_pos);
-//
-//	CacheId cache_id;
-//	Free1Entry* free1_table = Free1TableGet(table, free0_entry_pos, &cache_id);
-//	Free1TablePending(table, free0_entry_pos, free1_table, free1_entry_pos, count, first_pgid);
-//
-//	Free0Entry* free0_entry = &table->space_head.obj_arr[free0_entry_pos];
-//	free0_entry->free1_table_pending = 1;
-//
-//	free0_entry->free1_table_dirty = true;
-//	Free1TableMarkDirty(table, free1_table);
-//	CacherDereference(&pager->cacher, cache_id);
-//}
-//
-//void FreeTableFreePending(FreeTable* table, PageId first_pgid) {
-//	Pager* pager = ObjectGetFromField(table, Pager, free_table);
-//
-//	int16_t free0_entry_pos, free0_entry_old_pos = -1;
-//	int16_t free1_entry_pos;
-//	Free0Entry* free0_entry = NULL;
-//	Free1Entry* free1_table = NULL;
-//	CacheId cache_id = kCacheInvalidId;
-//	do {
-//		FreeTableGetPosFromPageId(table, first_pgid, &free0_entry_pos, &free1_entry_pos);
-//		if (free0_entry_pos == -1) {
-//			break;
-//		}
-//		if (free0_entry_pos != free0_entry_old_pos) {
-//			if (free0_entry) {
-//				free0_entry->free1_table_pending = Free1TableIsPending(table, free1_table);
-//				free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(free1_table);
-//				
-//				BitmapSet(&table->free0_entry_dirty, free0_entry_pos, true);
-//				Free1TableMarkDirty(table, free1_table);
-//				CacherDereference(&pager->cacher, cache_id);
-//			}
-//			free0_entry = ArrayAt(&table->free0_table, free0_entry_pos, Free0Entry);
-//			free1_table = Free1TableGet(table, free0_entry_pos, &cache_id);
-//			free0_entry_old_pos = free0_entry_pos;
-//		}
-//		if (free1_table[free1_entry_pos].status == kFree1Free || free1_table[free1_entry_pos].status == kFree1Alloc) {
-//			// 链表末尾页面始终指向自己，因此遇到Free就退出
-//			break;
-//		}
-//		first_pgid = free1_table[free1_entry_pos].next_pending_pgid;
-//		free1_table[free1_entry_pos].status = kFree1Free;
-//	} while (true);
-//	if (free0_entry) {
-//		free0_entry->free1_table_pending = Free1TableIsPending(table, free1_table);
-//		free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(free1_table);
-//		BitmapSet(&table->free0_entry_dirty, free0_entry_pos, true);
-//		Free1TableMarkDirty(table, free1_table);
-//		CacherDereference(&pager->cacher, cache_id);
-//	}
-//}
-//
-//void FreeTableCleanPending(FreeTable* table) {
-//	Pager* pager = ObjectGetFromField(table, Pager, free_table);
-//	for (int16_t i = 0; i < Free0TableGetMaxCount(table); i++) {
-//		Free0Entry* free0_entry = ArrayAt(&pager->free_table.free0_table, i, Free0Entry);
-//		if (free0_entry->free1_table_pending == 0) {
-//			continue;
-//		}
-//		CacheId cache_id;
-//		Free1Entry* free1_table = Free1TableGet(table, i, &cache_id);
-//		for (int16_t j = 0; j < Free1TableGetMaxCount(table); j++) {
-//			if (free1_table[j].status == kFree1Alloc || free1_table[j].status == kFree1Free) {
-//				continue;
-//			}
-//			free1_table[j].status = kFree1Free;
-//		}
-//		free0_entry->free1_table_max_free = Free1TableGetMaxFreeCount(free1_table);
-//		free0_entry->free1_table_pending = 0;
-//		BitmapSet(&table->free0_entry_dirty, i, true);
-//		Free1TableMarkDirty(table, free1_table);
-//		CacherDereference(&pager->cacher, cache_id);
-//	}
-//}
+/*
+* 将空闲表中所有的pending页面释放
+*/
+void FreeTableCleanPending(FreeTable* table) {
+	Pager* pager = ObjectGetFromField(table, Pager, free_table);
+	Free0StaticList* f0_static_list = Free0TableGetStaticList(table->free0_table);
+	for (int16_t i = 0; i < Free1TableGetMaxCount(pager->page_size) - 2; i++) {
+		Free0Entry* free0_entry = &f0_static_list->obj_arr[i];
+		if (free0_entry->free1_table_pending == true) {
+			CacheId cache_id;
+			Free1Table* free1_table = Free1TableGet(table, i, &cache_id);
+			  assert(free1_table != NULL);
+
+			Free1StaticList* f1_static_list = Free1TableGetStaticList(free1_table);
+			int16_t id = Free1StaticListIteratorFirst(f1_static_list, kFree1EntryListPending);
+			while (id != YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId) {
+				Free1TableFree(free1_table, id);
+				id = Free1StaticListIteratorNext(f1_static_list, kFree1EntryListPending);
+			}
+
+			free0_entry->free1_table_pending = false;
+			CacherDereference(&pager->cacher, cache_id);
+		}
+	}
+}
 
 /*
 * 空闲表f0写入

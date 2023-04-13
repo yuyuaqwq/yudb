@@ -148,9 +148,6 @@ int main() {
 	int i = 0;
 	for (auto& iter : map) {
 		i++;
-		if (i == 236094) {
-			printf("??");
-		}
 		if (m == 0) {
 			TxBegin(db, &tx, kTxReadWrite);
 			//printf("%d    ", GetBucketCount(&tx));
@@ -180,7 +177,7 @@ int main() {
 	if (l == 0) {
 		l = 1;
 	}
-	printf("write: %dms, %dtps, %dus/op\n", (int)l, (int)(count * 1000 / l), (int)((l * 1000) / count));
+	printf("write: %dms, %dtps, %dns/op\n", (int)l, (int)(count * 1000 / l), (int)((l * 1000 * 1000) / count));
 
 	l = GetTickCount64();
 

@@ -5,12 +5,14 @@
 #include <stdint.h>
 
 #include <CUtils/container/rb_tree.h>
+#include <CUtils/container/vector.h>
 
 #include <yudb/page.h>
 #include <yudb/txid.h>
 #include <yudb/meta_info.h>
 
 CUTILS_CONTAINER_RB_TREE_DECLARATION(Tx, struct _TxRbEntry*, TxId)
+CUTILS_CONTAINER_VECTOR_DECLARATION(Tx, PageId)
 
 #ifdef  __cplusplus
 extern "C" {
@@ -32,21 +34,21 @@ typedef struct _Tx {
 
 typedef struct _TxPendingListEntry {
 	TxId txid;
-	PageId first_pending_pgid;
+	TxVector pending_pgid_arr;
 	TxRbEntry rb_entry;
 } TxPendingListEntry;
 
 typedef struct _TxManager {
-	TxRbTree pending_page_list;		// 不同事务释放的待决页面
+	TxRbTree pending_page_list;		// 不同事务释放的待决页面，TxId为key
 	TxId min_read_txid;		// 当前正在进行的最小读事务id
 	TxId last_persistent_txid;		// 最后持久化事务id，wal模式使用
 } TxManager;
 
-void TxManagerInit(TxManager* tx_manager);
-
 void TxBegin(struct _YuDb* db, Tx* tx, TxType type);
 void TxRollback(Tx* tx);
 void TxCommit(Tx* tx);
+
+void TxManagerInit(TxManager* tx_manager);
 
 #ifdef __cplusplus
 }

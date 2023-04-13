@@ -40,7 +40,7 @@ inline PageId YUDB_BUCKET_BPLUS_ALLOCATOR_CreateBySize(YuDbBPlusTree* tree, size
 }
 inline void YUDB_BUCKET_BPLUS_ALLOCATOR_Release(YuDbBPlusTree* tree, PageId pgid) {
 	Tx* tx = BPlusTreeToTx(tree); 
-	PagerFree(&tx->db->pager, pgid, 1);
+	PagerPending(&tx->db->pager, tx, pgid);
 }
 #define YUDB_BUCKET_BPLUS_ALLOCATOR YUDB_BUCKET_BPLUS_ALLOCATOR
 
@@ -122,7 +122,7 @@ bool BucketPut(Bucket* bucket, void* key_buf, int16_t key_size, void* value_buf,
 				break;
 			}
 			PagerDereference(&tx->db->pager, &entry->bp_entry);
-			PagerFree(&tx->db->pager, cur->entry_id, 1);
+			PagerPending(&tx->db->pager, tx, cur->entry_id);
 
 			// 回溯的id修改为拷贝的节点
 			cur->entry_id = copy_id;

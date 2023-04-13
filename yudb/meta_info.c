@@ -83,7 +83,6 @@ bool MetaInfoRead(YuDb* db, uint16_t page_size) {
 	return true;
 }
 
-
 bool MetaInfoWrite(YuDb* db, int32_t meta_index) {
 	int64_t offset = (int64_t)db->pager.page_size * meta_index;
 	DbFileSeek(db->db_file, offset, kDbFilePointerSet);

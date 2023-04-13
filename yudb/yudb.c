@@ -9,7 +9,6 @@
 #define CACHE_COUNT 1024
 
 
-
 YuDb* YuDbOpen(const char* path, YuDbSyncMode sync_mode) {
 	YuDb* db = malloc(sizeof(YuDb));
 	memset(db, 0, sizeof(*db));

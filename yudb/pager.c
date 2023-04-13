@@ -15,7 +15,7 @@ static int64_t PagerGetPageOffset(Pager* pager, PageId pgid) {
 /*
 * 初始化页面管理器
 */
-bool PagerInit(Pager* pager, uint16_t page_size, PageCount page_count, size_t cache_count) {
+bool PagerInit(Pager* pager, int16_t page_size, PageCount page_count, size_t cache_count) {
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 	pager->page_size = page_size;
 	pager->page_count = page_count;
@@ -24,6 +24,9 @@ bool PagerInit(Pager* pager, uint16_t page_size, PageCount page_count, size_t ca
 	return true;
 }
 
+/*
+* 从db文件中读取页面
+*/
 bool PagerRead(Pager* pager, PageId pgid, void* cache, PageCount count) {
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 	if (!DbFileSeek(db->db_file, PagerGetPageOffset(&db->pager, pgid), kDbFilePointerSet)) {
@@ -35,6 +38,9 @@ bool PagerRead(Pager* pager, PageId pgid, void* cache, PageCount count) {
 	return true;
 }
 
+/*
+* 写回页面到db文件
+*/
 bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count) {
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 	if (!DbFileSeek(db->db_file, PagerGetPageOffset(&db->pager, pgid), kDbFilePointerSet)) {
@@ -78,35 +84,27 @@ PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
 }
 
 /*
+* 指定页面置为待决
+*/
+void PagerPending(Pager* pager, Tx* tx, PageId pgid) {
+	TxRbEntry* entry = TxRbTreeFind(&tx->db->tx_manager.pending_page_list, &tx->meta_info.txid);
+	  assert(entry != NULL);
+	TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
+	TxVectorPushTail(pending_list_entry, &pgid);
+	FreeTablePending(&pager->free_table, pgid);
+}
+
+/*
 * 释放分配的页面
 * 如果引用计数未清零则挂到待释放链表中(或循环等待)等待引用计数清空
 */
-void PagerFree(Pager* pager, PageId pgid, PageCount count) {
+void PagerFree(Pager* pager, PageId pgid) {
 	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
 	if (cache_id != kCacheInvalidId) {
 		CacherFree(&pager->cacher, cache_id);
 	}
-	FreeTableFree(&pager->free_table, pgid, count);
+	FreeTableFree(&pager->free_table, pgid);
 }
-
-///*
-//* 指定页面置为待决
-//* 如果引用计数未清零则挂到待释放链表中(或循环等待)等待引用计数清空
-//*/
-//void PagerPending(Pager* pager, PageId pgid, PageCount count, PageId first_pgid) {
-//	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
-//	if (cache_id != kCacheInvalidId) {
-//		CacherFree(&pager->cacher, cache_id);
-//	}
-//	FreeTablePending(&pager->free_table, pgid, count, first_pgid);
-//}
-//
-///*
-//* 将待决状态的页面释放
-//*/
-//void PagerFreePending(Pager* pager, PageId first_pgid) {
-//	FreeTableFreePending(&pager->free_table, first_pgid);
-//}
 
 /*
 * 引用页面获取缓存，递增页面引用计数
@@ -163,8 +161,9 @@ void PagerWriteAllDirty(Pager* pager) {
 			break;
 		}
 
+		// 找最小页号的缓存
 		CacheInfo* min_cache_info = NULL;
-		do {  // 找最小页号的缓存
+		do {
 			CacheInfo* cache_info = CacherGetInfo(cacher, dirty_cache_id);
 			  assert(cache_info->type == kCacheListDirty);
 			  assert(cache_info->reference_count == 0);

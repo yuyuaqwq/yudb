@@ -19,6 +19,7 @@ typedef struct {
 	uint32_t txid;
 } MetaInfo;
 
+bool MetaInfoRead(struct _YuDb* db, uint16_t page_size);
 bool MetaInfoWrite(struct _YuDb* db, int32_t meta_index);
 
 #ifdef  __cplusplus
