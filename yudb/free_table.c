@@ -90,7 +90,7 @@ Free0StaticList* Free0TableGetStaticList(Free0Table* free0_table) {
 void Free0TableInit(Free0Table* free0_table, int16_t page_size) {
 	int16_t max_count = Free0TableGetMaxCount(page_size);
 	FreeBuddyInit(&free0_table->buddy, max_count);
-	max_count -= 2;
+	max_count -= 3;
 	Free0StaticList* static_list = Free0TableGetStaticList(free0_table);
 	Free0StaticListInit(static_list, max_count);
 	for (int i = 0; i < max_count; i++) {
@@ -302,7 +302,7 @@ void FreeTableFree(FreeTable* table, PageId pgid) {
 void FreeTableCleanPending(FreeTable* table) {
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
 	Free0StaticList* f0_static_list = Free0TableGetStaticList(table->free0_table);
-	for (int16_t i = 0; i < Free1TableGetMaxCount(pager->page_size) - 2; i++) {
+	for (int16_t i = 0; i < Free1TableGetMaxCount(pager->page_size) - 3; i++) {
 		Free0Entry* free0_entry = &f0_static_list->obj_arr[i];
 		if (free0_entry->free1_table_pending == true) {
 			CacheId cache_id;
