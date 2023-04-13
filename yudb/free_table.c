@@ -11,8 +11,8 @@ CUTILS_SPACE_MANAGER_BUDDY_DEFINE(Free, int16_t, CUTILS_SPACE_MANAGER_BUDDY_4BIT
 #define YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId (-1)
 #define YUDB_FREE_TABLE_FREE_REFERENCER YUDB_FREE_TABLE_FREE_REFERENCER
 
-#define YUDB_FREE_TABLE_FREE0_ACCESSOR_GetNext(list, element) (element.entry_list_next)
-#define YUDB_FREE_TABLE_FREE0_ACCESSOR_SetNext(list, element, new_next) ((element).entry_list_next = new_next)
+#define YUDB_FREE_TABLE_FREE0_ACCESSOR_GetNext(list, element) ((element)->entry_list_next)
+#define YUDB_FREE_TABLE_FREE0_ACCESSOR_SetNext(list, element, new_next) ((element)->entry_list_next = new_next)
 #define YUDB_FREE_TABLE_FREE0_ACCESSOR YUDB_FREE_TABLE_FREE0_ACCESSOR
 CUTILS_CONTAINER_STATIC_LIST_DEFINE(Free0, int16_t, Free0Entry, YUDB_FREE_TABLE_FREE_REFERENCER, YUDB_FREE_TABLE_FREE0_ACCESSOR, 4)
 
@@ -202,7 +202,7 @@ bool FreeTableInit(FreeTable* free_table) {
 int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id_) {
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
 
-	// 查找足够分配的entry
+	// 从f0中查找足够分配的f1
 	int16_t free0_entry_prev_id = YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId;
 	Free0StaticList* static_list = Free0TableGetStaticList(table->free0_table);
 	int16_t free0_entry_id = Free0StaticListIteratorFirst(static_list, kFree0EntryListAlloc);
@@ -224,11 +224,9 @@ int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id_
 		free0_entry_id = Free0StaticListIteratorNext(static_list, free0_entry_id);
 	}
 	
+	// 从f1分配页面
 	Free0Entry* free0_entry = &static_list->obj_arr[free0_entry_id];
 	CacheId cache_id;
-	if (free0_entry_id == 767) {
-		printf("??");
-	}
 	Free1Table* free1_table = Free1TableGet(table, free0_entry_id, &cache_id);
 	  assert(free1_table != NULL);
 	if (CUTILS_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(static_list->obj_arr[free0_entry_id].max_free_log) == Free1TableGetMaxCount(Free0GetPageSize(table->free0_table))) {
@@ -241,12 +239,14 @@ int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id_
 		return -1;
 	}
 
+	// 更新f0中对应的f1最大连续空闲
 	free0_entry->max_free_log = CUTILS_SPACE_MANAGER_BUDDY_TO_EXPONENT_OF_2(Free1TableGetMaxFreeCount(free1_table));
 	if (free0_entry->max_free_log == 0) {
 		// 下级没有可分配的空间，挂到满队列中
 		Free0StaticListSwitch(static_list, kFree0EntryListAlloc, free0_entry_prev_id, free0_entry_id, kFree0EntryListFull);
 	}
 
+	// 该f1表已是脏页
 	free0_entry->free1_table_dirty = true;
 	if (free0_entry_id_) {
 		*free0_entry_id_ = free0_entry_id;
@@ -370,6 +370,9 @@ void FreeTableFree(FreeTable* table, PageId pgid) {
 //	}
 //}
 
+/*
+* 空闲表落盘
+*/
 bool FreeTableWrite(FreeTable* table, int32_t meta_index) {
 	Pager* pager = ObjectGetFromField(table, Pager, free_table);
 	//YuDb* db = ObjectGetFromField(pager, YuDb, pager);

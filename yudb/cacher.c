@@ -7,18 +7,18 @@
 
 const CacheId kCacheInvalidId = -1;
 
-#define YUDB_CACHER_LRU_LIST_ACCESSOR_GetKey(LIST, ENTRY) (ObjectGetFromField(&ENTRY, CacheInfo, lru_entry)->pgid)
+#define YUDB_CACHER_LRU_LIST_ACCESSOR_GetKey(LIST, ENTRY) (&ObjectGetFromField(ENTRY, CacheInfo, lru_entry)->pgid)
 #define YUDB_CACHER_LRU_LIST_ACCESSOR YUDB_CACHER_LRU_LIST_ACCESSOR
-#define YUDB_CAHCER_LRU_LIST_HASHER(TABLE, KEY) Hashmap_hashint(KEY)
+#define YUDB_CAHCER_LRU_LIST_HASHER(TABLE, KEY) Hashmap_hashint(*KEY)
 CUTILS_CONTAINER_LRU_LIST_DEFINE(Cache, PageId, YUDB_CACHER_LRU_LIST_ACCESSOR, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_CAHCER_LRU_LIST_HASHER, CUTILS_OBJECT_COMPARER_DEFALUT)
 
 
-#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_GetNext(list, cache_info) ((cache_info).entry.next)
-#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_GetPrev(list, cache_info) ((cache_info).entry.prev)
-#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_SetNext(list, cache_info, new_next) ((cache_info).entry.next = (new_next))
-#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_SetPrev(list, cache_info, new_prev) ((cache_info).entry.prev = (new_prev))
+#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_GetNext(list, cache_info) ((cache_info)->entry.next)
+#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_GetPrev(list, cache_info) ((cache_info)->entry.prev)
+#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_SetNext(list, cache_info, new_next) ((cache_info)->entry.next = (new_next))
+#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_SetPrev(list, cache_info, new_prev) ((cache_info)->entry.prev = (new_prev))
 #define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR
-CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DEFINE(Cache, int16_t, CacheInfo, CUTILS_OBJECT_REFERENCER_DEFALUT, YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR, 3)
+CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DEFINE(Cache, int16_t, CacheInfo, CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DEFAULT_REFERENCER, YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR, 3)
 
 static inline CacheId CacherGetIdFromInfo(Cacher* cacher, CacheInfo* info) {
 	return info - (CacheInfo*)cacher->cache_info_pool->obj_arr;

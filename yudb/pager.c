@@ -162,8 +162,9 @@ void PagerWriteAllDirty(Pager* pager) {
 		if (dirty_cache_id == kCacheInvalidId) {
 			break;
 		}
+
 		CacheInfo* min_cache_info = NULL;
-		do {
+		do {  // ÕÒ×îÐ¡Ò³ºÅµÄ»º´æ
 			CacheInfo* cache_info = CacherGetInfo(cacher, dirty_cache_id);
 			  assert(cache_info->type == kCacheListDirty);
 			  assert(cache_info->reference_count == 0);
@@ -175,10 +176,12 @@ void PagerWriteAllDirty(Pager* pager) {
 			}
 			dirty_cache_id = cache_info->dirty_entry.next;
 		} while (dirty_cache_id != kCacheInvalidId);
+
+		// Ð´Èë1Ò³
 		if (min_cache_info) {
 			dirty_cache_id = CacherGetIdByInfo(cacher, min_cache_info);
 			void* cache = CacherGet(cacher, dirty_cache_id);
-			CacheDoublyStaticListSwitch(&cacher->cache_info_pool, kCacheListDirty, dirty_cache_id, kCacheListClean);
+			CacheDoublyStaticListSwitch(cacher->cache_info_pool, kCacheListDirty, dirty_cache_id, kCacheListClean);
 			min_cache_info->type = kCacheListClean;
 			PagerWrite(pager, min_cache_info->pgid, cache, 1);
 			CacherDereference(cacher, dirty_cache_id);
