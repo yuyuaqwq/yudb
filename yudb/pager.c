@@ -90,7 +90,7 @@ void PagerPending(Pager* pager, Tx* tx, PageId pgid) {
 	TxRbEntry* entry = TxRbTreeFind(&tx->db->tx_manager.pending_page_list, &tx->meta_info.txid);
 	  assert(entry != NULL);
 	TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
-	TxVectorPushTail(pending_list_entry, &pgid);
+	TxVectorPushTail(&pending_list_entry->pending_pgid_arr, &pgid);
 	FreeTablePending(&pager->free_table, pgid);
 }
 

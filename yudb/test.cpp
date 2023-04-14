@@ -8,40 +8,39 @@
 
 extern "C" PageId GetDataBuf(Tx* tx, Data* data, void** data_buf, size_t* data_size);
 
-//void PrintBucket(Tx* tx, PageId pgid, int Level, int pos) {
-//	BPlusEntry* entry = BPlusEntryGet(tx, pgid);
-//	if (!entry) return;
-//	char* empty = (char*)malloc(Level * 8 + 1);
-//	memset(empty, ' ', Level * 8);
-//	empty[Level * 8] = 0;
-//
-//	if (entry->type == 1) {
-//		for (int i = entry->element_count - 1; i >= 0; i--) {
-//			void* key;
-//			size_t size;
-//			GetDataBuf(tx, &entry->leaf.element[i].key, &key, &size);
-//			printf("%sleaf:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)key, empty, Level, empty/*, pos ? ((BPlusEntry*)PageGet(tree, entry->, 1))->indexElement[pos].key : 0*/);
-//		}
-//		free(empty);
-//		return;
-//	}
-//
-//
-//
-//	for (int i = entry->element_count; i >= 0; i--) {
-//		if (i == entry->element_count) {
-//			PrintBucket(tx, entry->index.tail_child_id, Level + 1, i - 1);
-//			continue;
-//		}
-//		void* key;
-//		size_t size;
-//		GetDataBuf(tx, &entry->index.element[i].key, &key, &size);
-//		printf("%sindex:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)key, empty, Level, empty/*, entry->parentId != kPageInvalidId ? ((BPlusEntry*)PageGet(tree, entry->parentId))->indexElement[pos].key: 0*/);
-//		PrintBucket(tx, entry->index.element[i].child_id, Level + 1, i);
-//	}
-//	free(empty);
-//	BPlusEntryDereference(tx, entry);
-//}
+
+void PrintBucket(Tx* tx, YuDbBPlusEntry* entry, int Level, int pos) {
+	if (!entry) return;
+	Pager* pager = &tx->db->pager;
+	char* empty = (char*)malloc(Level * 8 + 1);
+	memset(empty, ' ', Level * 8);
+	empty[Level * 8] = 0;
+
+	if (entry->type == 1) {
+		int16_t id = YuDbBPlusEntryRbTreeIteratorLast(&entry->rb_tree);
+		//PrintRB(&entry->rb_tree, entry->rb_tree.root, 0, true);
+		for (int i = entry->element_count - 1; i >= 0; i--) {
+			printf("%sleaf:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, entry->leaf.element_space.obj_arr[id].key, empty, Level, empty/*, pos ? ((BPlusEntry*)PageGet(tree, entry->, 1))->indexElement[pos].key : 0*/);
+			id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
+		}
+		free(empty);
+		return;
+	}
+
+	//PrintRB(&entry->rb_tree, entry->rb_tree.root, 0, false);
+	int16_t id = YuDbBPlusEntryRbTreeIteratorLast(&entry->rb_tree);
+	for (int i = entry->element_count; i >= 0; i--) {
+		if (i == entry->element_count) {
+			PrintBucket(tx, &((BucketEntry*)PagerReference(pager, entry->index.tail_child_id))->bp_entry, Level + 1, i - 1);
+			continue;
+		}
+		printf("%sindex:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, entry->index.element_space.obj_arr[id].key, empty, Level, empty/*, entry->parentId != kPageInvalidId ? ((BPlusEntry*)PageGet(tree, entry->parentId))->indexElement[pos].key: 0*/);
+		PrintBucket(tx, &((BucketEntry*)PagerReference(pager, (PageId)entry->index.element_space.obj_arr[id].child_id))->bp_entry, Level + 1, i);
+		id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
+	}
+	free(empty);
+}
+
 //
 //int GetBucketCount(Tx* tx) {
 //	int count = 0;
@@ -64,9 +63,9 @@ extern "C" PageId GetDataBuf(Tx* tx, Data* data, void** data_buf, size_t* data_s
 long long l;
 int main() {
 	int r = 0;
-	int m = 1;
+	int m = 0;
 
-	int count = 10000;
+	int count = 100000;
 
 
 
@@ -152,14 +151,14 @@ int main() {
 			TxBegin(db, &tx, kTxReadWrite);
 			//printf("%d    ", GetBucketCount(&tx));
 		}
-		//if (entry->index.tail_child_id == entry->index.element[entry->element_count-1].child_id) {
-		//	PrintBucket(&tx, tx.meta_info.bucket.root_id, 0, 0);
-		//	printf("\n\n\n\n");
-		//}
 		
 		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
 			printf("NOW!");
 		}
+		BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id);
+		PrintBucket(&tx, &entry->bp_entry, 0, 0);
+		printf("\n\n\n\n\n");
+
 		//
 		//printf("\n\n\n\n");
 		if (m == 0) {

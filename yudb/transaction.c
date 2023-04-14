@@ -29,7 +29,7 @@ static void TxBeginReadOnly(Tx* tx) {
 static void TxBeginReadWrite(Tx* tx) {
 	memcpy(&tx->meta_info, &tx->db->meta_info, sizeof(tx->meta_info));
 	tx->meta_info.txid++;
-	tx->meta_index = (tx->db->meta_index + 1) % 2;		// 不直接覆写已持久化的meta
+	tx->meta_index = (tx->db->meta_index + 1) % 2;		// 不能覆写最后已持久化的meta，永远写到可覆盖的meta
 
 	// 将低于最低读事务id的写事务待决页面释放
 	TxRbEntry* entry = TxRbTreeIteratorFirst(&tx->db->tx_manager.pending_page_list);
@@ -38,29 +38,29 @@ static void TxBeginReadWrite(Tx* tx) {
 		FreeTableCleanPending(&tx->db->pager.free_table);
 	}
 
-	// 遍历事务队列，找到比最小事务id还小的事务，将其pending页面释放
-	TxPendingListEntry* pending_list_entry;
+	// 遍历事务队列，找到比当前最小读事务id还小的事务，将其pending页面释放
 	while (entry) {
-		pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
+		TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
 		if (tx->db->tx_manager.min_read_txid == kTxInvalidId || pending_list_entry->txid < tx->db->tx_manager.min_read_txid) {
 			for (int i = 0; i < pending_list_entry->pending_pgid_arr.count; i++) {
 				PagerFree(&tx->db->pager, pending_list_entry->pending_pgid_arr.obj_arr[i]);
 			}
-			TxPendingListEntry* next = TxRbTreeIteratorNext(&tx->db->tx_manager.pending_page_list, entry);
+			entry = TxRbTreeIteratorNext(&tx->db->tx_manager.pending_page_list, entry);
 			TxRbTreeDelete(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
 			TxVectorRelease(&pending_list_entry->pending_pgid_arr);
 			ObjectRelease(pending_list_entry);
-			pending_list_entry = next;
 		}
 		else {
 			TxRbTreeDelete(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
 			ObjectRelease(pending_list_entry);
 			break;
 		}
+
 	}
-	pending_list_entry = ObjectCreate(TxPendingListEntry);
+	TxPendingListEntry* pending_list_entry = ObjectCreate(TxPendingListEntry);
 	pending_list_entry->txid = tx->meta_info.txid;
 	TxVectorInit(&pending_list_entry->pending_pgid_arr, 4, true);
+	pending_list_entry->pending_pgid_arr.count = 0;
 	TxRbTreePut(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
 
 	if (tx->db->update_mode == kYuDbUpdateWal) {
@@ -97,13 +97,12 @@ void TxCommit(Tx* tx) {
 		PagerWriteAllDirty(&tx->db->pager);
 		FreeTableWrite(&tx->db->pager.free_table, tx->meta_index);
 		MetaInfoWrite(tx->db, tx->meta_index);
-	}
+
+		tx->db->meta_index = tx->meta_index;		// Wal模式不在提交时更新，因为元信息并未落盘，不能变动最近完成持久化版本
+	}  
 	else if (tx->db->update_mode == kYuDbUpdateWal) {
 		LogAppendCommit(tx->db->log_file);
 	}
-	if (tx->db->update_mode == kYuDbUpdateInPlace) {
-		tx->db->meta_index = tx->meta_index;
-	}  // Wal模式不在提交时更新，因为元信息并未落盘
 }
 
 
