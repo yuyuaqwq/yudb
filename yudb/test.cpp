@@ -151,13 +151,13 @@ int main() {
 			TxBegin(db, &tx, kTxReadWrite);
 			//printf("%d    ", GetBucketCount(&tx));
 		}
-		
+
 		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
 			printf("NOW!");
 		}
-		BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id);
-		PrintBucket(&tx, &entry->bp_entry, 0, 0);
-		printf("\n\n\n\n\n");
+		//BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id, '0');
+		//PrintBucket(&tx, &entry->bp_entry, 0, 0);
+		//printf("\n\n\n\n\n");
 
 		//
 		//printf("\n\n\n\n");

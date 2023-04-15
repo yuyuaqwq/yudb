@@ -18,20 +18,20 @@ typedef struct _Pager {
 	PageCount page_count;
 	FreeTable free_table;		// 磁盘空闲页面管理表
 	Cacher cacher;		// 缓存管理器
+	PageIdVector free_page_pool;
 } Pager;
 
-extern const PageId kPageInvalidId;
-
 bool PagerInit(Pager* pager, int16_t page_size, PageCount page_count, size_t cache_count);
-void PagerWriteAllDirty(Pager* pager);
 PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count);
-void PagerFree(Pager* pager, PageId pgid);
+void PagerFree(Pager* pager, PageId pgid, bool skip_pool);
 void PagerPending(Pager* pager, struct _Tx* tx, PageId pgid);
 bool PagerRead(Pager* pager, PageId pgid, void* cache, PageCount count);
 bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count);
 void* PagerReference(Pager* pager, PageId pgid);
 void PagerDereference(Pager* pager, void* cache);
 void PagerMarkDirty(Pager* pager, void* cache);
+void PagerCleanFreePool(Pager* pager);
+void PagerWriteAllDirty(Pager* pager);
 
 #ifdef __cplusplus
 }

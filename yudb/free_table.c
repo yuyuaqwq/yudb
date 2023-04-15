@@ -62,6 +62,16 @@ void Free1TableFree(Free1Table* free1_table, int16_t free1_entry_id) {
 	if (free1_entry->is_pending) {
 		free1_entry->is_pending = false;
 		// 将其从Pending链表中摘除
+		int16_t cur_id = Free1StaticListIteratorFirst(static_list, kFree1EntryListPending);
+		int16_t prev_id = YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId;
+		while (cur_id != YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId) {
+			if (cur_id == free1_entry_id) {
+				Free1StaticListDelete(static_list, kFree1EntryListPending, prev_id, cur_id);
+				break;
+			}
+			prev_id = cur_id;
+			cur_id = Free1StaticListIteratorNext(static_list, cur_id);
+		}
 	}
 	FreeBuddyFree(&free1_table->buddy, free1_entry_id);
 }
@@ -151,7 +161,7 @@ Free1Table* Free1TableGet(FreeTable* free_table, int16_t free0_entry_pos, CacheI
 	}
 
 	if (free0_entry->read_select != free0_entry->write_select) {
-		// 初次读之后，由于read的内容会被拷贝到write，并且write可能会被修改，此时write才是最新的版本(尚未落盘)，下次read应该读取当前的write
+		// 初次从磁盘读取之后，由于read的内容会被拷贝到write，并且write可能会被修改，此时write才是最新的版本(尚未落盘)，下次read应该读取当前的write
 		free0_entry->read_select = free0_entry->write_select;
 	}
 	if (cache_id) { *cache_id = write_cache_id; }
@@ -232,7 +242,7 @@ int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id_
 	free0_entry->max_free_log = CUTILS_SPACE_MANAGER_BUDDY_TO_EXPONENT_OF_2(Free1TableGetMaxFreeCount(free1_table));
 	if (free0_entry->max_free_log == 0) {
 		// 下级没有可分配的空间，挂到满队列中
-		Free0StaticListSwitch(static_list, kFree0EntryListAlloc, free0_entry_prev_id, free0_entry_id, kFree0EntryListFull);
+		// Free0StaticListSwitch(static_list, kFree0EntryListAlloc, free0_entry_prev_id, free0_entry_id, kFree0EntryListFull);
 	}
 
 	// 该f1表已是脏页
@@ -304,6 +314,7 @@ void FreeTableCleanPending(FreeTable* table) {
 	Free0StaticList* f0_static_list = Free0TableGetStaticList(table->free0_table);
 	for (int16_t i = 0; i < Free1TableGetMaxCount(pager->page_size) - 3; i++) {
 		Free0Entry* free0_entry = &f0_static_list->obj_arr[i];
+		// 遍历f0_entry，将存在pending的f1清空的pending页面释放
 		if (free0_entry->free1_table_pending == true) {
 			CacheId cache_id;
 			Free1Table* free1_table = Free1TableGet(table, i, &cache_id);
@@ -313,8 +324,9 @@ void FreeTableCleanPending(FreeTable* table) {
 			int16_t id = Free1StaticListIteratorFirst(f1_static_list, kFree1EntryListPending);
 			while (id != YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId) {
 				Free1TableFree(free1_table, id);
-				id = Free1StaticListIteratorNext(f1_static_list, kFree1EntryListPending);
+				id = Free1StaticListIteratorNext(f1_static_list, id);
 			}
+			f1_static_list->list_first[kFree1EntryListPending] = YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId;
 
 			free0_entry->free1_table_pending = false;
 			CacherDereference(&pager->cacher, cache_id);
@@ -331,7 +343,7 @@ bool FreeTableWrite(FreeTable* table, int32_t meta_index) {
 	PageId pgid = ((int64_t)kFree0ListStartId + meta_index);
 
 	bool dirty = false;
-	Free0EntryListType list_type[] = { kFree0EntryListAlloc, kFree0EntryListFull };
+	Free0EntryListType list_type[] = { kFree0EntryListAlloc, /*kFree0EntryListFull*/ };
 	Free0StaticList* static_list = Free0TableGetStaticList(table->free0_table);
 	for (int i = 0; i < sizeof(list_type) / sizeof(Free0EntryListType); i++) {
 		int16_t free0_entry_id = Free0StaticListIteratorFirst(static_list, list_type[i]);

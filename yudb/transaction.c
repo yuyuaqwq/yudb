@@ -11,9 +11,6 @@
 #define TX_RB_TREE_ACCESSOR TX_RB_TREE_ACCESSOR
 CUTILS_CONTAINER_RB_TREE_DEFINE(Tx, TxRbEntry*, TxId, CUTILS_OBJECT_REFERENCER_DEFALUT, TX_RB_TREE_ACCESSOR, CUTILS_OBJECT_COMPARER_DEFALUT)
 
-CUTILS_CONTAINER_VECTOR_DEFINE(Tx, PageId, CUTILS_OBJECT_ALLOCATOR_DEFALUT, CUTILS_CONTAINER_VECTOR_DEFAULT_CALLBACKER)
-
-
 const TxId kTxInvalidId = -1;
 
 
@@ -43,11 +40,11 @@ static void TxBeginReadWrite(Tx* tx) {
 		TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
 		if (tx->db->tx_manager.min_read_txid == kTxInvalidId || pending_list_entry->txid < tx->db->tx_manager.min_read_txid) {
 			for (int i = 0; i < pending_list_entry->pending_pgid_arr.count; i++) {
-				PagerFree(&tx->db->pager, pending_list_entry->pending_pgid_arr.obj_arr[i]);
+				PagerFree(&tx->db->pager, pending_list_entry->pending_pgid_arr.obj_arr[i], false);
 			}
 			entry = TxRbTreeIteratorNext(&tx->db->tx_manager.pending_page_list, entry);
 			TxRbTreeDelete(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
-			TxVectorRelease(&pending_list_entry->pending_pgid_arr);
+			PageIdVectorRelease(&pending_list_entry->pending_pgid_arr);
 			ObjectRelease(pending_list_entry);
 		}
 		else {
@@ -55,11 +52,10 @@ static void TxBeginReadWrite(Tx* tx) {
 			ObjectRelease(pending_list_entry);
 			break;
 		}
-
 	}
 	TxPendingListEntry* pending_list_entry = ObjectCreate(TxPendingListEntry);
 	pending_list_entry->txid = tx->meta_info.txid;
-	TxVectorInit(&pending_list_entry->pending_pgid_arr, 4, true);
+	PageIdVectorInit(&pending_list_entry->pending_pgid_arr, 4, true);
 	pending_list_entry->pending_pgid_arr.count = 0;
 	TxRbTreePut(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
 
@@ -94,10 +90,10 @@ void TxCommit(Tx* tx) {
 	}
 	memcpy(&tx->db->meta_info, &tx->meta_info, sizeof(tx->meta_info));
 	if (tx->db->update_mode == kYuDbUpdateInPlace) {
+		PagerCleanFreePool(&tx->db->pager);
 		PagerWriteAllDirty(&tx->db->pager);
 		FreeTableWrite(&tx->db->pager.free_table, tx->meta_index);
 		MetaInfoWrite(tx->db, tx->meta_index);
-
 		tx->db->meta_index = tx->meta_index;		// Wal模式不在提交时更新，因为元信息并未落盘，不能变动最近完成持久化版本
 	}  
 	else if (tx->db->update_mode == kYuDbUpdateWal) {

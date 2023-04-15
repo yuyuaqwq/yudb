@@ -15,10 +15,13 @@ extern "C" {
 #endif //  __cplusplus
 
 
+/*
+* 当前的单向静态链表队列切换较困难，故暂时不分Full队列
+*/
 CUTILS_SPACE_MANAGER_BUDDY_DECLARATION(Free, int16_t)
 
 typedef enum {
-	kFree1EntryListFree = 0,
+	//kFree1EntryListFree = 0,
 	kFree1EntryListPending = 1,
 } Free1EntryListType;
 CUTILS_CONTAINER_STATIC_LIST_DECLARATION_1(Free1, int16_t)
@@ -38,9 +41,9 @@ typedef struct _Free1Table {
 
 
 typedef enum {
-	kFree0EntryListFree = 0,
+	//kFree0EntryListFree = 0,
 	kFree0EntryListAlloc = 1,
-	kFree0EntryListFull = 2,
+	//kFree0EntryListFull = 2,
 } Free0EntryListType;
 CUTILS_CONTAINER_STATIC_LIST_DECLARATION_1(Free0, int16_t)
 #pragma pack(1)

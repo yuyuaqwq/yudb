@@ -43,6 +43,9 @@ void CacherInit(Cacher* cacher, size_t count) {
 	cacher->cache_info_pool = malloc(sizeof(CacheDoublyStaticList) + sizeof(CacheInfo) * count);
 	CacheDoublyStaticListInit(cacher->cache_info_pool, count);
 	CacheLruListInit(&cacher->cache_lru_list, count);
+	for (int i = 0; i < sizeof(cacher->fast_map) / sizeof(*cacher->fast_map); i++) {
+		cacher->fast_map[i].pgid = kPageInvalidId;
+	}
 }
 
 /*
@@ -70,17 +73,32 @@ CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
 	CacheLruListEntry* lru_entry = CacheLruListPut(&cacher->cache_lru_list, &cache_info->lru_entry);
 	  assert(lru_entry == NULL);		// Lru不应该还会驱逐
 	evict_cache_info = ObjectGetFromField(lru_entry, CacheInfo, lru_entry);
+
+	size_t fast_map_index = pgid % (sizeof(cacher->fast_map) / sizeof(*cacher->fast_map));
+	if (cacher->fast_map[fast_map_index].pgid == pgid) {
+		cacher->fast_map[fast_map_index].pgid = cache_id;
+	}
 	return cache_id;
 }
 
+/*
+* 向缓存池释放分配一页分配的缓存
+*/
 void CacherFree(Cacher* cacher, CacheId cache_id) {
 	// 原子比较等待引用计数归0
 	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
+	size_t fast_map_index = cache_info->pgid % (sizeof(cacher->fast_map) / sizeof(*cacher->fast_map));
+	if (cacher->fast_map[fast_map_index].pgid == cache_info->pgid) {
+		cacher->fast_map[fast_map_index].pgid = kPageInvalidId;
+	}
 	CacheLruListDelete(&cacher->cache_lru_list, &cache_info->pgid);
 	CacheDoublyStaticListSwitch(cacher->cache_info_pool, cache_info->type, cache_id, kCacheListFree);
 	cache_info->type = kCacheListFree;
 }
 
+/*
+* 查找缓存映射的页面
+*/
 CacheId CacherFind(Cacher* cacher, PageId pgid, bool put_first) {
 	size_t fast_map_index = pgid % (sizeof(cacher->fast_map) / sizeof(*cacher->fast_map));
 	if (cacher->fast_map[fast_map_index].pgid == pgid) {
@@ -96,6 +114,9 @@ CacheId CacherFind(Cacher* cacher, PageId pgid, bool put_first) {
 	return cacher->fast_map[fast_map_index].cacheid;
 }
 
+/*
+* 引用一页缓存，返回其内存地址
+*/
 void* CacherGet(Cacher* cacher, CacheId cache_id) {
 	Pager* pager = ObjectGetFromField(cacher, Pager, cacher);
 	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
@@ -103,10 +124,14 @@ void* CacherGet(Cacher* cacher, CacheId cache_id) {
 	return (void*)(((uintptr_t)cacher->cache_pool) + cache_id * pager->page_size);
 }
 
+/*
+* 取消引用缓存
+*/
 void CacherDereference(Cacher* cacher, CacheId cache_id) {
 	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
 	cache_info->reference_count--;
 }
+
 
 inline CacheInfo* CacherGetInfo(Cacher* cacher, CacheId id) {
 	return (CacheInfo*)&cacher->cache_info_pool->obj_arr[id];

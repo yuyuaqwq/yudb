@@ -12,7 +12,6 @@
 #include <yudb/meta_info.h>
 
 CUTILS_CONTAINER_RB_TREE_DECLARATION(Tx, struct _TxRbEntry*, TxId)
-CUTILS_CONTAINER_VECTOR_DECLARATION(Tx, PageId)
 
 #ifdef  __cplusplus
 extern "C" {
@@ -34,7 +33,7 @@ typedef struct _Tx {
 
 typedef struct _TxPendingListEntry {
 	TxId txid;
-	TxVector pending_pgid_arr;
+	PageIdVector pending_pgid_arr;
 	TxRbEntry rb_entry;
 } TxPendingListEntry;
 

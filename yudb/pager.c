@@ -4,10 +4,6 @@
 #include <yudb/free_table.h>
 #include <yudb/yudb.h>
 
-/*
-* Page
-*/
-
 static int64_t PagerGetPageOffset(Pager* pager, PageId pgid) {
 	return pager->page_size * pgid;
 }
@@ -21,6 +17,8 @@ bool PagerInit(Pager* pager, int16_t page_size, PageCount page_count, size_t cac
 	pager->page_count = page_count;
 	CacherInit(&pager->cacher, cache_count);
 	FreeTableInit(&pager->free_table);
+	PageIdVectorInit(&pager->free_page_pool, 4, true);
+	pager->free_page_pool.count = 0;
 	return true;
 }
 
@@ -39,7 +37,7 @@ bool PagerRead(Pager* pager, PageId pgid, void* cache, PageCount count) {
 }
 
 /*
-* 写回页面到db文件
+* 页面写回到db文件
 */
 bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count) {
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
@@ -58,25 +56,30 @@ bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count) {
 * 从db文件中分配页面
 */
 PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
-	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 	PageId disk_free_pgid;
-	do {
-		int16_t free0_entry_pos;
-		int16_t free1_entry_pos = FreeTableAlloc(&pager->free_table, count, &free0_entry_pos);
-		if (free1_entry_pos == -1) {
-			return kPageInvalidId;
-		}
-		disk_free_pgid = FreeTablePosToPageId(&pager->free_table, free0_entry_pos, free1_entry_pos);
-	} while (false);
-	
-	if (put_cache) {
-		// 申请后可能就会使用，直接挂到缓存中可以避免在PageGet接口发生一次磁盘读取
-		CacheId cache_id = CacherFind(&pager->cacher, disk_free_pgid, true);
-		if (cache_id == kCacheInvalidId) {
-			cache_id = CacherAlloc(&pager->cacher, disk_free_pgid);
-			if (cache_id == kCacheInvalidId) {
-				FreeTableFree(&pager->free_table, disk_free_pgid, count);
+	if (pager->free_page_pool.count > 0) {
+		disk_free_pgid = *PageIdVectorPopTail(&pager->free_page_pool);
+		  assert(disk_free_pgid != kPageInvalidId);
+	}
+	else {
+		YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+		do {
+			int16_t free0_entry_pos;
+			int16_t free1_entry_pos = FreeTableAlloc(&pager->free_table, count, &free0_entry_pos);
+			if (free1_entry_pos == -1) {
 				return kPageInvalidId;
+			}
+			disk_free_pgid = FreeTablePosToPageId(&pager->free_table, free0_entry_pos, free1_entry_pos);
+		} while (false);
+		if (put_cache) {
+			// 申请后可能就会使用，直接挂到缓存中可以避免在PageGet接口发生一次磁盘读取
+			CacheId cache_id = CacherFind(&pager->cacher, disk_free_pgid, true);
+			if (cache_id == kCacheInvalidId) {
+				cache_id = CacherAlloc(&pager->cacher, disk_free_pgid);
+				if (cache_id == kCacheInvalidId) {
+					FreeTableFree(&pager->free_table, disk_free_pgid, count);
+					return kPageInvalidId;
+				}
 			}
 		}
 	}
@@ -90,7 +93,7 @@ void PagerPending(Pager* pager, Tx* tx, PageId pgid) {
 	TxRbEntry* entry = TxRbTreeFind(&tx->db->tx_manager.pending_page_list, &tx->meta_info.txid);
 	  assert(entry != NULL);
 	TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
-	TxVectorPushTail(&pending_list_entry->pending_pgid_arr, &pgid);
+	PageIdVectorPushTail(&pending_list_entry->pending_pgid_arr, &pgid);
 	FreeTablePending(&pager->free_table, pgid);
 }
 
@@ -98,7 +101,11 @@ void PagerPending(Pager* pager, Tx* tx, PageId pgid) {
 * 释放分配的页面
 * 如果引用计数未清零则挂到待释放链表中(或循环等待)等待引用计数清空
 */
-void PagerFree(Pager* pager, PageId pgid) {
+void PagerFree(Pager* pager, PageId pgid, bool skip_pool) {
+	if (skip_pool == false) {
+		PageIdVectorPushTail(&pager->free_page_pool, &pgid);
+		return;
+	}
 	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
 	if (cache_id != kCacheInvalidId) {
 		CacherFree(&pager->cacher, cache_id);
@@ -111,6 +118,7 @@ void PagerFree(Pager* pager, PageId pgid) {
 */
 void* PagerReference(Pager* pager, PageId pgid) {
 	CacheId cache_id = CacherFind(&pager->cacher, pgid, true);
+	CacheInfo* info = CacherGetInfo(&pager->cacher, cache_id);
 	void* cache;
 	if (cache_id == kCacheInvalidId) {
 		cache_id = CacherAlloc(&pager->cacher, pgid);
@@ -146,6 +154,16 @@ void PagerDereference(Pager* pager, void* cache) {
 */
 void PagerMarkDirty(Pager* pager, void* cache) {
 	CacherMarkDirty(&pager->cacher, CacherGetIdByBuf(&pager->cacher, cache));
+}
+
+/*
+* 将空闲页面池中的页面实际释放
+*/
+void PagerCleanFreePool(Pager* pager) {
+	for (int i = 0; i < pager->free_page_pool.count; i++) {
+		PageId* pgid = PageIdVectorPopTail(&pager->free_page_pool);
+		PagerFree(pager, pgid, false);
+	}
 }
 
 /*

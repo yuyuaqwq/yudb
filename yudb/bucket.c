@@ -1558,7 +1558,7 @@ _Bool YuDbBPlusTreeDelete(YuDbBPlusTree* tree, int32_t* key) {
 
 static PageId BucketEntryCopy(Bucket* bucket, BucketEntry* entry, PageId entry_pgid) {
 	Tx* tx = BPlusTreeToTx(&bucket->bp_tree);
-	PageId copy_pgid = YuDbBPlusEntryCreate(&bucket->bp_tree, entry->bp_entry.type);
+	PageId copy_pgid = PagerAlloc(&tx->db->pager, true, 1);
 	if (copy_pgid == kPageInvalidId) {
 		return kPageInvalidId;
 	}
@@ -1573,6 +1573,7 @@ static PageId BucketEntryCopy(Bucket* bucket, BucketEntry* entry, PageId entry_p
 		//PagerMarkDirty(&tx->db->pager, prev);
 		//PagerMarkDirty(&tx->db->pager, next);
 	}
+	PagerMarkDirty(&tx->db->pager, copy_entry);
 	PagerDereference(&tx->db->pager, copy_entry);
 	return copy_pgid;
 }

@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <CUtils/container/vector.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif //  __cplusplus
@@ -14,6 +16,8 @@ typedef int16_t PageOffset;
 typedef int32_t PageCount;
 
 extern const PageId kPageInvalidId;
+
+CUTILS_CONTAINER_VECTOR_DECLARATION(PageId, PageId)
 
 #ifdef __cplusplus
 }
