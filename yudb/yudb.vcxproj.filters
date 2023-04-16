@@ -14,6 +14,7 @@
     <ClCompile Include="db_file.c" />
     <ClCompile Include="bucket.c" />
     <ClCompile Include="free_table.c" />
+    <ClCompile Include="async.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cacher.h" />
