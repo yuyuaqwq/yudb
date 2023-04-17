@@ -48,7 +48,12 @@ void WriteThread(WriteQueue* queue, int duration) {
 		Dormancy(duration);
 		MutexLockAcquire(&queue->mutex);
 		// 优先不可变队列，不可变队列清空时表示检查点落盘任务完成
+		if (queue->queue.root != NULL) {
 
+			if (queue->queue.root == NULL) {
+				// 检查点落盘完成，同步
+			}
+		}
 
 		MutexLockRelease(&queue->mutex);
 	} while (queue->status != kStop);
