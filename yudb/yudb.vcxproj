@@ -166,6 +166,7 @@
     <ClCompile Include="test.cpp" />
     <ClCompile Include="transaction.c" />
     <ClCompile Include="wal.c" />
+    <ClCompile Include="write_queue.c" />
     <ClCompile Include="yudb.c" />
     <ClCompile Include="db_file.c" />
   </ItemGroup>
@@ -187,6 +188,7 @@
     <ClInclude Include="transaction.h" />
     <ClInclude Include="txid.h" />
     <ClInclude Include="wal.h" />
+    <ClInclude Include="write_queue.h" />
     <ClInclude Include="yudb.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

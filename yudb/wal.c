@@ -1,6 +1,6 @@
 #include "yudb/wal.h"
 
-static bool LogAppend(DbFile* log_file, LogType type, bool write_buf_size, size_t buf_count, ...) {
+static bool WalAppend(DbFile* log_file, LogType type, bool write_buf_size, size_t buf_count, ...) {
 	return true;
 	LogEntry entry;
 	uint32_t crc32;
@@ -46,18 +46,18 @@ static bool LogAppend(DbFile* log_file, LogType type, bool write_buf_size, size_
 	return success;
 }
 
-void LogAppendBegin(DbFile* log_file) {
-	LogAppend(log_file, kLogBegin, false, 0);
+void WalAppendBegin(DbFile* log_file) {
+	WalAppend(log_file, kLogBegin, false, 0);
 }
 
-void LogAppendCommit(DbFile* log_file) {
-	LogAppend(log_file, kLogCommit, false, 0);
+void WalAppendCommit(DbFile* log_file) {
+	WalAppend(log_file, kLogCommit, false, 0);
 }
 
-void LogAppendInsert(DbFile* log_file, void* key, int16_t key_size, void* value, int16_t value_size) {
-	LogAppend(log_file, kLogInsert, true, 2, key, key_size, value, value_size);
+void WalAppendPut(DbFile* log_file, void* key, int16_t key_size, void* value, int16_t value_size) {
+	WalAppend(log_file, kLogInsert, true, 2, key, key_size, value, value_size);
 }
 
-void LogAppendDelete(DbFile* log_file, void* key, int16_t key_size) {
-	LogAppend(log_file, kLogDelete, true, 1, key, key_size);
+void WalAppendDelete(DbFile* log_file, void* key, int16_t key_size) {
+	WalAppend(log_file, kLogDelete, true, 1, key, key_size);
 }

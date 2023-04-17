@@ -33,7 +33,7 @@ typedef enum _YuDbUpdateMode {
 
 typedef struct _YuDb {
 	DbFile* db_file;
-	DbFile* log_file;
+	
 	YuDbSyncMode sync_mode;
 	YuDbUpdateMode update_mode;
 	int32_t meta_index;		// 当前最新完成提交的事务的meta索引

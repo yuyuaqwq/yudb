@@ -5,8 +5,10 @@
 #include <stdint.h>
 
 #include <CUtils/algorithm/crc32.h>
+#include <CUtils/container/rb_tree.h>
 
 #include <yudb/db_file.h>
+#include <yudb/page.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -38,10 +40,16 @@ typedef struct _LogEntry {
 	};
 } LogEntry;
 
-void LogAppendBegin(DbFile* log_file);
-void LogAppendCommit(DbFile* log_file);
-void LogAppendInsert(DbFile* log_file, void* key, int16_t key_size, void* value, int16_t value_size);
-void LogAppendDelete(DbFile* log_file, void* key, int16_t key_size);
+
+typedef struct _Wal {
+	DbFile* log_file;
+	DbFile* immutable_log_file;
+} Wal;
+
+void WalAppendBegin(DbFile* log_file);
+void WalAppendCommit(DbFile* log_file);
+void WalAppendPut(DbFile* log_file, void* key, int16_t key_size, void* value, int16_t value_size);
+void WalAppendDelete(DbFile* log_file, void* key, int16_t key_size);
 
 #ifdef __cplusplus
 }

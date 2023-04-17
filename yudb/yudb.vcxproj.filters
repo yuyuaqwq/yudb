@@ -15,6 +15,7 @@
     <ClCompile Include="bucket.c" />
     <ClCompile Include="free_table.c" />
     <ClCompile Include="async.c" />
+    <ClCompile Include="write_queue.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cacher.h" />
@@ -29,5 +30,6 @@
     <ClInclude Include="yudb.h" />
     <ClInclude Include="free_table.h" />
     <ClInclude Include="bucket.h" />
+    <ClInclude Include="write_queue.h" />
   </ItemGroup>
 </Project>
