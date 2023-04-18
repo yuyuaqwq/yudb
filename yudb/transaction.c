@@ -60,7 +60,7 @@ static void TxBeginReadWrite(Tx* tx) {
 	TxRbTreePut(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
 
 	if (tx->db->update_mode == kYuDbUpdateWal) {
-		WalAppendBegin(tx->db->log_file);
+		WalAppendBeginLog(tx->db->log_file);
 	}
 }
 
@@ -97,7 +97,7 @@ void TxCommit(Tx* tx) {
 		tx->db->meta_index = tx->meta_index;		// Wal模式不在提交时更新，因为元信息并未落盘，不能变动最近完成持久化版本
 	}  
 	else if (tx->db->update_mode == kYuDbUpdateWal) {
-		WalAppendCommit(tx->db->log_file);
+		WalAppendCommitLog(tx->db->log_file);
 	}
 }
 

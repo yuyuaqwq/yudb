@@ -1,6 +1,8 @@
 #include "yudb/wal.h"
 
-static bool WalAppend(DbFile* log_file, LogType type, bool write_buf_size, size_t buf_count, ...) {
+CUTILS_CONTAINER_VECTOR_DEFINE(WalBuf, uint8_t, CUTILS_OBJECT_ALLOCATOR_DEFALUT, CUTILS_CONTAINER_VECTOR_DEFAULT_CALLBACKER)
+
+static bool WalAppendLog(DbFile* log_file, LogType type, bool write_buf_size, size_t buf_count, ...) {
 	return true;
 	LogEntry entry;
 	uint32_t crc32;
@@ -46,18 +48,30 @@ static bool WalAppend(DbFile* log_file, LogType type, bool write_buf_size, size_
 	return success;
 }
 
-void WalAppendBegin(DbFile* log_file) {
-	WalAppend(log_file, kLogBegin, false, 0);
+void WalInit(Wal* wal, const char* db_path) {
+	size_t path_len = strlen(db_path) + 1;
+	wal->db_wal_path = malloc(path_len + 32);
+	memcpy(wal->db_wal_path, db_path, path_len);
+	strcat(wal->db_wal_path, "-wal");
+
+	wal->log_file = DbFileOpen(wal->db_wal_path, true);
+	wal->immutable_log_file = NULL;
+	WalBufVectorInit(&wal->buf, 0x1000 * 8, true);
+	wal->buf.count = 0;
 }
 
-void WalAppendCommit(DbFile* log_file) {
-	WalAppend(log_file, kLogCommit, false, 0);
+void WalAppendBeginLog(DbFile* log_file) {
+	WalAppendLog(log_file, kLogBegin, false, 0);
 }
 
-void WalAppendPut(DbFile* log_file, void* key, int16_t key_size, void* value, int16_t value_size) {
-	WalAppend(log_file, kLogInsert, true, 2, key, key_size, value, value_size);
+void WalAppendCommitLog(DbFile* log_file) {
+	WalAppendLog(log_file, kLogCommit, false, 0);
 }
 
-void WalAppendDelete(DbFile* log_file, void* key, int16_t key_size) {
-	WalAppend(log_file, kLogDelete, true, 1, key, key_size);
+void WalAppendPutLog(DbFile* log_file, void* key, int16_t key_size, void* value, int16_t value_size) {
+	WalAppendLog(log_file, kLogInsert, true, 2, key, key_size, value, value_size);
+}
+
+void WalAppendDeleteLog(DbFile* log_file, void* key, int16_t key_size) {
+	WalAppendLog(log_file, kLogDelete, true, 1, key, key_size);
 }

@@ -111,8 +111,7 @@ int main() {
 	//db->update_mode = kYuDbUpdateInPlace;
 	db->update_mode = kYuDbUpdateWal;
 
-	db->log_file = DbFileOpen("Z:\\test.ydb-wal", true);
-
+	
 	//while (true) {
 	//	TxBegin(db, &tx, kTxReadWrite);
 	//	

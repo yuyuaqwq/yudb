@@ -6,6 +6,7 @@
 
 #include <CUtils/algorithm/crc32.h>
 #include <CUtils/container/rb_tree.h>
+#include <CUtils/container/vector.h>
 
 #include <yudb/db_file.h>
 #include <yudb/page.h>
@@ -41,15 +42,19 @@ typedef struct _LogEntry {
 } LogEntry;
 
 
+CUTILS_CONTAINER_VECTOR_DECLARATION(WalBuf, uint8_t)
+
 typedef struct _Wal {
 	DbFile* log_file;
 	DbFile* immutable_log_file;
+	char* db_wal_path;
+	WalBufVector buf;
 } Wal;
 
-void WalAppendBegin(DbFile* log_file);
-void WalAppendCommit(DbFile* log_file);
-void WalAppendPut(DbFile* log_file, void* key, int16_t key_size, void* value, int16_t value_size);
-void WalAppendDelete(DbFile* log_file, void* key, int16_t key_size);
+void WalAppendBeginLog(DbFile* log_file);
+void WalAppendCommitLog(DbFile* log_file);
+void WalAppendPutLog(DbFile* log_file, void* key, int16_t key_size, void* value, int16_t value_size);
+void WalAppendDeleteLog(DbFile* log_file, void* key, int16_t key_size);
 
 #ifdef __cplusplus
 }

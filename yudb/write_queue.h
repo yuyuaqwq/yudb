@@ -17,7 +17,7 @@ extern "C" {
 CUTILS_CONTAINER_RB_TREE_DECLARATION(WriteQueue, struct _WalQueueRbEntry*, PageId)
 
 typedef struct _WriteQueuePool {
-
+	void* pool_buf;
 } WriteQueuePool;
 
 typedef struct _WriteQueue {
@@ -54,6 +54,9 @@ void WriteThread(WriteQueue* queue, int duration) {
 				// 检查点落盘完成，同步
 			}
 		}
+		else {
+
+		}
 
 		MutexLockRelease(&queue->mutex);
 	} while (queue->status != kStop);
@@ -77,6 +80,7 @@ void WriteQueueImmutable(WriteQueue* queue) {
 	MutexLockAcquire(&queue->mutex);
 	while (queue->immutable_queue.root != NULL) {
 		MutexLockRelease(&queue->mutex);
+		ThreadSwitch();
 		MutexLockAcquire(&queue->mutex);
 	}
 	queue->immutable_queue.root = queue->queue.root;
