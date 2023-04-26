@@ -90,7 +90,13 @@ int main() {
 	//	arr[k] = temp;
 	//}
 
-	YuDb* db = YuDbOpen("Z:\\test.ydb", kYuDbSyncNormal);
+	Config config;
+	config.page_size = 4096;
+	config.cacher_page_count = 1024;
+	config.sync_mode = kConfigSyncNormal;
+	config.update_mode = kConfigUpdateWal;
+	config.wal_max_page_count = 8;
+	YuDb* db = YuDbOpen("Z:\\test.ydb", &config);
 
 	//l = GetTickCount64();
 	//for (int i = 0; i < count; i++) {
@@ -109,7 +115,7 @@ int main() {
 	l = GetTickCount64();
 
 	//db->update_mode = kYuDbUpdateInPlace;
-	db->update_mode = kYuDbUpdateWal;
+	
 
 	
 	//while (true) {

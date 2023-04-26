@@ -3,13 +3,13 @@
 #include "yudb/yudb.h"
 #include "yudb/wal.h"
 
-#define TX_RB_TREE_ACCESSOR_GetKey(TREE, ENTRY) (&ObjectGetFromField(ENTRY, TxPendingListEntry, rb_entry)->txid)
-#define TX_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY) ((TxRbEntry*)(((uintptr_t)(((TxRbEntry*)ENTRY)->parent_color) & (~((uintptr_t)0x1)))))
-#define TX_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY) ((RbColor)(((uintptr_t)((TxRbEntry*)ENTRY)->parent_color) & 0x1))
-#define TX_RB_TREE_ACCESSOR_SetParent(TREE, ENTRY, NEW_PARENT_ID) (((TxRbEntry*)ENTRY)->parent_color = (TxRbEntry*)(((uintptr_t)NEW_PARENT_ID) | ((uintptr_t)TX_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY))));
-#define TX_RB_TREE_ACCESSOR_SetColor(TREE, ENTRY, COLOR) (ENTRY->parent_color = (TxRbEntry*)(((uintptr_t)TX_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY)) | ((uintptr_t)COLOR)))
-#define TX_RB_TREE_ACCESSOR TX_RB_TREE_ACCESSOR
-CUTILS_CONTAINER_RB_TREE_DEFINE(Tx, TxRbEntry*, TxId, CUTILS_OBJECT_REFERENCER_DEFALUT, TX_RB_TREE_ACCESSOR, CUTILS_OBJECT_COMPARER_DEFALUT)
+#define YUDB_TX_RB_TREE_ACCESSOR_GetKey(TREE, ENTRY) (&ObjectGetFromField(ENTRY, TxPendingListEntry, rb_entry)->txid)
+#define YUDB_TX_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY) ((TxRbEntry*)(((uintptr_t)(((TxRbEntry*)ENTRY)->parent_color) & (~((uintptr_t)0x1)))))
+#define YUDB_TX_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY) ((RbColor)(((uintptr_t)((TxRbEntry*)ENTRY)->parent_color) & 0x1))
+#define YUDB_TX_RB_TREE_ACCESSOR_SetParent(TREE, ENTRY, NEW_PARENT_ID) (((TxRbEntry*)ENTRY)->parent_color = (TxRbEntry*)(((uintptr_t)NEW_PARENT_ID) | ((uintptr_t)TX_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY))));
+#define YUDB_TX_RB_TREE_ACCESSOR_SetColor(TREE, ENTRY, COLOR) (ENTRY->parent_color = (TxRbEntry*)(((uintptr_t)TX_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY)) | ((uintptr_t)COLOR)))
+#define YUDB_TX_RB_TREE_ACCESSOR YUDB_TX_RB_TREE_ACCESSOR
+CUTILS_CONTAINER_RB_TREE_DEFINE(Tx, TxRbEntry*, TxId, CUTILS_OBJECT_REFERENCER_DEFALUT, YUDB_TX_RB_TREE_ACCESSOR, CUTILS_OBJECT_COMPARER_DEFALUT)
 
 const TxId kTxInvalidId = -1;
 
@@ -59,8 +59,8 @@ static void TxBeginReadWrite(Tx* tx) {
 	pending_list_entry->pending_pgid_arr.count = 0;
 	TxRbTreePut(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
 
-	if (tx->db->update_mode == kYuDbUpdateWal) {
-		WalAppendBeginLog(tx->db->log_file);
+	if (tx->db->config->update_mode == kConfigUpdateWal) {
+		WalAppendBeginLog(&tx->db->wal);
 	}
 }
 
@@ -89,15 +89,15 @@ void TxCommit(Tx* tx) {
 		return;
 	}
 	memcpy(&tx->db->meta_info, &tx->meta_info, sizeof(tx->meta_info));
-	if (tx->db->update_mode == kYuDbUpdateInPlace) {
+	if (tx->db->config->update_mode == kConfigUpdateInPlace) {
 		PagerCleanFreePool(&tx->db->pager);
 		PagerWriteAllDirty(&tx->db->pager);
 		FreeTableWrite(&tx->db->pager.free_table, tx->meta_index);
 		MetaInfoWrite(tx->db, tx->meta_index);
 		tx->db->meta_index = tx->meta_index;		// Wal模式不在提交时更新，因为元信息并未落盘，不能变动最近完成持久化版本
 	}  
-	else if (tx->db->update_mode == kYuDbUpdateWal) {
-		WalAppendCommitLog(tx->db->log_file);
+	else if (tx->db->config->update_mode == kConfigUpdateWal) {
+		WalAppendCommitLog(&tx->db->wal);
 	}
 }
 

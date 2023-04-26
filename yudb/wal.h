@@ -44,17 +44,17 @@ typedef struct _LogEntry {
 
 CUTILS_CONTAINER_VECTOR_DECLARATION(WalBuf, uint8_t)
 
-typedef struct _Wal {
+typedef struct _WalManager {
 	DbFile* log_file;
 	DbFile* immutable_log_file;
 	char* db_wal_path;
 	WalBufVector buf;
-} Wal;
+} WalManager;
 
-void WalAppendBeginLog(DbFile* log_file);
-void WalAppendCommitLog(DbFile* log_file);
-void WalAppendPutLog(DbFile* log_file, void* key, int16_t key_size, void* value, int16_t value_size);
-void WalAppendDeleteLog(DbFile* log_file, void* key, int16_t key_size);
+void WalAppendBeginLog(WalManager* log_file);
+void WalAppendCommitLog(WalManager* log_file);
+void WalAppendPutLog(WalManager* log_file, void* key, int16_t key_size, void* value, int16_t value_size);
+void WalAppendDeleteLog(WalManager* log_file, void* key, int16_t key_size);
 
 #ifdef __cplusplus
 }

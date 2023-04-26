@@ -31,5 +31,6 @@
     <ClInclude Include="free_table.h" />
     <ClInclude Include="bucket.h" />
     <ClInclude Include="write_queue.h" />
+    <ClInclude Include="config.h" />
   </ItemGroup>
 </Project>

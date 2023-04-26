@@ -5,25 +5,25 @@
 #include "yudb/transaction.h"
 #include "yudb/bucket.h"
 
-#define PAGE_SIZE 4096
-#define CACHE_COUNT 1024
+//#define PAGE_SIZE 4096
+//#define CACHE_COUNT 1024
 
 
-YuDb* YuDbOpen(const char* path, YuDbSyncMode sync_mode) {
+YuDb* YuDbOpen(const char* path, Config* config) {
 	YuDb* db = malloc(sizeof(YuDb));
 	memset(db, 0, sizeof(*db));
-	if (sync_mode == kYuDbSyncFull) {
+	db->config;
+	if (config->sync_mode == kConfigSyncFull) {
 		db->db_file = DbFileOpen(path, false);
 	}
 	else {
 		db->db_file = DbFileOpen(path, true);
 	}
-	db->sync_mode = sync_mode;
 
 	bool success = false;
 	do {
-		if (!MetaInfoRead(db, PAGE_SIZE)) { break; }
-		PagerInit(&db->pager, db->meta_info.page_size, db->meta_info.page_count, CACHE_COUNT);
+		if (!MetaInfoRead(db, config->page_size)) { break; }
+		PagerInit(&db->pager, db->meta_info.page_size, db->meta_info.page_count, config->cacher_page_count);
 		TxManagerInit(&db->tx_manager);
 		success = true;
 	} while (false);
@@ -36,7 +36,7 @@ YuDb* YuDbOpen(const char* path, YuDbSyncMode sync_mode) {
 }
 
 void YuDbClose(YuDb* db) {
-	if (db->update_mode == kYuDbUpdateWal) {
+	if (db->config->update_mode == kConfigUpdateWal) {
 		PagerCleanFreePool(&db->pager);
 		PagerWriteAllDirty(&db->pager);
 		db->meta_index = (db->meta_index + 1) % 2;

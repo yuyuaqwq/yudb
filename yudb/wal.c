@@ -2,7 +2,7 @@
 
 CUTILS_CONTAINER_VECTOR_DEFINE(WalBuf, uint8_t, CUTILS_OBJECT_ALLOCATOR_DEFALUT, CUTILS_CONTAINER_VECTOR_DEFAULT_CALLBACKER)
 
-static bool WalAppendLog(DbFile* log_file, LogType type, bool write_buf_size, size_t buf_count, ...) {
+static bool WalAppendLog(WalManager* log_file, LogType type, bool write_buf_size, size_t buf_count, ...) {
 	return true;
 	LogEntry entry;
 	uint32_t crc32;
@@ -48,7 +48,7 @@ static bool WalAppendLog(DbFile* log_file, LogType type, bool write_buf_size, si
 	return success;
 }
 
-void WalInit(Wal* wal, const char* db_path) {
+void WalInit(WalManager* wal, const char* db_path) {
 	size_t path_len = strlen(db_path) + 1;
 	wal->db_wal_path = malloc(path_len + 32);
 	memcpy(wal->db_wal_path, db_path, path_len);
@@ -60,18 +60,18 @@ void WalInit(Wal* wal, const char* db_path) {
 	wal->buf.count = 0;
 }
 
-void WalAppendBeginLog(DbFile* log_file) {
+void WalAppendBeginLog(WalManager* log_file) {
 	WalAppendLog(log_file, kLogBegin, false, 0);
 }
 
-void WalAppendCommitLog(DbFile* log_file) {
+void WalAppendCommitLog(WalManager* log_file) {
 	WalAppendLog(log_file, kLogCommit, false, 0);
 }
 
-void WalAppendPutLog(DbFile* log_file, void* key, int16_t key_size, void* value, int16_t value_size) {
+void WalAppendPutLog(WalManager* log_file, void* key, int16_t key_size, void* value, int16_t value_size) {
 	WalAppendLog(log_file, kLogInsert, true, 2, key, key_size, value, value_size);
 }
 
-void WalAppendDeleteLog(DbFile* log_file, void* key, int16_t key_size) {
+void WalAppendDeleteLog(WalManager* log_file, void* key, int16_t key_size) {
 	WalAppendLog(log_file, kLogDelete, true, 1, key, key_size);
 }
