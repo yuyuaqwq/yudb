@@ -69,7 +69,7 @@ void WalAppendCommitLog(WalManager* log_file) {
 }
 
 void WalAppendPutLog(WalManager* log_file, void* key, int16_t key_size, void* value, int16_t value_size) {
-	WalAppendLog(log_file, kLogInsert, true, 2, key, key_size, value, value_size);
+	WalAppendLog(log_file, kLogPut, true, 2, key, key_size, value, value_size);
 }
 
 void WalAppendDeleteLog(WalManager* log_file, void* key, int16_t key_size) {

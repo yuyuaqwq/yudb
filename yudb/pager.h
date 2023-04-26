@@ -31,7 +31,7 @@ void* PagerReference(Pager* pager, PageId pgid);
 void PagerDereference(Pager* pager, void* cache);
 void PagerMarkDirty(Pager* pager, void* cache);
 void PagerCleanFreePool(Pager* pager);
-void PagerWriteAllDirty(Pager* pager);
+void PagerSyncWriteAllDirty(Pager* pager);
 
 #ifdef __cplusplus
 }

@@ -3,21 +3,26 @@
 #include "yudb/db_file.h"
 #include "yudb/pager.h"
 #include "yudb/transaction.h"
+#include "yudb/wal.h"
 #include "yudb/bucket.h"
 
 //#define PAGE_SIZE 4096
 //#define CACHE_COUNT 1024
 
 
-YuDb* YuDbOpen(const char* path, Config* config) {
+YuDb* YuDbOpen(const char* db_path, Config* config) {
 	YuDb* db = malloc(sizeof(YuDb));
 	memset(db, 0, sizeof(*db));
-	db->config;
+	db->config = config;
 	if (config->sync_mode == kConfigSyncFull) {
-		db->db_file = DbFileOpen(path, false);
+		db->db_file = DbFileOpen(db_path, false);
 	}
 	else {
-		db->db_file = DbFileOpen(path, true);
+		db->db_file = DbFileOpen(db_path, true);
+	}
+
+	if (config->update_mode == kConfigUpdateWal) {
+		WalInit(&db->wal, db_path);
 	}
 
 	bool success = false;
@@ -38,7 +43,7 @@ YuDb* YuDbOpen(const char* path, Config* config) {
 void YuDbClose(YuDb* db) {
 	if (db->config->update_mode == kConfigUpdateWal) {
 		PagerCleanFreePool(&db->pager);
-		PagerWriteAllDirty(&db->pager);
+		PagerSyncWriteAllDirty(&db->pager);
 		db->meta_index = (db->meta_index + 1) % 2;
 		FreeTableWrite(&db->pager.free_table, db->meta_index);
 		MetaInfoWrite(db, db->meta_index);

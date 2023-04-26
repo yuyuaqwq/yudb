@@ -14,7 +14,6 @@
     <ClCompile Include="db_file.c" />
     <ClCompile Include="bucket.c" />
     <ClCompile Include="free_table.c" />
-    <ClCompile Include="async.c" />
     <ClCompile Include="write_queue.c" />
   </ItemGroup>
   <ItemGroup>

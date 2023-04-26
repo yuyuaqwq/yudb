@@ -174,9 +174,6 @@ int main() {
 		TxCommit(&tx);
 	}
 
-
-
-
 	l = GetTickCount64() - l;
 	if (l == 0) {
 		l = 1;

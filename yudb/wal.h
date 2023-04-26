@@ -18,7 +18,7 @@ extern "C" {
 typedef enum _LogType {
 	kLogBegin,
 	kLogCommit,
-	kLogInsert,
+	kLogPut,
 	kLogDelete,
 } LogType;
 
@@ -51,6 +51,7 @@ typedef struct _WalManager {
 	WalBufVector buf;
 } WalManager;
 
+void WalInit(WalManager* wal, const char* db_path);
 void WalAppendBeginLog(WalManager* log_file);
 void WalAppendCommitLog(WalManager* log_file);
 void WalAppendPutLog(WalManager* log_file, void* key, int16_t key_size, void* value, int16_t value_size);

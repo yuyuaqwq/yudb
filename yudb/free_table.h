@@ -24,7 +24,6 @@ typedef enum {
 	//kFree1EntryListFree = 0,
 	kFree1EntryListPending = 1,
 } Free1EntryListType;
-CUTILS_CONTAINER_STATIC_LIST_DECLARATION_1(Free1, int16_t)
 #pragma pack(1)
 typedef struct _Free1Entry {
 	int16_t entry_list_next;
@@ -34,7 +33,7 @@ typedef struct _Free1Entry {
 	};
 } Free1Entry;
 #pragma pack()
-CUTILS_CONTAINER_STATIC_LIST_DECLARATION_2(Free1, int16_t, Free1Entry, 2)
+CUTILS_CONTAINER_STATIC_LIST_DECLARATION(Free1, int16_t, Free1Entry, 2)
 typedef struct _Free1Table {
 	FreeBuddy buddy;
 } Free1Table;

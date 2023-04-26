@@ -90,6 +90,11 @@ PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
 * 指定页面置为待决
 */
 void PagerPending(Pager* pager, Tx* tx, PageId pgid) {
+	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+	if (db->config->update_mode == kConfigUpdateWal) {
+		
+
+	}
 	TxRbEntry* entry = TxRbTreeFind(&tx->db->tx_manager.pending_page_list, &tx->meta_info.txid);
 	  assert(entry != NULL);
 	TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
@@ -167,9 +172,9 @@ void PagerCleanFreePool(Pager* pager) {
 }
 
 /*
-* 所有脏页落盘
+* 同步落盘所有脏页
 */
-void PagerWriteAllDirty(Pager* pager) {
+void PagerSyncWriteAllDirty(Pager* pager) {
 	Cacher* cacher = &pager->cacher;
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 	// 尽可能顺序写

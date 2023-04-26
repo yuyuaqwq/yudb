@@ -6,8 +6,8 @@
 #define YUDB_TX_RB_TREE_ACCESSOR_GetKey(TREE, ENTRY) (&ObjectGetFromField(ENTRY, TxPendingListEntry, rb_entry)->txid)
 #define YUDB_TX_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY) ((TxRbEntry*)(((uintptr_t)(((TxRbEntry*)ENTRY)->parent_color) & (~((uintptr_t)0x1)))))
 #define YUDB_TX_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY) ((RbColor)(((uintptr_t)((TxRbEntry*)ENTRY)->parent_color) & 0x1))
-#define YUDB_TX_RB_TREE_ACCESSOR_SetParent(TREE, ENTRY, NEW_PARENT_ID) (((TxRbEntry*)ENTRY)->parent_color = (TxRbEntry*)(((uintptr_t)NEW_PARENT_ID) | ((uintptr_t)TX_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY))));
-#define YUDB_TX_RB_TREE_ACCESSOR_SetColor(TREE, ENTRY, COLOR) (ENTRY->parent_color = (TxRbEntry*)(((uintptr_t)TX_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY)) | ((uintptr_t)COLOR)))
+#define YUDB_TX_RB_TREE_ACCESSOR_SetParent(TREE, ENTRY, NEW_PARENT_ID) (((TxRbEntry*)ENTRY)->parent_color = (TxRbEntry*)(((uintptr_t)NEW_PARENT_ID) | ((uintptr_t)YUDB_TX_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY))));
+#define YUDB_TX_RB_TREE_ACCESSOR_SetColor(TREE, ENTRY, COLOR) (ENTRY->parent_color = (TxRbEntry*)(((uintptr_t)YUDB_TX_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY)) | ((uintptr_t)COLOR)))
 #define YUDB_TX_RB_TREE_ACCESSOR YUDB_TX_RB_TREE_ACCESSOR
 CUTILS_CONTAINER_RB_TREE_DEFINE(Tx, TxRbEntry*, TxId, CUTILS_OBJECT_REFERENCER_DEFALUT, YUDB_TX_RB_TREE_ACCESSOR, CUTILS_OBJECT_COMPARER_DEFALUT)
 
@@ -31,7 +31,7 @@ static void TxBeginReadWrite(Tx* tx) {
 	// 将低于最低读事务id的写事务待决页面释放
 	TxRbEntry* entry = TxRbTreeIteratorFirst(&tx->db->tx_manager.pending_page_list);
 	if (!entry) {
-		// 初次开启写事务时，清理所有pending页面
+		// 初次开启写事务时，清理空闲表内所有pending页面
 		FreeTableCleanPending(&tx->db->pager.free_table);
 	}
 
@@ -40,7 +40,7 @@ static void TxBeginReadWrite(Tx* tx) {
 		TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
 		if (tx->db->tx_manager.min_read_txid == kTxInvalidId || pending_list_entry->txid < tx->db->tx_manager.min_read_txid) {
 			for (int i = 0; i < pending_list_entry->pending_pgid_arr.count; i++) {
-				PagerFree(&tx->db->pager, pending_list_entry->pending_pgid_arr.obj_arr[i], false);
+				PagerFree(&tx->db->pager, pending_list_entry->pending_pgid_arr.obj_arr[i], true);
 			}
 			entry = TxRbTreeIteratorNext(&tx->db->tx_manager.pending_page_list, entry);
 			TxRbTreeDelete(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
@@ -89,9 +89,9 @@ void TxCommit(Tx* tx) {
 		return;
 	}
 	memcpy(&tx->db->meta_info, &tx->meta_info, sizeof(tx->meta_info));
+	PagerCleanFreePool(&tx->db->pager);
 	if (tx->db->config->update_mode == kConfigUpdateInPlace) {
-		PagerCleanFreePool(&tx->db->pager);
-		PagerWriteAllDirty(&tx->db->pager);
+		PagerSyncWriteAllDirty(&tx->db->pager);
 		FreeTableWrite(&tx->db->pager.free_table, tx->meta_index);
 		MetaInfoWrite(tx->db, tx->meta_index);
 		tx->db->meta_index = tx->meta_index;		// Wal模式不在提交时更新，因为元信息并未落盘，不能变动最近完成持久化版本
