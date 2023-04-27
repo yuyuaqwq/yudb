@@ -50,13 +50,9 @@ typedef enum _WriteQueueStatus {
 } WriteQueueStatus;
 
 
-#define YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR_GetKey(TREE, ENTRY) (&ObjectGetFromField(ENTRY, WriteQueueEntry, rb_entry)->pgid)
-#define YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY) ((WriteQueueRbEntry*)(((uintptr_t)(((WriteQueueRbEntry*)ENTRY)->parent_color) & (~((uintptr_t)0x1)))))
-#define YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY) ((RbColor)(((uintptr_t)((WriteQueueRbEntry*)ENTRY)->parent_color) & 0x1))
-#define YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR_SetParent(TREE, ENTRY, NEW_PARENT_ID) (((WriteQueueRbEntry*)ENTRY)->parent_color = (WriteQueueRbEntry*)(((uintptr_t)NEW_PARENT_ID) | ((uintptr_t)YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY))));
-#define YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR_SetColor(TREE, ENTRY, COLOR) (ENTRY->parent_color = (WriteQueueRbEntry*)(((uintptr_t)YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY)) | ((uintptr_t)COLOR)))
-#define YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR
-CUTILS_CONTAINER_RB_TREE_DEFINE(WriteQueue, struct _WalQueueRbEntry*, PageId, CUTILS_OBJECT_REFERENCER_DEFALUT, YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR, CUTILS_OBJECT_COMPARER_DEFALUT)
+#define CUTILS_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetKey(TREE, ENTRY) (((WriteQueueEntry*)ENTRY)->pgid)
+#define YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR CUTILS_CONTINUE_RB_TREE_ACCESSOR_DEFALUT
+CUTILS_CONTAINER_RB_TREE_DEFINE(WriteQueue, struct _WalQueueRbEntry*, PageId, CUTILS_OBJECT_REFERENCER_DEFALUT, CUTILS_CONTINUE_RB_TREE_ACCESSOR_DEFALUT, CUTILS_OBJECT_COMPARER_DEFALUT)
 
 
 

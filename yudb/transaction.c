@@ -3,13 +3,9 @@
 #include "yudb/yudb.h"
 #include "yudb/wal.h"
 
-#define YUDB_TX_RB_TREE_ACCESSOR_GetKey(TREE, ENTRY) (&ObjectGetFromField(ENTRY, TxPendingListEntry, rb_entry)->txid)
-#define YUDB_TX_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY) ((TxRbEntry*)(((uintptr_t)(((TxRbEntry*)ENTRY)->parent_color) & (~((uintptr_t)0x1)))))
-#define YUDB_TX_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY) ((RbColor)(((uintptr_t)((TxRbEntry*)ENTRY)->parent_color) & 0x1))
-#define YUDB_TX_RB_TREE_ACCESSOR_SetParent(TREE, ENTRY, NEW_PARENT_ID) (((TxRbEntry*)ENTRY)->parent_color = (TxRbEntry*)(((uintptr_t)NEW_PARENT_ID) | ((uintptr_t)YUDB_TX_RB_TREE_ACCESSOR_GetColor(TREE, ENTRY))));
-#define YUDB_TX_RB_TREE_ACCESSOR_SetColor(TREE, ENTRY, COLOR) (ENTRY->parent_color = (TxRbEntry*)(((uintptr_t)YUDB_TX_RB_TREE_ACCESSOR_GetParent(TREE, ENTRY)) | ((uintptr_t)COLOR)))
-#define YUDB_TX_RB_TREE_ACCESSOR YUDB_TX_RB_TREE_ACCESSOR
-CUTILS_CONTAINER_RB_TREE_DEFINE(Tx, TxRbEntry*, TxId, CUTILS_OBJECT_REFERENCER_DEFALUT, YUDB_TX_RB_TREE_ACCESSOR, CUTILS_OBJECT_COMPARER_DEFALUT)
+#define CUTILS_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetKey(TREE, ENTRY) (&ObjectGetFromField(ENTRY, TxPendingListEntry, rb_entry)->txid)
+#define YUDB_TX_RB_TREE_ACCESSOR CUTILS_CONTINUE_RB_TREE_ACCESSOR_DEFALUT
+CUTILS_CONTAINER_RB_TREE_DEFINE(Tx, TxRbEntry*, TxId, CUTILS_OBJECT_REFERENCER_DEFALUT, CUTILS_CONTINUE_RB_TREE_ACCESSOR_DEFALUT, CUTILS_OBJECT_COMPARER_DEFALUT)
 
 const TxId kTxInvalidId = -1;
 
