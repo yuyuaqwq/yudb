@@ -42,7 +42,7 @@ YuDb* YuDbOpen(const char* db_path, Config* config) {
 
 void YuDbClose(YuDb* db) {
 	if (db->config->update_mode == kConfigUpdateWal) {
-		PagerCleanFreePool(&db->pager);
+		PagerCleanPageIdPool(&db->pager);
 		PagerSyncWriteAllDirty(&db->pager);
 		db->meta_index = (db->meta_index + 1) % 2;
 		FreeTableWrite(&db->pager.free_table, db->meta_index);

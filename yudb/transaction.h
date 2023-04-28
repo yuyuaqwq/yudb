@@ -43,6 +43,8 @@ typedef struct _TxManager {
 	TxId last_persistent_txid;		// 最后持久化事务id，wal模式使用
 } TxManager;
 
+void TxFreePendingPoolPage(struct _YuDb* db);
+
 void TxBegin(struct _YuDb* db, Tx* tx, TxType type);
 void TxRollback(Tx* tx);
 void TxCommit(Tx* tx);

@@ -1,8 +1,11 @@
 #include <yudb/pager.h>
 
+#include <CUtils/concurrency/thread.h>
+
 #include <yudb/db_file.h>
 #include <yudb/free_table.h>
 #include <yudb/yudb.h>
+
 
 static int64_t PagerGetPageOffset(Pager* pager, PageId pgid) {
 	return pager->page_size * pgid;
@@ -17,8 +20,8 @@ bool PagerInit(Pager* pager, int16_t page_size, PageCount page_count, size_t cac
 	pager->page_count = page_count;
 	CacherInit(&pager->cacher, cache_count);
 	FreeTableInit(&pager->free_table);
-	PageIdVectorInit(&pager->free_page_pool, 4, true);
-	pager->free_page_pool.count = 0;
+	PageIdVectorInit(&pager->free_pgid_pool, 4, true);
+	pager->free_pgid_pool.count = 0;
 	return true;
 }
 
@@ -57,8 +60,9 @@ bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count) {
 */
 PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
 	PageId disk_free_pgid;
-	if (pager->free_page_pool.count > 0) {
-		disk_free_pgid = *PageIdVectorPopTail(&pager->free_page_pool);
+	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+	if (db->config->update_mode == kConfigUpdateWal && pager->free_pgid_pool.count > 0) {
+		disk_free_pgid = *PageIdVectorPopTail(&pager->free_pgid_pool);
 		  assert(disk_free_pgid != kPageInvalidId);
 	}
 	else {
@@ -92,14 +96,20 @@ PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
 void PagerPending(Pager* pager, Tx* tx, PageId pgid) {
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 	if (db->config->update_mode == kConfigUpdateWal) {
-		
-
+		if (db->tx_manager.last_persistent_txid == tx->meta_info.txid) {
+			// 放到保留页号池
+			PageIdVectorPushTail(&pager->reserve_pgid_pool, &pgid);
+			return;
+		}
 	}
 	TxRbEntry* entry = TxRbTreeFind(&tx->db->tx_manager.pending_page_list, &tx->meta_info.txid);
 	  assert(entry != NULL);
 	TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
 	PageIdVectorPushTail(&pending_list_entry->pending_pgid_arr, &pgid);
-	FreeTablePending(&pager->free_table, pgid);
+	if (db->config->update_mode != kConfigUpdateWal) {
+		// 非wal模式需要写入到空闲表
+		FreeTablePending(&pager->free_table, pgid);
+	}
 }
 
 /*
@@ -107,8 +117,10 @@ void PagerPending(Pager* pager, Tx* tx, PageId pgid) {
 * 如果引用计数未清零则挂到待释放链表中(或循环等待)等待引用计数清空
 */
 void PagerFree(Pager* pager, PageId pgid, bool skip_pool) {
-	if (skip_pool == false) {
-		PageIdVectorPushTail(&pager->free_page_pool, &pgid);
+	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+	if (skip_pool == false && db->config->update_mode == kConfigUpdateWal) {
+		// 仅wal模式启用空闲页号池
+		PageIdVectorPushTail(&pager->free_pgid_pool, &pgid);
 		return;
 	}
 	CacheId cache_id = CacherFind(&pager->cacher, pgid, false);
@@ -162,11 +174,23 @@ void PagerMarkDirty(Pager* pager, void* cache) {
 }
 
 /*
-* 将空闲页面池中的页面实际释放
+* 清理页号池，待决、保留、空闲页面的实际释放
 */
-void PagerCleanFreePool(Pager* pager) {
-	for (int i = 0; i < pager->free_page_pool.count; i++) {
-		PageId* pgid = PageIdVectorPopTail(&pager->free_page_pool);
+void PagerCleanPageIdPool(Pager* pager) {
+	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+
+	// 等待所有读事务关闭
+	while (db->tx_manager.min_read_txid != kTxInvalidId) ThreadSwitch();
+
+	// 将所有pending释放到空闲页池
+	TxFreePendingPoolPage(db);
+
+	for (int i = 0; i < pager->reserve_pgid_pool.count; i++) {
+		PageId* pgid = PageIdVectorPopTail(&pager->reserve_pgid_pool);
+		PagerFree(pager, pgid, false);
+	}
+	for (int i = 0; i < pager->free_pgid_pool.count; i++) {
+		PageId* pgid = PageIdVectorPopTail(&pager->free_pgid_pool);
 		PagerFree(pager, pgid, false);
 	}
 }

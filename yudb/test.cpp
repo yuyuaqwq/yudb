@@ -65,7 +65,7 @@ int main() {
 	int r = 0;
 	int m = 0;
 
-	int count = 100000;
+	int count = 1000000;
 
 
 
@@ -195,7 +195,7 @@ int main() {
 			printf("NOR!, %d  %d  ", iter.first, iter.second);
 		}
 		if (m == 0) {
-			TxBegin(db, &tx, kTxReadOnly);
+			TxCommit(&tx);
 		}
 	}
 	if (m == 1) {

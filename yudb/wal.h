@@ -47,8 +47,11 @@ CUTILS_CONTAINER_VECTOR_DECLARATION(WalBuf, uint8_t)
 typedef struct _WalManager {
 	DbFile* log_file;
 	DbFile* immutable_log_file;
+	WalBufVector log_buf;
 	char* db_wal_path;
-	WalBufVector buf;
+	
+
+
 } WalManager;
 
 void WalInit(WalManager* wal, const char* db_path);

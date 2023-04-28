@@ -9,6 +9,27 @@ CUTILS_CONTAINER_RB_TREE_DEFINE(Tx, TxRbEntry*, TxId, CUTILS_OBJECT_REFERENCER_D
 
 const TxId kTxInvalidId = -1;
 
+void TxFreePendingPoolPage(YuDb* db) {
+	TxRbEntry* entry = TxRbTreeIteratorFirst(&db->tx_manager.pending_page_list);
+	// 遍历事务队列，找到比当前最小读事务id还小的事务，将其pending页面释放
+	while (entry) {
+		TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
+		if (db->tx_manager.min_read_txid == kTxInvalidId || pending_list_entry->txid < db->tx_manager.min_read_txid) {
+			for (int i = 0; i < pending_list_entry->pending_pgid_arr.count; i++) {
+				PagerFree(&db->pager, pending_list_entry->pending_pgid_arr.obj_arr[i], false);
+			}
+			entry = TxRbTreeIteratorNext(&db->tx_manager.pending_page_list, entry);
+			TxRbTreeDelete(&db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
+			PageIdVectorRelease(&pending_list_entry->pending_pgid_arr);
+			ObjectRelease(pending_list_entry);
+		}
+		else {
+			//TxRbTreeDelete(&db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
+			//ObjectRelease(pending_list_entry);
+			break;
+		}
+	}
+}
 
 static void TxBeginReadOnly(Tx* tx) {
 	// 拷贝元信息，是读事务拷贝时也需要加锁，避免写事务提交时修改元信息
@@ -25,30 +46,13 @@ static void TxBeginReadWrite(Tx* tx) {
 	tx->meta_index = (tx->db->meta_index + 1) % 2;		// 不能覆写最后已持久化的meta，永远写到可覆盖的meta
 
 	// 将低于最低读事务id的写事务待决页面释放
-	TxRbEntry* entry = TxRbTreeIteratorFirst(&tx->db->tx_manager.pending_page_list);
-	if (!entry) {
+	if (tx->db->tx_manager.pending_page_list.root == NULL) {
 		// 初次开启写事务时，清理空闲表内所有pending页面
 		FreeTableCleanPending(&tx->db->pager.free_table);
+	} else {
+		TxFreePendingPoolPage(tx->db);
 	}
-
-	// 遍历事务队列，找到比当前最小读事务id还小的事务，将其pending页面释放
-	while (entry) {
-		TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
-		if (tx->db->tx_manager.min_read_txid == kTxInvalidId || pending_list_entry->txid < tx->db->tx_manager.min_read_txid) {
-			for (int i = 0; i < pending_list_entry->pending_pgid_arr.count; i++) {
-				PagerFree(&tx->db->pager, pending_list_entry->pending_pgid_arr.obj_arr[i], true);
-			}
-			entry = TxRbTreeIteratorNext(&tx->db->tx_manager.pending_page_list, entry);
-			TxRbTreeDelete(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
-			PageIdVectorRelease(&pending_list_entry->pending_pgid_arr);
-			ObjectRelease(pending_list_entry);
-		}
-		else {
-			TxRbTreeDelete(&tx->db->tx_manager.pending_page_list, &pending_list_entry->rb_entry);
-			ObjectRelease(pending_list_entry);
-			break;
-		}
-	}
+	
 	TxPendingListEntry* pending_list_entry = ObjectCreate(TxPendingListEntry);
 	pending_list_entry->txid = tx->meta_info.txid;
 	PageIdVectorInit(&pending_list_entry->pending_pgid_arr, 4, true);
@@ -81,11 +85,22 @@ void TxRollback(Tx* tx) {
 }
 
 void TxCommit(Tx* tx) {
-	if (tx->type != kTxReadWrite) {
+	if (tx->type == kTxReadOnly) {
+		if (tx->meta_info.txid == tx->db->tx_manager.min_read_txid) {
+			// 更新最小读事务id
+			TxRbEntry* entry = TxRbTreeIteratorFirst(&tx->db->tx_manager.pending_page_list);
+			entry = TxRbTreeIteratorNext(&tx->db->tx_manager.pending_page_list, entry);
+			if (entry) {
+				TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
+				tx->db->tx_manager.min_read_txid = pending_list_entry->txid;
+			}
+			else {
+				tx->db->tx_manager.min_read_txid = kTxInvalidId;
+			}
+		}
 		return;
 	}
 	memcpy(&tx->db->meta_info, &tx->meta_info, sizeof(tx->meta_info));
-	PagerCleanFreePool(&tx->db->pager);
 	if (tx->db->config->update_mode == kConfigUpdateInPlace) {
 		PagerSyncWriteAllDirty(&tx->db->pager);
 		FreeTableWrite(&tx->db->pager.free_table, tx->meta_index);

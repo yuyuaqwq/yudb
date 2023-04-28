@@ -56,8 +56,8 @@ void WalInit(WalManager* wal, const char* db_path) {
 
 	wal->log_file = DbFileOpen(wal->db_wal_path, true);
 	wal->immutable_log_file = NULL;
-	WalBufVectorInit(&wal->buf, 0x1000 * 8, true);
-	wal->buf.count = 0;
+	WalBufVectorInit(&wal->log_buf, 0x1000 * 8, true);
+	wal->log_buf.count = 0;
 }
 
 void WalAppendBeginLog(WalManager* log_file) {
