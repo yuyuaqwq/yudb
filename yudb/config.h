@@ -28,6 +28,7 @@ typedef struct _Config {
 	uint16_t cacher_page_count;			// 最大缓存页面数量
 
 	uint16_t wal_max_page_count;		// wal记录的最大连续页面数量，超过这个数量则不会写到wal文件，而是直接写回对应的页面
+	uint16_t wal_max_tx_count;			// 同一wal记录的最大事务数量，超过这个数量就会进行封存为不可变日志，启用另一份日志继续记录
 } Config;
 
 #ifdef __cplusplus

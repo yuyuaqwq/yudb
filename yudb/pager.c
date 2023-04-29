@@ -61,7 +61,7 @@ bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count) {
 PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
 	PageId disk_free_pgid;
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
-	if (db->config->update_mode == kConfigUpdateWal && pager->free_pgid_pool.count > 0) {
+	if (db->config.update_mode == kConfigUpdateWal && pager->free_pgid_pool.count > 0) {
 		disk_free_pgid = *PageIdVectorPopTail(&pager->free_pgid_pool);
 		  assert(disk_free_pgid != kPageInvalidId);
 	}
@@ -95,18 +95,18 @@ PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
 */
 void PagerPending(Pager* pager, Tx* tx, PageId pgid) {
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
-	if (db->config->update_mode == kConfigUpdateWal) {
+	if (db->config.update_mode == kConfigUpdateWal) {
 		if (db->tx_manager.last_persistent_txid == tx->meta_info.txid) {
 			// 放到保留页号池
 			PageIdVectorPushTail(&pager->reserve_pgid_pool, &pgid);
 			return;
 		}
 	}
-	TxRbEntry* entry = TxRbTreeFind(&tx->db->tx_manager.pending_page_list, &tx->meta_info.txid);
+	TxRbEntry* entry = TxRbTreeFind(&tx->db->tx_manager.write_tx_record, &tx->meta_info.txid);
 	  assert(entry != NULL);
-	TxPendingListEntry* pending_list_entry = ObjectGetFromField(entry, TxPendingListEntry, rb_entry);
+	TxWriteRecordEntry* pending_list_entry = ObjectGetFromField(entry, TxWriteRecordEntry, rb_entry);
 	PageIdVectorPushTail(&pending_list_entry->pending_pgid_arr, &pgid);
-	if (db->config->update_mode != kConfigUpdateWal) {
+	if (db->config.update_mode != kConfigUpdateWal) {
 		// 非wal模式需要写入到空闲表
 		FreeTablePending(&pager->free_table, pgid);
 	}
@@ -118,7 +118,7 @@ void PagerPending(Pager* pager, Tx* tx, PageId pgid) {
 */
 void PagerFree(Pager* pager, PageId pgid, bool skip_pool) {
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
-	if (skip_pool == false && db->config->update_mode == kConfigUpdateWal) {
+	if (skip_pool == false && db->config.update_mode == kConfigUpdateWal) {
 		// 仅wal模式启用空闲页号池
 		PageIdVectorPushTail(&pager->free_pgid_pool, &pgid);
 		return;
@@ -180,7 +180,7 @@ void PagerCleanPageIdPool(Pager* pager) {
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 
 	// 等待所有读事务关闭
-	while (db->tx_manager.min_read_txid != kTxInvalidId) ThreadSwitch();
+	while (db->tx_manager.read_tx_record.root != NULL) ThreadSwitch();
 
 	// 将所有pending释放到空闲页池
 	TxFreePendingPoolPage(db);

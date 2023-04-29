@@ -65,7 +65,7 @@ int main() {
 	int r = 0;
 	int m = 0;
 
-	int count = 1000000;
+	int64_t count = 100000;
 
 
 
@@ -96,6 +96,7 @@ int main() {
 	config.sync_mode = kConfigSyncNormal;
 	config.update_mode = kConfigUpdateWal;
 	config.wal_max_page_count = 8;
+	config.wal_max_tx_count = 100000;
 	YuDb* db = YuDbOpen("Z:\\test.ydb", &config);
 
 	//l = GetTickCount64();

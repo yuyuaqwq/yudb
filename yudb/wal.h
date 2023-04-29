@@ -10,6 +10,7 @@
 
 #include <yudb/db_file.h>
 #include <yudb/page.h>
+#include <yudb/write_queue.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -49,9 +50,8 @@ typedef struct _WalManager {
 	DbFile* immutable_log_file;
 	WalBufVector log_buf;
 	char* db_wal_path;
-	
 
-
+	WriteQueue write_queue;
 } WalManager;
 
 void WalInit(WalManager* wal, const char* db_path);
@@ -59,6 +59,7 @@ void WalAppendBeginLog(WalManager* log_file);
 void WalAppendCommitLog(WalManager* log_file);
 void WalAppendPutLog(WalManager* log_file, void* key, int16_t key_size, void* value, int16_t value_size);
 void WalAppendDeleteLog(WalManager* log_file, void* key, int16_t key_size);
+void WalCrashRecovery(WalManager* log_file);
 
 #ifdef __cplusplus
 }

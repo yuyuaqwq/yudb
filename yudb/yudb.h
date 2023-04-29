@@ -17,19 +17,17 @@ extern "C" {
 
 #define YUDB_VERSION 1
 
-
-
 typedef struct _YuDb {
 	DbFile* db_file;
-	Config* config;
-	int32_t meta_index;		// 当前最新完成提交的事务的meta索引
+	Config config;
+	int32_t meta_index;		// 最后持久化版本的meta索引
 	MetaInfo meta_info;
 	Pager pager;		// 页面管理器
 	TxManager tx_manager;		// 事务管理器
-	WalManager wal;
+	WalManager wal_manager;
 } YuDb;
 
-YuDb* YuDbOpen(const char* path, Config* config);
+YuDb* YuDbOpen(const char* path, const Config* config);
 void YuDbClose(YuDb* db);
 
 #ifdef __cplusplus

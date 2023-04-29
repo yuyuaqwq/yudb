@@ -31,15 +31,21 @@ typedef struct _Tx {
 	MetaInfo meta_info;
 } Tx;
 
-typedef struct _TxPendingListEntry {
+typedef struct _TxReadRecordEntry {
 	TxId txid;
-	PageIdVector pending_pgid_arr;
 	TxRbEntry rb_entry;
-} TxPendingListEntry;
+	int32_t count;
+} TxReadRecordEntry;
+
+typedef struct _TxWriteRecordEntry {
+	TxId txid;
+	TxRbEntry rb_entry;
+	PageIdVector pending_pgid_arr;
+} TxWriteRecordEntry;
 
 typedef struct _TxManager {
-	TxRbTree pending_page_list;		// 不同事务释放的待决页面，TxId为key
-	TxId min_read_txid;		// 当前正在进行的最小读事务id
+	TxRbTree write_tx_record;		// 写事务记录，包括不同事务释放的待决页面，TxId为key
+	TxRbTree read_tx_record;		// 读事务记录，顺序链表，TxId为key
 	TxId last_persistent_txid;		// 最后持久化事务id，wal模式使用
 } TxManager;
 

@@ -10,26 +10,24 @@
 //#define CACHE_COUNT 1024
 
 
-YuDb* YuDbOpen(const char* db_path, Config* config) {
+YuDb* YuDbOpen(const char* db_path, const Config* config) {
 	YuDb* db = malloc(sizeof(YuDb));
 	memset(db, 0, sizeof(*db));
-	db->config = config;
+	db->config = *config;
 	if (config->sync_mode == kConfigSyncFull) {
 		db->db_file = DbFileOpen(db_path, false);
-	}
-	else {
+	} else {
 		db->db_file = DbFileOpen(db_path, true);
-	}
-
-	if (config->update_mode == kConfigUpdateWal) {
-		WalInit(&db->wal, db_path);
 	}
 
 	bool success = false;
 	do {
-		if (!MetaInfoRead(db, config->page_size)) { break; }
+		if (!MetaInfoRead(db, config)) { break; }
 		PagerInit(&db->pager, db->meta_info.page_size, db->meta_info.page_count, config->cacher_page_count);
 		TxManagerInit(&db->tx_manager);
+		if (config->update_mode == kConfigUpdateWal) {
+			WalInit(&db->wal_manager, db_path);
+		}
 		success = true;
 	} while (false);
 	if (!success) {
@@ -41,7 +39,9 @@ YuDb* YuDbOpen(const char* db_path, Config* config) {
 }
 
 void YuDbClose(YuDb* db) {
-	if (db->config->update_mode == kConfigUpdateWal) {
+	if (db->config.update_mode == kConfigUpdateWal) {
+		// 需要先判断有没有提交的事务
+
 		PagerCleanPageIdPool(&db->pager);
 		PagerSyncWriteAllDirty(&db->pager);
 		db->meta_index = (db->meta_index + 1) % 2;
