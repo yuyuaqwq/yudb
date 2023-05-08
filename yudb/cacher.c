@@ -182,8 +182,9 @@ CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
 	RwLockWriteRelease(&cacher->hotspot_queue_lock);
 	
 	size_t fast_map_index = pgid % (sizeof(cacher->fast_map) / sizeof(*cacher->fast_map));
-	if (cacher->fast_map[fast_map_index].pgid == pgid) {
-		cacher->fast_map[fast_map_index].pgid = cache_id;
+	if (cacher->fast_map[fast_map_index].pgid == kPageInvalidId) {
+		cacher->fast_map[fast_map_index].pgid = pgid;
+		cacher->fast_map[fast_map_index].cacheid = cache_id;
 	}
 	
 	return cache_id;
@@ -231,9 +232,9 @@ CacheId CacherFind(Cacher* cacher, PageId pgid, bool put_first) {
 	YuDb* db = ObjectGetFromField(cacher, YuDb, pager.cacher);
 
 	size_t fast_map_index = pgid % (sizeof(cacher->fast_map) / sizeof(*cacher->fast_map));
-	/*if (cacher->fast_map[fast_map_index].pgid == pgid) {
+	if (cacher->fast_map[fast_map_index].pgid == pgid) {
 		return cacher->fast_map[fast_map_index].cacheid;
-	}*/
+	}
 	RwLockReadAcquire(&cacher->hotspot_queue_lock);
 	CacheLruListEntry* lru_entry = CacheLruListGet(&cacher->lru_list, &pgid, put_first);
 	CacheInfo* cache_info;
@@ -297,7 +298,7 @@ void* CacherGet(Cacher* cacher, CacheId cache_id) {
 void CacherDereference(Cacher* cacher, CacheId cache_id) {
 	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
 	AtomicDecrement32(&cache_info->reference_count);
-	assert(cache_info->reference_count >= 0);
+	  assert(cache_info->reference_count >= 0);
 }
 
 
@@ -310,6 +311,10 @@ void CacherMarkDirty(Cacher* cacher, CacheId cache_id) {
 		cache_info->type = kCacheTypeDirty;
 		RwLockWriteRelease(&cacher->hotspot_queue_lock);
 	}
+	else {
+		  assert(cache_info->type == kCacheTypeDirty);
+	}
+	
 }
 
 
