@@ -41,6 +41,8 @@ void PrintBucket(Tx* tx, YuDbBPlusEntry* entry, int Level, int pos) {
 	free(empty);
 }
 
+
+
 //
 //int GetBucketCount(Tx* tx) {
 //	int count = 0;
@@ -60,12 +62,22 @@ void PrintBucket(Tx* tx, YuDbBPlusEntry* entry, int Level, int pos) {
 
 #include <yudb/free_table.h>
 
+extern "C" void aaaa() {
+
+}
+
 long long l;
+extern "C" int i = 0;
+
+__forceinline PageId* CacheLruHashEntryAccessor_GetKey(CacheLruListHashTable* table, CacheLruHashEntry* hash_entry) {
+	return (&((CacheInfo*)((uintptr_t)(hash_entry->lru_entry) - ((uintptr_t) & (((CacheInfo*)0)->lru_entry))))->pgid);
+}
+
 int main() {
 	int r = 0;
 	int m = 0;
 
-	int64_t count = 100000;
+	int64_t count = 64650;
 
 
 
@@ -76,6 +88,7 @@ int main() {
 	//}
 	
 	int seed =11323;
+	seed = GetTickCount();
 	srand(seed);
 	const int qqq = 1000;
 	int* arr = (int*)malloc(qqq * 4);
@@ -94,9 +107,11 @@ int main() {
 	config.page_size = 4096;
 	config.cacher_page_count = 1024;
 	config.sync_mode = kConfigSyncNormal;
-	config.update_mode = kConfigUpdateWal;
+	config.update_mode = kConfigUpdateInPlace;
+	config.hotspot_queue_full_percentage = 50;
 	config.wal_max_page_count = 8;
 	config.wal_max_tx_count = 100000;
+	config.wal_write_thread_disk_drop_interval = 100;
 	YuDb* db = YuDbOpen("Z:\\test.ydb", &config);
 
 	//l = GetTickCount64();
@@ -149,8 +164,7 @@ int main() {
 	if (m == 1) {
 		TxBegin(db, &tx, kTxReadWrite);
 	}
-	
-	int i = 0;
+	i = 0;
 	for (auto& iter : map) {
 		i++;
 		if (m == 0) {
@@ -158,9 +172,122 @@ int main() {
 			//printf("%d    ", GetBucketCount(&tx));
 		}
 
+		if (i == 0xf591) {
+			printf("1??");
+			
+			//continue;
+		}
+		//CacheLruListHashTableIterator iter;
+		//CacheLruHashEntry* hash_entry = CacheLruListHashTableIteratorFirst(&db->pager.cacher.lru_list.hash_table, &iter);
+		//if (hash_entry) {
+
+		//	hash_entry = CacheLruListHashTableIteratorNext(&db->pager.cacher.lru_list.hash_table, &iter);
+		//}
+		int n = 0;
+		//CacheLruListHashTableIterator itera;
+		CacheLruListHashTable* table = &db->pager.cacher.lru_list.hash_table;
+		CacheLruListHashLinkRbObj rb_obj;
+		rb_obj.table = table;
+		bool aa11e = false;
+		rb_obj.rb_tree = table->bucket.obj_arr[0x11e].rb_tree;
+		int32_t id = CacheLruListHashLinkRbTreeIteratorFirst(&rb_obj.rb_tree);
+		while (id != -1) {
+			//printf("id:%d\n", id);
+			if (id == 1) {
+				aa11e = true;
+			}
+			id = CacheLruListHashLinkRbTreeIteratorNext(&rb_obj.rb_tree, id);
+		}
+
+		rb_obj.rb_tree = table->bucket.obj_arr[0x169].rb_tree;
+		id = CacheLruListHashLinkRbTreeIteratorFirst(&rb_obj.rb_tree);
+		bool aa169 = false;
+		while (id != -1) {
+			if (id == 1) {
+				aa169 = true;
+			}
+			//printf("id:%d\n", id);
+
+			id = CacheLruListHashLinkRbTreeIteratorNext(&rb_obj.rb_tree, id);
+		}
+		if (aa11e && aa169) {
+			printf("??");
+		}
+
+
+		/*for (int j = 0; j < table->bucket.count; j++) {
+			rb_obj.rb_tree = table->bucket.obj_arr[j].rb_tree;
+			int32_t id = CacheLruListHashLinkRbTreeIteratorFirst(&rb_obj.rb_tree);
+			while (id != -1) {
+				if (id == 1) {
+					n++;
+					if (n == 2) {
+						printf("??");
+					}
+				}
+				id = CacheLruListHashLinkRbTreeIteratorNext(&rb_obj.rb_tree, id);
+			}
+		}
+		*/
+
+
+		
+		YuDbBPlusLeafListHead* head = &tx.meta_info.bucket.bp_tree.leaf_list;
+		PageId pgid = YuDbBPlusLeafListFirst(head);
+		bool aa = false;
+		while (pgid != -1) {
+			BucketEntry* entry = (BucketEntry*)PagerReference(&db->pager, pgid);
+			if (pgid == 0Xa) {
+				if (i == 0xf591) {
+
+					aa = true;
+				}
+				printf("%x ", i);
+			}
+			if (pgid == 0x7 || pgid == 0x9 || pgid == 0xb) {
+				if (i == 0xf591) {
+					aa = true;
+				}
+			}
+			PagerDereference(&db->pager, entry);
+			pgid = YuDbBPlusLeafListNext(head, pgid);
+		}
+		if (i > 0x1fc && aa == false) {
+			aa = false;
+		}
+
+		aa11e = false;
+		rb_obj.rb_tree = table->bucket.obj_arr[0x11e].rb_tree;
+		id = CacheLruListHashLinkRbTreeIteratorFirst(&rb_obj.rb_tree);
+		while (id != -1) {
+			//printf("id:%d\n", id);
+			if (id == 1) {
+				aa11e = true;
+			}
+			id = CacheLruListHashLinkRbTreeIteratorNext(&rb_obj.rb_tree, id);
+		}
+
+		rb_obj.rb_tree = table->bucket.obj_arr[0x169].rb_tree;
+		id = CacheLruListHashLinkRbTreeIteratorFirst(&rb_obj.rb_tree);
+		aa169 = false;
+		while (id != -1) {
+			if (id == 1) {
+				aa169 = true;
+			}
+			//printf("id:%d\n", id);
+
+			id = CacheLruListHashLinkRbTreeIteratorNext(&rb_obj.rb_tree, id);
+		}
+		if (aa11e && aa169) {
+			printf("??");
+		}
+
+
 		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
 			printf("NOW!");
 		}
+
+
 		//BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id, '0');
 		//PrintBucket(&tx, &entry->bp_entry, 0, 0);
 		//printf("\n\n\n\n\n");
@@ -171,6 +298,75 @@ int main() {
 			TxCommit(&tx);
 		}
 	}
+	if (m == 1) {
+		TxCommit(&tx);
+	}
+	
+	for (auto& iter : map) {
+		++i;
+		if (m == 0) {
+			TxBegin(db, &tx, kTxReadOnly);
+		}
+		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter.first, 4)) {
+			printf("NOR!, %d  %d  ", iter.first, iter.second);
+		}
+		//YuDbBPlusLeafListHead* head = &tx.meta_info.bucket.bp_tree.leaf_list;
+		//PageId pgid = YuDbBPlusLeafListFirst(head);
+
+		//while (pgid != -1) {
+		//	BucketEntry* entry = (BucketEntry*)PagerReference(&db->pager, pgid);
+		//	if (pgid == 0Xa) {
+		//		aaaa();
+		//	}
+		//	PagerDereference(&db->pager, entry);
+		//	pgid = YuDbBPlusLeafListNext(head, pgid);
+		//}
+
+		if (m == 0) {
+			TxCommit(&tx);
+		}
+	}
+
+	if (m == 1) {
+		TxBegin(db, &tx, kTxReadWrite);
+	}
+
+
+	i = 0;
+	BucketEntry* entry = (BucketEntry*)PagerReference(&db->pager, 9);
+
+	for (auto& iter : map) {
+		i++;
+		if (i == 0xFF) {
+			printf("2??");
+			
+			//continue;
+		}
+		if (m == 0) {
+			TxBegin(db, &tx, kTxReadWrite);
+			//printf("%d    ", GetBucketCount(&tx));
+		}
+
+		
+		
+		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
+			printf("NOW!");
+		}
+
+		
+		
+
+		//BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id, '0');
+		//PrintBucket(&tx, &entry->bp_entry, 0, 0);
+		//printf("\n\n\n\n\n");
+
+		//
+		//printf("\n\n\n\n");
+		if (m == 0) {
+			TxCommit(&tx);
+		}
+	}
+	PagerDereference(&db->pager, entry);
 	if (m == 1) {
 		TxCommit(&tx);
 	}
@@ -188,7 +384,9 @@ int main() {
 	}
 	// PrintBucket(&tx, tx.meta_info.bucket.root_id, 0, 0);
 	//printf("%d", GetBucketCount(&tx));
+	i = 0;
 	for (auto& iter : map) {
+		++i;
 		if (m == 0) {
 			TxBegin(db, &tx, kTxReadOnly);
 		}

@@ -157,6 +157,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="error.c" />
     <ClCompile Include="free_table.c" />
     <ClCompile Include="import.c" />
     <ClCompile Include="meta_info.c" />
@@ -165,7 +166,6 @@
     <ClCompile Include="test.cpp" />
     <ClCompile Include="transaction.c" />
     <ClCompile Include="wal.c" />
-    <ClCompile Include="write_queue.c" />
     <ClCompile Include="yudb.c" />
     <ClCompile Include="db_file.c" />
   </ItemGroup>
@@ -181,6 +181,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="db_file.h" />
+    <ClInclude Include="error.h" />
     <ClInclude Include="free_table.h" />
     <ClInclude Include="meta_info.h" />
     <ClInclude Include="page.h" />
@@ -188,7 +189,6 @@
     <ClInclude Include="transaction.h" />
     <ClInclude Include="txid.h" />
     <ClInclude Include="wal.h" />
-    <ClInclude Include="write_queue.h" />
     <ClInclude Include="yudb.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

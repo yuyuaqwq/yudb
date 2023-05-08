@@ -3,6 +3,7 @@
 #include "yudb/free_table.h"
 #include "yudb/yudb.h"
 
+
 bool MetaInfoRead(YuDb* db, Config* config) {
 	if (!DbFileRead(db->db_file, &db->meta_info, sizeof(db->meta_info))) {
 		// 初始化数据库必要的页面，meta、free_l0_list、free_l1_list
@@ -15,9 +16,9 @@ bool MetaInfoRead(YuDb* db, Config* config) {
 		DbFileWrite(db->db_file, empty_page, config->page_size);
 
 		// free0_table
-		Free0Table* free0_table = empty_page;
-		Free0TableInit(free0_table, config->page_size);
-		Free0StaticList* static_list = Free0TableGetStaticList(free0_table);
+		FreeDirTable* free0_table = empty_page;
+		FreeDirTableInit(free0_table, config->page_size);
+		FreeDirStaticList* static_list = FreeDirTableGetStaticList(free0_table);
 
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
 		DbFileWrite(db->db_file, empty_page, config->page_size);
@@ -26,11 +27,11 @@ bool MetaInfoRead(YuDb* db, Config* config) {
 
 		// free1_table
 		memset(empty_page, 0, config->page_size);
-		Free1Table* free1_table = empty_page;
-		Free1TableInit(free1_table, config->page_size);
+		FreePageTable* free1_table = empty_page;
+		FreePageTableInit(free1_table, config->page_size);
 		// 前6个页面不可分配
-		Free1TableAlloc(free1_table, 4);
-		Free1TableAlloc(free1_table, 2);
+		FreePageTableAlloc(free1_table, 4);
+		FreePageTableAlloc(free1_table, 2);
 
 		
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);

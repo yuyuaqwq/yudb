@@ -1,7 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="cacher.c" />
     <ClCompile Include="data_pool.c" />
     <ClCompile Include="import.c" />
     <ClCompile Include="meta_info.c" />
@@ -14,7 +13,8 @@
     <ClCompile Include="db_file.c" />
     <ClCompile Include="bucket.c" />
     <ClCompile Include="free_table.c" />
-    <ClCompile Include="write_queue.c" />
+    <ClCompile Include="cacher.c" />
+    <ClCompile Include="error.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cacher.h" />
@@ -29,7 +29,7 @@
     <ClInclude Include="yudb.h" />
     <ClInclude Include="free_table.h" />
     <ClInclude Include="bucket.h" />
-    <ClInclude Include="write_queue.h" />
     <ClInclude Include="config.h" />
+    <ClInclude Include="error.h" />
   </ItemGroup>
 </Project>

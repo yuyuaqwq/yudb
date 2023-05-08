@@ -134,12 +134,14 @@ void PagerFree(Pager* pager, PageId pgid, bool skip_pool) {
 * 引用页面获取缓存，递增页面引用计数
 */
 void* PagerReference(Pager* pager, PageId pgid) {
+	
 	CacheId cache_id = CacherFind(&pager->cacher, pgid, true);
 	CacheInfo* info = CacherGetInfo(&pager->cacher, cache_id);
 	void* cache;
 	if (cache_id == kCacheInvalidId) {
 		cache_id = CacherAlloc(&pager->cacher, pgid);
 		if (cache_id == kCacheInvalidId) {
+			  assert(0);
 			return NULL;
 		}
 		cache = CacherGet(&pager->cacher, cache_id);
@@ -153,6 +155,7 @@ void* PagerReference(Pager* pager, PageId pgid) {
 	else {
 		cache = CacherGet(&pager->cacher, cache_id);
 	}
+	  assert(cache);
 	return cache;
 }
 
@@ -196,42 +199,22 @@ void PagerCleanPageIdPool(Pager* pager) {
 }
 
 /*
-* 同步落盘所有脏页
+* 同步落盘脏页队列所有脏页
 */
 void PagerSyncWriteAllDirty(Pager* pager) {
 	Cacher* cacher = &pager->cacher;
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
-	// 尽可能顺序写
-	do {
-		CacheId dirty_cache_id = cacher->cache_info_pool->list_first[kCacheListDirty];
-		if (dirty_cache_id == kCacheInvalidId) {
-			break;
-		}
-
-		// 找最小页号的缓存
-		CacheInfo* min_cache_info = NULL;
-		do {
-			CacheInfo* cache_info = CacherGetInfo(cacher, dirty_cache_id);
-			  assert(cache_info->type == kCacheListDirty);
-			  assert(cache_info->reference_count == 0);
-			if (min_cache_info == NULL) {
-				min_cache_info = cache_info;
-			}
-			else if (cache_info->pgid < min_cache_info->pgid) {
-				min_cache_info = cache_info;
-			}
-			dirty_cache_id = cache_info->dirty_entry.next;
-		} while (dirty_cache_id != kCacheInvalidId);
-
+	CacheRbEntry* rb_entry = CacheRbTreeIteratorFirst(&cacher->dirty_tree);
+	while (rb_entry) {
+		CacheInfo* cache_info = ObjectGetFromField(rb_entry, CacheInfo, dirty_entry);
+		rb_entry = CacheRbTreeIteratorNext(&cacher->dirty_tree, rb_entry);
+		CacheRbTreeDelete(&cacher->dirty_tree, &cache_info->dirty_entry);
 		// 写入1页
-		if (min_cache_info) {
-			dirty_cache_id = CacherGetIdByInfo(cacher, min_cache_info);
-			void* cache = CacherGet(cacher, dirty_cache_id);
-			CacheDoublyStaticListSwitch(cacher->cache_info_pool, kCacheListDirty, dirty_cache_id, kCacheListClean);
-			min_cache_info->type = kCacheListClean;
-			PagerWrite(pager, min_cache_info->pgid, cache, 1);
-			CacherDereference(cacher, dirty_cache_id);
-		}
-	}  while (true);
-	cacher->cache_info_pool->list_first[kCacheListDirty] = kCacheInvalidId;
+		CacheId dirty_cache_id = CacherGetIdByInfo(cacher, cache_info);
+		void* cache = CacherGet(cacher, dirty_cache_id);
+		CacheDoublyStaticListPush(cacher->cache_info_pool, kCacheTypeClean, dirty_cache_id);
+		cache_info->type = kCacheTypeClean;
+		PagerWrite(pager, cache_info->pgid, cache, 1);
+		CacherDereference(cacher, dirty_cache_id);
+	};
 }

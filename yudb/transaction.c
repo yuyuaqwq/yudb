@@ -116,10 +116,9 @@ void TxCommit(Tx* tx) {
 	}  
 	else if (tx->db->config.update_mode == kConfigUpdateWal) {
 		WalAppendCommitLog(&tx->db->wal_manager);
-		if (++tx->db->wal_manager.write_queue.tx_count >= tx->db->config.wal_max_tx_count) {
+		if (++tx->db->pager.cacher.write_later_tx_count >= tx->db->config.wal_max_tx_count) {
 			// 触发队列封存，切换新队列
-			WriteQueueImmutable(&tx->db->wal_manager.write_queue);
-			tx->db->wal_manager.write_queue.tx_count = 0;
+			CacherWriteLaterQueueImmutable(&tx->db->pager.cacher);
 		}
 	}
 }

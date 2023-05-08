@@ -10,7 +10,6 @@
 
 #include <yudb/db_file.h>
 #include <yudb/page.h>
-#include <yudb/write_queue.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -51,7 +50,7 @@ typedef struct _WalManager {
 	WalBufVector log_buf;
 	char* db_wal_path;
 
-	WriteQueue write_queue;
+	
 } WalManager;
 
 void WalInit(WalManager* wal, const char* db_path);

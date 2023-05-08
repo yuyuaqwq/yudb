@@ -4,3 +4,4 @@
 #include <CUtils/algorithm/hash_map.c>
 #include <CUtils/algorithm/crc32.c>
 #include <CUtils/concurrency/mutex_lock.c>
+#include <CUtils/concurrency/rw_lock.c>
