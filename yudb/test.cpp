@@ -120,6 +120,8 @@ int main() {
 	//	}
 	//}
 	
+
+	// 现在的页面分配器还有一个小问题，释放小id(6~1023)后，还是可能先分配大id(1026~2047)，页面利用率下降
 	int seed =11323;
 	seed = GetTickCount();
 	srand(seed);
@@ -213,7 +215,7 @@ int main() {
 		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
 			printf("NOW!");
 		}
-
+		printf("\n");
 
 		//BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id, '0');
 		//PrintBucket(&tx, &entry->bp_entry, 0, 0);
