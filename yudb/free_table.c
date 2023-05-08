@@ -7,6 +7,7 @@
 
 CUTILS_SPACE_MANAGER_BUDDY_DEFINE(Free, int16_t, CUTILS_SPACE_MANAGER_BUDDY_4BIT_INDEXER, CUTILS_OBJECT_ALLOCATOR_DEFALUT)
 
+
 #define YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId (-1)
 #define YUDB_FREE_TABLE_FREE_REFERENCER YUDB_FREE_TABLE_FREE_REFERENCER
 #define YUDB_FREE_TABLE_FREE0_ACCESSOR_GetNext(list, element) ((element)->entry_list_next)
@@ -54,7 +55,7 @@ void FreePageTablePending(FreePageTable* free1_table, int16_t free1_entry_id) {
 	FreePageStaticList* static_list = FreePageTableGetStaticList(free1_table);
 	FreePageEntry* free1_entry = &static_list->obj_arr[free1_entry_id - 2];
 	free1_entry->is_pending = true;
-	FreePageStaticListPush(static_list, kFreePageEntryListPending, free1_entry_id);
+	FreePageStaticListPush(static_list, kFreePageEntryListPending, free1_entry_id - 2);
 }
 
 void FreePageTableFree(FreePageTable* free1_table, int16_t free1_entry_id) {
@@ -67,7 +68,7 @@ void FreePageTableFree(FreePageTable* free1_table, int16_t free1_entry_id) {
 		int16_t cur_id = FreePageStaticListIteratorFirst(static_list, kFreePageEntryListPending);
 		int16_t prev_id = YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId;
 		while (cur_id != YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId) {
-			if (cur_id == free1_entry_id) {
+			if (cur_id == free1_entry_id - 2) {
 				FreePageStaticListDelete(static_list, kFreePageEntryListPending, prev_id, cur_id);
 				break;
 			}
@@ -269,6 +270,7 @@ int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id_
 	FreePageTableMarkDirty(table, free1_table);
 
 	CacherDereference(&pager->cacher, cache_id);
+	  assert(free1_entry_id);
 	return free1_entry_id;
 }
 
@@ -339,7 +341,7 @@ void FreeTableCleanPending(FreeTable* table) {
 			FreePageStaticList* f1_static_list = FreePageTableGetStaticList(free1_table);
 			int16_t id = FreePageStaticListIteratorFirst(f1_static_list, kFreePageEntryListPending);
 			while (id != YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId) {
-				FreePageTableFree(free1_table, id);
+				FreePageTableFree(free1_table, id + 2);
 				id = FreePageStaticListIteratorNext(f1_static_list, id);
 			}
 			f1_static_list->list_first[kFreePageEntryListPending] = YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId;

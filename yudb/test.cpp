@@ -110,7 +110,7 @@ int main() {
 	int r = 0;
 	int m = 0;
 
-	int64_t count = 64650;
+	int64_t count = 200000;
 
 
 
@@ -123,7 +123,7 @@ int main() {
 	int seed =11323;
 	seed = GetTickCount();
 	srand(seed);
-	const int qqq = 1000;
+	const int qqq = count;
 	int* arr = (int*)malloc(qqq * 4);
 	//for (int i = 0; i < qqq; i++) {
 	//	arr[i] = i;
@@ -147,17 +147,18 @@ int main() {
 	config.wal_write_thread_disk_drop_interval = 100;
 	YuDb* db = YuDbOpen("Z:\\test.ydb", &config);
 
-	//l = GetTickCount64();
-	//for (int i = 0; i < count; i++) {
-	//	for (int j = 0; j < qqq; j++) {
-	//		arr[j] = PagerAlloc(&db->pager, false, 1);
-	//	}
-	//	for (int j = 0; j < qqq; j++) {
-	//		PagerFree(&db->pager, arr[j], 1);
-	//	}
-	//}
-	//printf("read: %dms", (int)(GetTickCount64() - l));
-
+	/*l = GetTickCount64();
+	for (int i = 0; i < count; i++) {
+		arr[i] = PagerAlloc(&db->pager, false, 1);
+		if (arr[i] == 0 || arr[i] == -1) {
+			printf("??");
+		}
+	}
+	for (int i = 0; i < count; i++) {
+		PagerFree(&db->pager, arr[i], 1);
+	}
+	printf("read: %dms", (int)(GetTickCount64() - l));
+*/
 
 	PageId id;
 	Tx tx;
@@ -229,31 +230,31 @@ int main() {
 	}
 	
 
-	if (m == 1) {
-		TxBegin(db, &tx, kTxReadWrite);
-	}
-	i = 0;
-	for (auto& iter : map) {
-		i++;
-		
-		if (m == 0) {
-			TxBegin(db, &tx, kTxReadWrite);
-			//printf("%d    ", GetBucketCount(&tx));
-		}
+	//if (m == 1) {
+	//	TxBegin(db, &tx, kTxReadWrite);
+	//}
+	//i = 0;
+	//for (auto& iter : map) {
+	//	i++;
+	//	
+	//	if (m == 0) {
+	//		TxBegin(db, &tx, kTxReadWrite);
+	//		//printf("%d    ", GetBucketCount(&tx));
+	//	}
 
-	
-		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
-			printf("NOW!");
-		}
+	//
+	//	if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
+	//		printf("NOW!");
+	//	}
 
-		
-		if (m == 0) {
-			TxCommit(&tx);
-		}
-	}
-	if (m == 1) {
-		TxCommit(&tx);
-	}
+	//	
+	//	if (m == 0) {
+	//		TxCommit(&tx);
+	//	}
+	//}
+	//if (m == 1) {
+	//	TxCommit(&tx);
+	//}
 
 
 	l = GetTickCount64() - l;
