@@ -17,7 +17,7 @@ bool MetaInfoRead(YuDb* db, Config* config) {
 
 		// free0_table
 		FreeDirTable* free0_table = empty_page;
-		FreeDirTableInit(free0_table, config->page_size);
+		FreeDirTableInit(free0_table, config->page_size, kFreePageTable);
 		FreeDirStaticList* static_list = FreeDirTableGetStaticList(free0_table);
 
 		DbFileSeek(db->db_file, 0, kDbFilePointerEnd);

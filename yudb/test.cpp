@@ -108,9 +108,9 @@ __forceinline PageId* CacheLruHashEntryAccessor_GetKey(CacheLruListHashTable* ta
 
 int main() {
 	int r = 0;
-	int m = 0;
+	int m = 1;
 
-	int64_t count = 200000;
+	int64_t count = 10000000;
 
 
 
@@ -215,7 +215,7 @@ int main() {
 		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
 			printf("NOW!");
 		}
-		printf("\n");
+		//printf("\n");
 
 		//BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id, '0');
 		//PrintBucket(&tx, &entry->bp_entry, 0, 0);

@@ -71,8 +71,13 @@ typedef struct _FreeTable {
 	FreeDirTable* free0_table;
 } FreeTable;
 
+typedef enum {
+	kFreeDirTable = 0,
+	kFreePageTable = 1,
+} FreeTableType;
+
 FreeDirStaticList* FreeDirTableGetStaticList(FreeDirTable* free0_table);
-void FreeDirTableInit(FreeDirTable* free0_table, int16_t page_size);
+void FreeDirTableInit(FreeDirTable* free0_table, int16_t page_size, FreeTableType sub_table_type);
 
 void FreePageTableInit(FreePageTable* free1_table, int16_t page_size);
 int16_t FreePageTableAlloc(FreePageTable* free1_table, int16_t count);
