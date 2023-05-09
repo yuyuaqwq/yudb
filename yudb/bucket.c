@@ -73,6 +73,8 @@ static PageId BucketEntryCopy(Bucket* bucket, BucketEntry* entry, PageId entry_p
 	copy_entry->last_write_tx_id = tx->meta_info.txid;
 	if (copy_entry->bp_entry.type == kBPlusEntryLeaf) {
 		// 当前是叶子节点，需要处理一下叶子节点的前后连接链表
+		// 需要注意有一个问题，前后叶子不能直接修改，需要copy
+		// 但是copy则会导致整条叶子链表都会需要copy，因此不能
 		PageId prev_id = entry->bp_entry.leaf.list_entry.prev;
 		PageId next_id = entry->bp_entry.leaf.list_entry.next;
 		YuDbBPlusEntry* next_entry = YUDB_BUCKET_BPLUS_REFERENCER_Reference(&bucket->bp_tree, next_id);
