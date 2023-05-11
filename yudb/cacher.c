@@ -13,7 +13,7 @@ const CacheId kCacheInvalidId = -1;
 #define YUDB_CACHER_LRU_LIST_ACCESSOR_GetKey(LIST, ENTRY) (&ObjectGetFromField(ENTRY, CacheInfo, lru_entry)->pgid)
 #define YUDB_CACHER_LRU_LIST_ACCESSOR YUDB_CACHER_LRU_LIST_ACCESSOR
 #define YUDB_CAHCER_LRU_LIST_HASHER(TABLE, KEY) Hashmap_hashint(*KEY)
-CUTILS_CONTAINER_LRU_LIST_DEFINE(Cache, PageId, YUDB_CACHER_LRU_LIST_ACCESSOR, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_CAHCER_LRU_LIST_HASHER, CUTILS_OBJECT_COMPARER_DEFALUT)
+CUTILS_CONTAINER_HASH_LIST_DEFINE(Cache, PageId, YUDB_CACHER_LRU_LIST_ACCESSOR, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_CAHCER_LRU_LIST_HASHER, CUTILS_OBJECT_COMPARER_DEFALUT)
 
 
 #define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_GetNext(list, cache_info) ((cache_info)->free_entry.next)
@@ -120,7 +120,7 @@ void CacherInit(Cacher* cacher, size_t count) {
 	cacher->cache_pool = malloc(pager->page_size * count);
 	cacher->cache_info_pool = malloc(sizeof(CacheDoublyStaticList) + sizeof(CacheInfo) * count);
 	CacheDoublyStaticListInit(cacher->cache_info_pool, count);
-	CacheLruListInit(&cacher->lru_list, count);
+	CacheHashListInit(&cacher->lru_list, count);
 	CacheRbTreeInit(&cacher->dirty_tree);
 	for (int i = 0; i < sizeof(cacher->fast_map) / sizeof(*cacher->fast_map); i++) {
 		cacher->fast_map[i].pgid = kPageInvalidId;
@@ -151,7 +151,7 @@ CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
 	size_t max_count = cacher->lru_list.max_count;
 	if (cur_count >= max_count / 100 * db->config.hotspot_queue_full_percentage) {
 		// 需要从热点队列驱逐缓存
-		CacheLruListEntry* lru_entry = CacheLruListPop(&cacher->lru_list);
+		CacheHashListEntry* lru_entry = CacheHashListPop(&cacher->lru_list);
 		  assert(lru_entry != NULL);
 		evict_cache_info = ObjectGetFromField(lru_entry, CacheInfo, lru_entry);
 		CacherEvict(cacher, CacherGetIdByInfo(cacher, evict_cache_info));
@@ -177,7 +177,7 @@ CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
 	cache_info->pgid = pgid;
 	cache_info->reference_count = 0;
 	cache_info->type = kCacheTypeClean;
-	CacheLruListEntry* lru_entry = CacheLruListPut(&cacher->lru_list, &cache_info->lru_entry);
+	CacheHashListEntry* lru_entry = CacheHashListPut(&cacher->lru_list, &cache_info->lru_entry);
 	  assert(lru_entry == NULL);		// Lru不应该还会淘汰页面
 	RwLockWriteRelease(&cacher->hotspot_queue_lock);
 	
@@ -204,7 +204,7 @@ void CacherFree(Cacher* cacher, CacheId cache_id) {
 	}
 
 	RwLockWriteAcquire(&cacher->hotspot_queue_lock);
-	CacheLruListEntry* del_entry = CacheLruListDelete(&cacher->lru_list, &cache_info->pgid);
+	CacheHashListEntry* del_entry = CacheHashListDelete(&cacher->lru_list, &cache_info->pgid);
 	//  assert(del_entry);
 	if (cache_info->type == kCacheTypeClean) {
 		CacheDoublyStaticListDelete(cacher->cache_info_pool, cache_info->type, cache_id);
@@ -236,7 +236,7 @@ CacheId CacherFind(Cacher* cacher, PageId pgid, bool put_first) {
 		return cacher->fast_map[fast_map_index].cacheid;
 	}
 	RwLockReadAcquire(&cacher->hotspot_queue_lock);
-	CacheLruListEntry* lru_entry = CacheLruListGet(&cacher->lru_list, &pgid, put_first);
+	CacheHashListEntry* lru_entry = CacheHashListGet(&cacher->lru_list, &pgid, put_first);
 	CacheInfo* cache_info;
 	if (!lru_entry) {
 		if (db->config.update_mode != kConfigUpdateWal) {

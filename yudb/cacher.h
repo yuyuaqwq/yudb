@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <CUtils/container/lru_list.h>
+#include <CUtils/container/hash_list.h>
 #include <CUtils/container/doubly_static_list.h>
 #include <CUtils/concurrency/rw_lock.h>
 
@@ -14,7 +14,7 @@
 extern "C" {
 #endif //  __cplusplus
 
-CUTILS_CONTAINER_LRU_LIST_DECLARATION(Cache, PageId)
+CUTILS_CONTAINER_HASH_LIST_DECLARATION(Cache, PageId)
 
 typedef int32_t CacheId;
 
@@ -42,7 +42,7 @@ typedef struct _CacheInfo {
 	PageId pgid;				// 对应的页面id
 	int32_t reference_count;	// 缓存引用计数
 	CacheType type;
-	CacheLruListEntry lru_entry;		// 基于LRU策略管理缓存页面
+	CacheHashListEntry lru_entry;		// 基于LRU策略管理缓存页面
 	union {
 		union {
 			CacheDoublyStaticListEntry free_entry;
@@ -60,7 +60,7 @@ CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_2(Cache, int16_t, CacheInfo, 2)
 
 typedef struct _Cacher {
 	RwLock hotspot_queue_lock;		// 热点队列锁
-	CacheLruList lru_list;
+	CacheHashList lru_list;
 	CacheRbTree dirty_tree;
 
 	/* wal模式使用 */

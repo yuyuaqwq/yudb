@@ -102,8 +102,8 @@ extern "C" void aaaa() {
 long long l;
 extern "C" int i = 0;
 
-__forceinline PageId* CacheLruHashEntryAccessor_GetKey(CacheLruListHashTable* table, CacheLruHashEntry* hash_entry) {
-	return (&((CacheInfo*)((uintptr_t)(hash_entry->lru_entry) - ((uintptr_t) & (((CacheInfo*)0)->lru_entry))))->pgid);
+__forceinline PageId* CacheLruHashEntryAccessor_GetKey(CacheHashListHashTable* table, CacheHashListHashEntry* hash_entry) {
+	return (&((CacheInfo*)((uintptr_t)(hash_entry->hash_list_entry) - ((uintptr_t) & (((CacheInfo*)0)->lru_entry))))->pgid);
 }
 
 int main() {
