@@ -58,7 +58,7 @@ inline void YUDB_BUCKET_BPLUS_REFERENCER_Dereference(YuDbBPlusTree* tree, YuDbBP
 #define YUDB_BUCKET_BPLUS_REFERENCER YUDB_BUCKET_BPLUS_REFERENCER
 #define YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR
 #define YUDB_BUCKET_BPLUS_ALLOCATOR YUDB_BUCKET_BPLUS_ALLOCATOR
-CUTILS_CONTAINER_BPLUS_TREE_DEFINE(YuDb, PageId, int32_t, int32_t, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_BUCKET_BPLUS_ALLOCATOR, YUDB_BUCKET_BPLUS_REFERENCER, YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR, CUTILS_OBJECT_COMPARER_DEFALUT)
+CUTILS_CONTAINER_BPLUS_TREE_DEFINE(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, PageId, int32_t, int32_t, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_BUCKET_BPLUS_ALLOCATOR, YUDB_BUCKET_BPLUS_REFERENCER, YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR, CUTILS_OBJECT_COMPARER_DEFALUT)
 
 
 
@@ -71,24 +71,22 @@ static PageId BucketEntryCopy(Bucket* bucket, BucketEntry* entry, PageId entry_p
 	BucketEntry* copy_entry = (BucketEntry*)PagerReference(&tx->db->pager, copy_pgid);
 	memcpy(copy_entry, entry, tx->db->pager.page_size);
 	copy_entry->last_write_tx_id = tx->meta_info.txid;
-	if (copy_entry->bp_entry.type == kBPlusEntryLeaf) {
-		// 当前是叶子节点，需要处理一下叶子节点的前后连接链表
-		// 需要注意有一个问题，前后叶子不能直接修改，需要copy
-		// 但是copy则会导致整条叶子链表都会需要copy，因此不能
-		PageId prev_id = entry->bp_entry.leaf.list_entry.prev;
-		PageId next_id = entry->bp_entry.leaf.list_entry.next;
-		YuDbBPlusEntry* next_entry = YUDB_BUCKET_BPLUS_REFERENCER_Reference(&bucket->bp_tree, next_id);
-		YuDbBPlusEntry* prev_entry = YUDB_BUCKET_BPLUS_REFERENCER_Reference(&bucket->bp_tree, prev_id);
-		YuDbBPlusLeafListReplaceEntry(&bucket->bp_tree.leaf_list, entry_pgid, copy_pgid);
+	//if (copy_entry->bp_entry.type == kBPlusEntryLeaf) {
+	//	// 叶子链表无法进行写时复制(需要拷贝整条链)，故不支持叶子链表的连接
+	//	PageId prev_id = entry->bp_entry.leaf.list_entry.prev;
+	//	PageId next_id = entry->bp_entry.leaf.list_entry.next;
+	//	YuDbBPlusEntry* next_entry = YUDB_BUCKET_BPLUS_REFERENCER_Reference(&bucket->bp_tree, next_id);
+	//	YuDbBPlusEntry* prev_entry = YUDB_BUCKET_BPLUS_REFERENCER_Reference(&bucket->bp_tree, prev_id);
+	//	YuDbBPlusLeafListReplaceEntry(&bucket->bp_tree.leaf_list, entry_pgid, copy_pgid);
 
-		assert(prev_entry->type == kBPlusEntryLeaf);
-		assert(next_entry->type == kBPlusEntryLeaf);
+	//	assert(prev_entry->type == kBPlusEntryLeaf);
+	//	assert(next_entry->type == kBPlusEntryLeaf);
 
-		PagerMarkDirty(&tx->db->pager, next_entry);
-		PagerMarkDirty(&tx->db->pager, prev_entry);
-		YUDB_BUCKET_BPLUS_REFERENCER_Dereference(&bucket->bp_tree, next_entry);
-		YUDB_BUCKET_BPLUS_REFERENCER_Dereference(&bucket->bp_tree, prev_entry);
-	}
+	//	PagerMarkDirty(&tx->db->pager, next_entry);
+	//	PagerMarkDirty(&tx->db->pager, prev_entry);
+	//	YUDB_BUCKET_BPLUS_REFERENCER_Dereference(&bucket->bp_tree, next_entry);
+	//	YUDB_BUCKET_BPLUS_REFERENCER_Dereference(&bucket->bp_tree, prev_entry);
+	//}
 	PagerMarkDirty(&tx->db->pager, copy_entry);
 	PagerDereference(&tx->db->pager, copy_entry);
 	return copy_pgid;
