@@ -178,7 +178,7 @@ CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
 	cache_info->reference_count = 0;
 	cache_info->type = kCacheTypeClean;
 	CacheHashListEntry* lru_entry = CacheHashListPut(&cacher->lru_list, &cache_info->lru_entry);
-	  assert(lru_entry == NULL);		// Lru不应该还会淘汰页面
+	  assert(lru_entry == NULL);		// 不应该会推入已在链表的缓存
 	RwLockWriteRelease(&cacher->hotspot_queue_lock);
 	
 	size_t fast_map_index = pgid % (sizeof(cacher->fast_map) / sizeof(*cacher->fast_map));
