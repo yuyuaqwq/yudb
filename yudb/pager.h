@@ -14,6 +14,8 @@ extern "C" {
 #endif //  __cplusplus
 
 typedef struct _Pager {
+	int16_t data_pool_count;
+
 	int16_t page_size;
 	PageCount page_count;
 	FreeTable free_table;		// 磁盘空闲页面管理表

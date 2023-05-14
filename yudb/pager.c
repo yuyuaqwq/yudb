@@ -16,6 +16,11 @@ static int64_t PagerGetPageOffset(Pager* pager, PageId pgid) {
 */
 bool PagerInit(Pager* pager, int16_t page_size, PageCount page_count, size_t cache_count) {
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
+
+	int32_t i, j;
+	for (i = page_size / 4, j = 1; i > 16; i /= 2, j++);
+	pager->data_pool_count = j;
+
 	pager->page_size = page_size;
 	pager->page_count = page_count;
 	CacherInit(&pager->cacher, cache_count);

@@ -17,9 +17,9 @@ extern "C" {
 CUTILS_CONTAINER_BPLUS_TREE_DECLARATION(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, PageId, int32_t, int32_t)
 
 typedef struct _BucketEntry {
-    PageId first_data_pool[kDataPoolCount];
     TxId last_write_tx_id;
-    YuDbBPlusEntry bp_entry;
+    PageId first_data_pool[];
+    //YuDbBPlusEntry bp_entry;
 } BucketEntry;
 
 typedef struct _Bucket {

@@ -10,6 +10,18 @@ static inline Tx* BPlusTreeToTx(YuDbBPlusTree* tree) {
 	return tx;
 }
 
+static inline uint32_t GetBucketHeadSize(YuDbBPlusTree* tree) {
+	Tx* tx = BPlusTreeToTx(tree);
+	return sizeof(BucketEntry) + tx->db->pager.data_pool_count * sizeof(PageId);
+}
+
+static inline YuDbBPlusEntry* BucketEntryToBPlusEntry(YuDbBPlusTree* tree, BucketEntry* entry) {
+	return (YuDbBPlusEntry*)((uintptr_t)entry + GetBucketHeadSize(tree));
+}
+
+static inline YuDbBPlusEntry* BPlusEntryToBucketEntry(YuDbBPlusTree* tree, YuDbBPlusEntry* entry) {
+	return (YuDbBPlusEntry*)((uintptr_t)entry - GetBucketHeadSize(tree));
+}
 
 
 /*
@@ -31,6 +43,9 @@ inline PageId YUDB_BUCKET_BPLUS_ALLOCATOR_CreateBySize(YuDbBPlusTree* tree, size
 	PageId pgid = PagerAlloc(&tx->db->pager, true, 1);
 	BucketEntry* entry = (BucketEntry*)PagerReference(&tx->db->pager, pgid);
 	PagerMarkDirty(&tx->db->pager, entry);
+	for (int32_t i = 0; i < tx->db->pager.data_pool_count; i++) {
+		entry->first_data_pool[i] = kPageInvalidId;
+	}
 	entry->last_write_tx_id = tx->meta_info.txid;
 	PagerDereference(&tx->db->pager, entry);
 	return pgid;
@@ -46,11 +61,11 @@ inline void YUDB_BUCKET_BPLUS_ALLOCATOR_Release(YuDbBPlusTree* tree, PageId pgid
 inline YuDbBPlusEntry* YUDB_BUCKET_BPLUS_REFERENCER_Reference(YuDbBPlusTree* tree, PageId pgid) {
 	Tx* tx = BPlusTreeToTx(tree);
 	BucketEntry* entry = (BucketEntry*)PagerReference(&tx->db->pager, pgid);
-	return &entry->bp_entry;
+	return BucketEntryToBPlusEntry(tree, entry);
 }
 inline void YUDB_BUCKET_BPLUS_REFERENCER_Dereference(YuDbBPlusTree* tree, YuDbBPlusEntry* bp_entry) {
 	Tx* tx = BPlusTreeToTx(tree);
-	BucketEntry* entry = ObjectGetFromField(bp_entry, BucketEntry, bp_entry);
+	BucketEntry* entry = BPlusEntryToBucketEntry(tree, bp_entry);
 	PagerDereference(&tx->db->pager, entry);
 }
 
@@ -96,8 +111,14 @@ static PageId BucketEntryCopy(Bucket* bucket, BucketEntry* entry, PageId entry_p
 key最大只支持1页以内的长度
 */
 void BucketInit(YuDb* db, Bucket* bucket) {
-	uint32_t index_m = (db->pager.page_size - (sizeof(BucketEntry) - max(sizeof(YuDbBPlusLeafEntry), sizeof(YuDbBPlusIndexEntry)) + sizeof(YuDbBPlusIndexEntry))) / sizeof(YuDbBPlusIndexElement) + 1;
-	uint32_t leaf_m = (db->pager.page_size - (sizeof(BucketEntry) - max(sizeof(YuDbBPlusLeafEntry), sizeof(YuDbBPlusIndexEntry)) + sizeof(YuDbBPlusLeafEntry))) / sizeof(YuDbBPlusLeafElement) + 1;
+	uint32_t bucket_entry_head_size = GetBucketHeadSize(&bucket->bp_tree);
+	uint32_t bplus_entry_head_size = sizeof(YuDbBPlusEntry) - max(sizeof(YuDbBPlusLeafEntry), sizeof(YuDbBPlusIndexEntry));
+	uint32_t head_size = (bucket_entry_head_size + bplus_entry_head_size + sizeof(YuDbBPlusIndexEntry));
+	uint32_t index_m = (db->pager.page_size - head_size) / sizeof(YuDbBPlusIndexElement) + 1;
+
+	head_size = head_size - sizeof(YuDbBPlusIndexEntry) + sizeof(YuDbBPlusLeafEntry);
+	uint32_t leaf_m = (db->pager.page_size - head_size) / sizeof(YuDbBPlusLeafElement) + 1;
+
     YuDbBPlusTreeInit(&bucket->bp_tree, index_m, leaf_m);
 }
 
@@ -135,7 +156,7 @@ bool BucketPut(Bucket* bucket, void* key_buf, int16_t key_size, void* value_buf,
 				success = false;
 				break;
 			}
-			PagerDereference(&tx->db->pager, &entry->bp_entry);
+			PagerDereference(&tx->db->pager, BucketEntryToBPlusEntry(&bucket->bp_tree, entry));
 			PagerPending(&tx->db->pager, tx, cur->entry_id);
 
 			// 游标回溯的pgid修改为拷贝的节点
@@ -145,7 +166,7 @@ bool BucketPut(Bucket* bucket, void* key_buf, int16_t key_size, void* value_buf,
 			YuDbBPlusElementPos* up = YuDbBPlusCursorUp(tree, &cursor);
 			if (up) {
 				BucketEntry* up_entry = (BucketEntry*)PagerReference(&tx->db->pager, up->entry_id);
-				YuDbBPlusElementSetChildId(tree, &up_entry->bp_entry, up->element_id, copy_id);
+				YuDbBPlusElementSetChildId(tree, BucketEntryToBPlusEntry(&bucket->bp_tree, up_entry), up->element_id, copy_id);
 				PagerDereference(&tx->db->pager, up_entry);
 				YuDbBPlusCursorDown(tree, &cursor);
 			}
@@ -171,7 +192,7 @@ bool BucketPut(Bucket* bucket, void* key_buf, int16_t key_size, void* value_buf,
 }
 
 bool BucketFind(Bucket* bucket, void* key_buf, int16_t key_size) {
-	MemoryData key_data;
+	MemoryBuffer key_data;
 	key_data.buf = key_buf;
 	key_data.size = key_size;
 	//Key key;
