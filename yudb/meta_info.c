@@ -95,4 +95,5 @@ bool MetaInfoWrite(YuDb* db, int32_t meta_index) {
 	if (db->config.sync_mode == kConfigSyncFull) {
 		DbFileSync(db->db_file);
 	}
+	return true;
 }

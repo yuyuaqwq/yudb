@@ -116,7 +116,7 @@ void FreeDirTableInit(FreeDirTable* free0_table, int16_t page_size, FreeTableTyp
 	FreeDirStaticList* static_list = FreeDirTableGetStaticList(free0_table);
 	FreeDirStaticListInit(static_list, max_count);
 	for (int i = 0; i < max_count; i++) {
-		static_list->obj_arr[i].sub_max_free_log = CUTILS_SPACE_MANAGER_BUDDY_TO_EXPONENT_OF_2(sub_table_type == kFreeDirTable ? FreePageTableGetMaxCount(page_size) : FreeDirTableGetMaxCount(page_size));
+		static_list->obj_arr[i].sub_max_free_log = FreeBuddy_TO_EXPONENT_OF_2(sub_table_type == kFreeDirTable ? FreePageTableGetMaxCount(page_size) : FreeDirTableGetMaxCount(page_size));
 		static_list->obj_arr[i].read_select = 1;
 		static_list->obj_arr[i].write_select = 0;
 		static_list->obj_arr[i].sub_table_pending = false;
@@ -268,7 +268,7 @@ int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id_
 	}
 
 	// 更新f0中对应的f1最大连续空闲
-	free0_entry->sub_max_free_log = CUTILS_SPACE_MANAGER_BUDDY_TO_EXPONENT_OF_2(FreePageTableGetMaxFreeCount(free1_table));
+	free0_entry->sub_max_free_log = FreeBuddy_TO_EXPONENT_OF_2(FreePageTableGetMaxFreeCount(free1_table));
 	if (free0_entry->sub_max_free_log == 0) {
 		// 下级没有可分配的空间，挂到满队列中
 		// FreeDirStaticListSwitch(static_list, kFreeDirEntryListAlloc, free0_entry_prev_id, free0_entry_id, kFreeDirEntryListFull);
@@ -330,7 +330,7 @@ void FreeTableFree(FreeTable* table, PageId pgid) {
 		// 挂回可分配队列
 		//FreeDirStaticListSwitch(static_list, kFreeDirEntryListFull, free0_entry_prev_id, free0_entry_id, kFreeDirEntryListAlloc);
 	}
-	free0_entry->sub_max_free_log = CUTILS_SPACE_MANAGER_BUDDY_TO_EXPONENT_OF_2(FreePageTableGetMaxFreeCount(free1_table));
+	free0_entry->sub_max_free_log = FreeBuddy_TO_EXPONENT_OF_2(FreePageTableGetMaxFreeCount(free1_table));
 	free0_entry->sub_table_dirty = true;
 
 	CacherDereference(&pager->cacher, cache_id);
@@ -391,6 +391,7 @@ bool FreeTableWrite(FreeTable* table, int32_t meta_index) {
 		}
 	}
 	if (dirty) {
-		PagerWrite(pager, pgid, table->free0_table, 1);
+		return PagerWrite(pager, pgid, table->free0_table, 1);
 	}
+	return true;
 }

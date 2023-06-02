@@ -3,6 +3,11 @@
 #include <yudb/yudb.h>
 #include <yudb/pager.h>
 
+const uint16_t kBPlusElementSizeUnit = 16;
+
+CUTILS_SPACE_MANAGER_BUDDY_DEFINE(Bucket, int16_t, CUTILS_SPACE_MANAGER_BUDDY_4BIT_INDEXER, CUTILS_OBJECT_ALLOCATOR_DEFALUT)
+
+
 static inline Tx* BPlusTreeToTx(YuDbBPlusTree* tree) {
 	Bucket* bucket = ObjectGetFromField(tree, Bucket, bp_tree);
 	MetaInfo* meta_info = ObjectGetFromField(bucket, MetaInfo, bucket);
@@ -10,24 +15,179 @@ static inline Tx* BPlusTreeToTx(YuDbBPlusTree* tree) {
 	return tx;
 }
 
-static inline uint32_t GetBucketHeadSize(YuDbBPlusTree* tree) {
-	Tx* tx = BPlusTreeToTx(tree);
-	return sizeof(BucketEntry) + tx->db->pager.data_pool_count * sizeof(PageId);
+static inline uint32_t BucketEntryGetHeadSize(BucketEntry* entry) {
+	return BucketBuddyGetMaxCount(&entry->buddy) + sizeof(BucketEntryInfo);
 }
 
-static inline YuDbBPlusEntry* BucketEntryToBPlusEntry(YuDbBPlusTree* tree, BucketEntry* entry) {
-	return (YuDbBPlusEntry*)((uintptr_t)entry + GetBucketHeadSize(tree));
+static inline uint32_t BPlusEntryGetHeadSize(YuDbBPlusEntry* entry) {
+	BucketEntryInfo* info = ((uintptr_t)entry - sizeof(BucketEntryInfo));
+	return info->page_size / kBPlusElementSizeUnit + sizeof(BucketEntryInfo);
 }
 
-static inline YuDbBPlusEntry* BPlusEntryToBucketEntry(YuDbBPlusTree* tree, YuDbBPlusEntry* entry) {
-	return (YuDbBPlusEntry*)((uintptr_t)entry - GetBucketHeadSize(tree));
+static inline YuDbBPlusEntry* BucketEntryToBPlusEntry(BucketEntry* entry) {
+	return (YuDbBPlusEntry*)((uintptr_t)entry + BucketEntryGetHeadSize(entry));
+}
+
+static inline BucketEntry* BPlusEntryToBucketEntry(YuDbBPlusEntry* entry) {
+	return (BucketEntry*)((uintptr_t)entry - BPlusEntryGetHeadSize(entry));
+}
+
+static inline BucketBuddy* BPlusEntryGetBuddy(YuDbBPlusEntry* entry) {
+	BucketEntry* bucket_entry = BPlusEntryToBucketEntry(entry);
+	return &bucket_entry->buddy;
+}
+
+static inline BucketEntryInfo* BucketEntryGetInfo(BucketEntry* entry) {
+	BucketEntryInfo* info = (BucketEntryInfo*)(((uintptr_t)entry) + BucketBuddyGetMaxCount(&entry->buddy) / kBPlusElementSizeUnit);
+	return info;
+}
+static inline BucketEntryInfo* BPlusEntryGetInfo(YuDbBPlusEntry* entry) {
+	BucketEntry* bucket_entry = BPlusEntryToBucketEntry(entry);
+	return BucketEntryGetInfo(bucket_entry);
 }
 
 
 /*
-* B+树访问器
+* B+树Entry分配器
 */
-forceinline int32_t* YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetKey(YuDbBPlusEntryRbTree* tree, YuDbBPlusEntryRbBsEntry* bs_entry) {
+PageId YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR_CreateBySize(YuDbBPlusTree* tree, size_t size) {
+	Tx* tx = BPlusTreeToTx(tree);
+	PageId pgid = PagerAlloc(&tx->db->pager, true, 1);
+	BucketEntry* entry = (BucketEntry*)PagerReference(&tx->db->pager, pgid);
+	PagerMarkDirty(&tx->db->pager, entry);
+	BucketBuddyInit(&entry->buddy, tx->db->pager.page_size / kBPlusElementSizeUnit);
+	BucketEntryInfo* info = BucketEntryGetInfo(tree, entry);
+	info->last_write_tx_id = tx->meta_info.txid;
+	info->page_size = tx->db->pager.page_size;
+
+	// buddy自身占用
+	info->alloc_size = BucketBuddyGetMaxCount(&entry->buddy) / kBPlusElementSizeUnit;
+	BucketBuddyAlloc(&entry->buddy, info->alloc_size / kBPlusElementSizeUnit);
+	// info
+	info->alloc_size += sizeof(BucketEntryInfo) / kBPlusElementSizeUnit;
+	BucketBuddyAlloc(&entry->buddy, sizeof(BucketEntryInfo) / kBPlusElementSizeUnit);
+	  assert(size <= sizeof(BucketEntryInfo));		// 如果比BucketEntryInfo大会导致分配不连续
+	  if (size % kBPlusElementSizeUnit) size += kBPlusElementSizeUnit;
+	BucketBuddyAlloc(&entry->buddy, size / kBPlusElementSizeUnit);
+
+	PagerDereference(&tx->db->pager, entry);
+	return pgid;
+}
+void YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR_Release(YuDbBPlusTree* tree, PageId pgid) {
+	Tx* tx = BPlusTreeToTx(tree);
+	PagerPending(&tx->db->pager, tx, pgid);
+}
+#define YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR
+
+/*
+* B+树Entry引用器
+*/
+#define YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_InvalidId -1
+YuDbBPlusEntry* YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(YuDbBPlusTree* tree, PageId pgid) {
+	Tx* tx = BPlusTreeToTx(tree);
+	BucketEntry* entry = (BucketEntry*)PagerReference(&tx->db->pager, pgid);
+	return BucketEntryToBPlusEntry(entry);
+}
+void YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(YuDbBPlusTree* tree, YuDbBPlusEntry* bp_entry) {
+	Tx* tx = BPlusTreeToTx(tree);
+	BucketEntry* entry = BPlusEntryToBucketEntry(bp_entry);
+	PagerDereference(&tx->db->pager, entry);
+}
+#define YUDB_BUCKET_BPLUS_ENTRY_REFERENCER YUDB_BUCKET_BPLUS_ENTRY_REFERENCER
+
+/*
+* B+树Entry访问器
+*/
+int32_t YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetMergeThresholdRate(YuDbBPlusTree* tree, YuDbBPlusEntry* entry) {
+	Tx* tx = BPlusTreeToTx(tree);
+	return tx->db->pager.page_size * 40 / 100;
+}
+int32_t YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFreeRate(YuDbBPlusTree* tree, YuDbBPlusEntry* entry) {
+	Tx* tx = BPlusTreeToTx(tree); 
+	BucketBuddy* buddy = BPlusEntryGetBuddy(tree, entry);
+	return (BucketBuddyGetMaxFreeCount(buddy) * tx->db->pager.page_size) / (BucketBuddyGetMaxCount(buddy));
+}
+int32_t YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFillRate(YuDbBPlusTree* tree, YuDbBPlusEntry* entry) {
+	Tx* tx = BPlusTreeToTx(tree);
+	BucketBuddy* buddy = BPlusEntryGetBuddy(tree, entry);
+	BucketEntryInfo* info = BPlusEntryGetInfo(tree, entry);
+	return (info->alloc_size * tx->db->pager.page_size) / (BucketBuddyGetMaxCount(buddy));
+}
+#define YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR
+
+
+/*
+* B+树Element引用器
+*/
+YuDbBPlusElement* YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(YuDbBPlusEntry* entry, int16_t element_id) {
+	BucketEntry* bucket_entry = BPlusEntryToBucketEntry(entry);
+	return (YuDbBPlusElement*)((uintptr_t)bucket_entry + element_id * kBPlusElementSizeUnit);
+}
+void YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(YuDbBPlusEntry* entry, YuDbBPlusElement* element) {
+
+}
+#define YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER
+
+/*
+* B+树Element分配器
+*/
+int16_t YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_CreateBySize(YuDbBPlusEntry* entry, int32_t size) {
+	if (size % kBPlusElementSizeUnit) {
+		size += (kBPlusElementSizeUnit - size % kBPlusElementSizeUnit);
+	}
+	int32_t count = size / kBPlusElementSizeUnit;
+
+	  assert(count);
+	if (count == 0) {
+		return -1;
+	}
+	BucketBuddy* buddy = BPlusEntryGetBuddy(entry);
+	BucketEntryInfo* info = BPlusEntryGetInfo(entry);
+
+	if (info->alloc_size + size <= info->page_size && BucketBuddyGetMaxFreeCount(buddy) < size) {
+		// 需要进行碎片整理
+		YuDbBPlusEntry* temp = YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR_CreateBySize(NULL, entry->type == kBPlusEntryIndex ? sizeof(YuDbBPlusIndexEntry) : sizeof(YuDbBPlusIndexEntry));
+
+		// 从大到小重新分配到新的entry，最后复制回当前entry
+
+	}
+	info->alloc_size += size;
+	int16_t offset = BucketBuddyAlloc(buddy, count);
+	return offset;
+}
+void YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_Release(YuDbBPlusEntry* entry, int16_t element_id) {
+	BucketBuddy* buddy = BPlusEntryGetBuddy(entry);
+	BucketEntryInfo* info = BPlusEntryGetInfo(entry);
+	YuDbBPlusElement* element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, element_id);
+	info->alloc_size -= YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(entry, element);
+	YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(entry, element);
+	BucketBuddyFree(buddy, element_id);
+}
+#define YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR
+
+/*
+* B+树Element访问器
+*/
+int32_t YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(YuDbBPlusEntry* entry, YuDbBPlusElement* element) {
+	return entry->type == kBPlusEntryIndex ? sizeof(YuDbBPlusIndexElement) : sizeof(YuDbBPlusLeafElement);
+}
+void YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetKey(YuDbBPlusEntry* entry, YuDbBPlusElement* element, int32_t* key) {
+	if (entry->type == kBPlusEntryIndex) {
+		element->index.key = *key;
+	}
+	else {
+		element->leaf.key = *key;
+	}
+}
+void YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetValue(YuDbBPlusEntry* entry, YuDbBPlusElement* element, int32_t* value) {
+	element->leaf.value = *value;
+}
+#define YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR
+
+/*
+* B+树内嵌红黑树访问器
+*/
+int32_t* YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetKey(YuDbBPlusEntryRbTree* tree, YuDbBPlusEntryRbBsEntry* bs_entry) {
 	if (((YuDbBPlusEntry*)tree)->type == kBPlusEntryLeaf) {
 		return &((YuDbBPlusLeafElement*)bs_entry)->key;
 	}
@@ -35,45 +195,14 @@ forceinline int32_t* YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetKey(YuDbBPlusEntryRbT
 		return &((YuDbBPlusIndexElement*)bs_entry)->key;
 	}
 }
-/*
-* B+树分配器
-*/
-inline PageId YUDB_BUCKET_BPLUS_ALLOCATOR_CreateBySize(YuDbBPlusTree* tree, size_t size) {
-	Tx* tx = BPlusTreeToTx(tree);
-	PageId pgid = PagerAlloc(&tx->db->pager, true, 1);
-	BucketEntry* entry = (BucketEntry*)PagerReference(&tx->db->pager, pgid);
-	PagerMarkDirty(&tx->db->pager, entry);
-	for (int32_t i = 0; i < tx->db->pager.data_pool_count; i++) {
-		entry->first_data_pool[i] = kPageInvalidId;
-	}
-	entry->last_write_tx_id = tx->meta_info.txid;
-	PagerDereference(&tx->db->pager, entry);
-	return pgid;
-}
-inline void YUDB_BUCKET_BPLUS_ALLOCATOR_Release(YuDbBPlusTree* tree, PageId pgid) {
-	Tx* tx = BPlusTreeToTx(tree);
-	PagerPending(&tx->db->pager, tx, pgid);
-}
-/*
-* B+树引用器
-*/
-#define YUDB_BUCKET_BPLUS_REFERENCER_InvalidId -1
-inline YuDbBPlusEntry* YUDB_BUCKET_BPLUS_REFERENCER_Reference(YuDbBPlusTree* tree, PageId pgid) {
-	Tx* tx = BPlusTreeToTx(tree);
-	BucketEntry* entry = (BucketEntry*)PagerReference(&tx->db->pager, pgid);
-	return BucketEntryToBPlusEntry(tree, entry);
-}
-inline void YUDB_BUCKET_BPLUS_REFERENCER_Dereference(YuDbBPlusTree* tree, YuDbBPlusEntry* bp_entry) {
-	Tx* tx = BPlusTreeToTx(tree);
-	BucketEntry* entry = BPlusEntryToBucketEntry(tree, bp_entry);
-	PagerDereference(&tx->db->pager, entry);
-}
-
-
-#define YUDB_BUCKET_BPLUS_REFERENCER YUDB_BUCKET_BPLUS_REFERENCER
 #define YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR
-#define YUDB_BUCKET_BPLUS_ALLOCATOR YUDB_BUCKET_BPLUS_ALLOCATOR
-CUTILS_CONTAINER_BPLUS_TREE_DEFINE(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, PageId, int32_t, int32_t, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_BUCKET_BPLUS_ALLOCATOR, YUDB_BUCKET_BPLUS_REFERENCER, YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR, CUTILS_OBJECT_COMPARER_DEFALUT)
+
+
+CUTILS_CONTAINER_BPLUS_TREE_DEFINE(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, 
+	PageId, int16_t, int32_t, int32_t, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR, 
+	YUDB_BUCKET_BPLUS_ENTRY_REFERENCER, YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR, YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR,
+	YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER, YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR, 
+	YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR, CUTILS_OBJECT_COMPARER_DEFALUT)
 
 
 
@@ -85,9 +214,10 @@ static PageId BucketEntryCopy(Bucket* bucket, BucketEntry* entry, PageId entry_p
 	}
 	BucketEntry* copy_entry = (BucketEntry*)PagerReference(&tx->db->pager, copy_pgid);
 	memcpy(copy_entry, entry, tx->db->pager.page_size);
-	copy_entry->last_write_tx_id = tx->meta_info.txid;
+	BucketEntryInfo* info = BucketEntryGetInfo(&bucket->bp_tree, copy_entry);
+	info->last_write_tx_id = tx->meta_info.txid;
 	//if (copy_entry->bp_entry.type == kBPlusEntryLeaf) {
-	//	// 叶子链表无法进行写时复制(需要拷贝整条链)，故不支持叶子链表的连接
+	//	// 若存在叶子链表则无法进行写时复制(需要拷贝整条链)，故不支持叶子链表的连接
 	//	PageId prev_id = entry->bp_entry.leaf.list_entry.prev;
 	//	PageId next_id = entry->bp_entry.leaf.list_entry.next;
 	//	YuDbBPlusEntry* next_entry = YUDB_BUCKET_BPLUS_REFERENCER_Reference(&bucket->bp_tree, next_id);
@@ -111,7 +241,9 @@ static PageId BucketEntryCopy(Bucket* bucket, BucketEntry* entry, PageId entry_p
 key最大只支持1页以内的长度
 */
 void BucketInit(YuDb* db, Bucket* bucket) {
-	uint32_t bucket_entry_head_size = GetBucketHeadSize(&bucket->bp_tree);
+	BucketEntryInfo info;
+	info.page_size = db->pager.page_size;
+	uint32_t bucket_entry_head_size = BPlusEntryGetHeadSize((uintptr_t)&info + sizeof(info));
 	uint32_t bplus_entry_head_size = sizeof(YuDbBPlusEntry) - max(sizeof(YuDbBPlusLeafEntry), sizeof(YuDbBPlusIndexEntry));
 	uint32_t head_size = (bucket_entry_head_size + bplus_entry_head_size + sizeof(YuDbBPlusIndexEntry));
 	uint32_t index_m = (db->pager.page_size - head_size) / sizeof(YuDbBPlusIndexElement) + 1;
@@ -119,7 +251,7 @@ void BucketInit(YuDb* db, Bucket* bucket) {
 	head_size = head_size - sizeof(YuDbBPlusIndexEntry) + sizeof(YuDbBPlusLeafEntry);
 	uint32_t leaf_m = (db->pager.page_size - head_size) / sizeof(YuDbBPlusLeafElement) + 1;
 
-    YuDbBPlusTreeInit(&bucket->bp_tree, index_m, leaf_m);
+    YuDbBPlusTreeInit(&bucket->bp_tree);
 }
 
 bool BucketPut(Bucket* bucket, void* key_buf, int16_t key_size, void* value_buf, size_t value_size) {
@@ -149,14 +281,14 @@ bool BucketPut(Bucket* bucket, void* key_buf, int16_t key_size, void* value_buf,
     do  {
 		YuDbBPlusElementPos* cur = YuDbBPlusCursorCur(tree, &cursor);
 		BucketEntry* entry = (BucketEntry*)PagerReference(&tx->db->pager, cur->entry_id);
-		
-		if (entry->last_write_tx_id != tx->meta_info.txid) {		// 当前事务创建/修改的页面不需要重复cow
+		BucketEntryInfo* info = BucketEntryGetInfo(tree, entry);
+		if (info->last_write_tx_id != tx->meta_info.txid) {		// 当前事务创建/修改的页面不需要重复cow
 			PageId copy_id = BucketEntryCopy(&tx->meta_info.bucket, entry, cur->entry_id);
 			if (copy_id == kPageInvalidId) {
 				success = false;
 				break;
 			}
-			PagerDereference(&tx->db->pager, BucketEntryToBPlusEntry(&bucket->bp_tree, entry));
+			PagerDereference(&tx->db->pager, BucketEntryToBPlusEntry(entry));
 			PagerPending(&tx->db->pager, tx, cur->entry_id);
 
 			// 游标回溯的pgid修改为拷贝的节点
@@ -166,7 +298,7 @@ bool BucketPut(Bucket* bucket, void* key_buf, int16_t key_size, void* value_buf,
 			YuDbBPlusElementPos* up = YuDbBPlusCursorUp(tree, &cursor);
 			if (up) {
 				BucketEntry* up_entry = (BucketEntry*)PagerReference(&tx->db->pager, up->entry_id);
-				YuDbBPlusElementSetChildId(tree, BucketEntryToBPlusEntry(&bucket->bp_tree, up_entry), up->element_id, copy_id);
+				YuDbBPlusElementSetChildId(tree, BucketEntryToBPlusEntry(up_entry), up->element_id, copy_id);
 				PagerDereference(&tx->db->pager, up_entry);
 				YuDbBPlusCursorDown(tree, &cursor);
 			}
