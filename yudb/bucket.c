@@ -38,7 +38,7 @@ static inline BucketBuddy* BPlusEntryGetBuddy(YuDbBPlusEntry* entry) {
 }
 
 static inline BucketEntryInfo* BucketEntryGetInfo(BucketEntry* entry) {
-	BucketEntryInfo* info = (BucketEntryInfo*)(((uintptr_t)entry) + BucketBuddyGetMaxCount(&entry->buddy) / kBPlusElementSizeUnit);
+	BucketEntryInfo* info = (BucketEntryInfo*)(((uintptr_t)entry) + BucketBuddyGetMaxCount(&entry->buddy));
 	return info;
 }
 static inline BucketEntryInfo* BPlusEntryGetInfo(YuDbBPlusEntry* entry) {
@@ -56,7 +56,7 @@ PageId YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR_CreateBySize(YuDbBPlusTree* tree, size_
 	BucketEntry* entry = (BucketEntry*)PagerReference(&tx->db->pager, pgid);
 	PagerMarkDirty(&tx->db->pager, entry);
 	BucketBuddyInit(&entry->buddy, tx->db->pager.page_size / kBPlusElementSizeUnit);
-	BucketEntryInfo* info = BucketEntryGetInfo(tree, entry);
+	BucketEntryInfo* info = BucketEntryGetInfo(entry);
 	info->last_write_tx_id = tx->meta_info.txid;
 	info->page_size = tx->db->pager.page_size;
 
