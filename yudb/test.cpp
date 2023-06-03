@@ -8,38 +8,45 @@
 
 extern "C" PageId GetDataBuf(Tx* tx, Data* data, void** data_buf, size_t* data_size);
 
+extern "C" YuDbBPlusElement * YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(YuDbBPlusEntry * entry, int16_t element_id);
+static inline uint32_t BucketEntryGetHeadSize(BucketEntry* entry) {
+	return BucketBuddyGetMaxCount(&entry->buddy) + sizeof(BucketEntryInfo);
+}
+static inline YuDbBPlusEntry* BucketEntryToBPlusEntry(BucketEntry* entry) {
+	return (YuDbBPlusEntry*)((uintptr_t)entry + BucketEntryGetHeadSize(entry));
+}
+void PrintBucket(Tx* tx, YuDbBPlusEntry* entry, int Level, int pos) {
+	if (!entry) return;
+	Pager* pager = &tx->db->pager;
+	char* empty = (char*)malloc(Level * 8 + 1);
+	memset(empty, ' ', Level * 8);
+	empty[Level * 8] = 0;
 
-//void PrintBucket(Tx* tx, YuDbBPlusEntry* entry, int Level, int pos) {
-//	if (!entry) return;
-//	Pager* pager = &tx->db->pager;
-//	char* empty = (char*)malloc(Level * 8 + 1);
-//	memset(empty, ' ', Level * 8);
-//	empty[Level * 8] = 0;
-//
-//	if (entry->type == 1) {
-//		int16_t id = YuDbBPlusEntryRbTreeIteratorLast(&entry->rb_tree);
-//		//PrintRB(&entry->rb_tree, entry->rb_tree.root, 0, true);
-//		for (int i = entry->element_count - 1; i >= 0; i--) {
-//			printf("%sleaf:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, entry->leaf.element_space.obj_arr[id].key, empty, Level, empty/*, pos ? ((BPlusEntry*)PageGet(tree, entry->, 1))->indexElement[pos].key : 0*/);
-//			id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
-//		}
-//		free(empty);
-//		return;
-//	}
-//
-//	//PrintRB(&entry->rb_tree, entry->rb_tree.root, 0, false);
-//	int16_t id = YuDbBPlusEntryRbTreeIteratorLast(&entry->rb_tree);
-//	for (int i = entry->element_count; i >= 0; i--) {
-//		if (i == entry->element_count) {
-//			PrintBucket(tx, &((BucketEntry*)PagerReference(pager, entry->index.tail_child_id))->bp_entry, Level + 1, i - 1);
-//			continue;
-//		}
-//		printf("%sindex:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, entry->index.element_space.obj_arr[id].key, empty, Level, empty/*, entry->parentId != kPageInvalidId ? ((BPlusEntry*)PageGet(tree, entry->parentId))->indexElement[pos].key: 0*/);
-//		PrintBucket(tx, &((BucketEntry*)PagerReference(pager, (PageId)entry->index.element_space.obj_arr[id].child_id))->bp_entry, Level + 1, i);
-//		id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
-//	}
-//	free(empty);
-//}
+	if (entry->type == 1) {
+		int16_t id = YuDbBPlusEntryRbTreeIteratorLast(&entry->rb_tree);
+		//PrintRB(&entry->rb_tree, entry->rb_tree.root, 0, true);
+		for (int i = entry->element_count - 1; i >= 0; i--) {
+			
+			printf("%sleaf:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->leaf.key, empty, Level, empty/*, pos ? ((BPlusEntry*)PageGet(tree, entry->, 1))->indexElement[pos].key : 0*/);
+			id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
+		}
+		free(empty);
+		return;
+	}
+
+	//PrintRB(&entry->rb_tree, entry->rb_tree.root, 0, false);
+	int16_t id = YuDbBPlusEntryRbTreeIteratorLast(&entry->rb_tree);
+	for (int i = entry->element_count; i >= 0; i--) {
+		if (i == entry->element_count) {
+			PrintBucket(tx, BucketEntryToBPlusEntry(((BucketEntry*)PagerReference(pager, entry->index.tail_child_id))), Level + 1, i - 1);
+			continue;
+		}
+		printf("%sindex:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.key, empty, Level, empty/*, entry->parentId != kPageInvalidId ? ((BPlusEntry*)PageGet(tree, entry->parentId))->indexElement[pos].key: 0*/);
+		PrintBucket(tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(pager, (PageId)YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.child_id)), Level + 1, i);
+		id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
+	}
+	free(empty);
+}
 
 //void PrintRB(YuDbBPlusEntryRbTree* tree, int16_t entry_id, int Level, bool index) {
 //	if (entry_id == -1) return;
@@ -121,7 +128,7 @@ int main() {
 	//}
 	
 
-	// 现在的页面分配器还有一个小问题，释放小id(6~1023)后，还是可能先分配大id(1026~2047)，页面利用率下降
+	// 鐜板湪鐨勯〉闈㈠垎閰嶅櫒杩樻湁涓�涓皬闂锛岄噴鏀惧皬id(6~1023)鍚庯紝杩樻槸鍙兘鍏堝垎閰嶅ぇid(1026~2047)锛岄〉闈㈠埄鐢ㄧ巼涓嬮檷
 	int seed =11323;
 	seed = GetTickCount();
 	srand(seed);
@@ -210,11 +217,15 @@ int main() {
 
 		int n = 0;
 	
-
+		if (i == 10781) {
+			printf("??");
+		}
 		
 		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
 			printf("NOW!");
 		}
+		//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
+
 		//printf("\n");
 
 		//BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id, '0');
@@ -270,7 +281,7 @@ int main() {
 	if (m == 1) {
 		TxBegin(db, &tx, kTxReadOnly);
 	}
-	// PrintBucket(&tx, tx.meta_info.bucket.root_id, 0, 0);
+	//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
 	//printf("%d", GetBucketCount(&tx));
 	i = 0;
 	for (auto& iter : map) {

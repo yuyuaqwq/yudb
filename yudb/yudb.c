@@ -1,4 +1,4 @@
-﻿#include "yudb/yudb.h"
+#include "yudb/yudb.h"
 
 #include "yudb/db_file.h"
 #include "yudb/pager.h"
