@@ -210,6 +210,14 @@ void* FreeDirTableGetSubTable(FreeTable* free_table, int16_t free0_entry_id, Cac
 	return write_cache;
 }
 
+void FreeDirTableUpdateEntryFreeCount(FreeDirEntry* free0_entry, FreePageTable* free1_table) {
+	free0_entry->sub_max_free_log = FreeBuddyToExponentOf2(FreePageTableGetMaxFreeCount(free1_table)) + 1;
+	if (free0_entry->sub_max_free_log != 0) {
+		// 挂回可分配队列
+		//FreeDirStaticListSwitch(static_list, kFreeDirEntryListFull, free0_entry_prev_id, free0_entry_id, kFreeDirEntryListAlloc);
+	}
+}
+
 
 /*
 * FreeTable
@@ -326,11 +334,8 @@ void FreeTableFree(FreeTable* table, PageId pgid) {
 	FreePageTableFree(free1_table, free1_entry_id);
 	FreePageTableMarkDirty(table, free1_table);
 
-	if (free0_entry->sub_max_free_log == 0) {
-		// 挂回可分配队列
-		//FreeDirStaticListSwitch(static_list, kFreeDirEntryListFull, free0_entry_prev_id, free0_entry_id, kFreeDirEntryListAlloc);
-	}
-	free0_entry->sub_max_free_log = FreeBuddyToExponentOf2(FreePageTableGetMaxFreeCount(free1_table))+1;
+	FreeDirTableUpdateEntryFreeCount(free0_entry, free1_table);
+
 	free0_entry->sub_table_dirty = true;
 
 	CacherDereference(&pager->cacher, cache_id);
@@ -360,6 +365,8 @@ void FreeTableCleanPending(FreeTable* table) {
 
 			free0_entry->sub_table_pending = false;
 			CacherDereference(&pager->cacher, cache_id);
+
+			FreeDirTableUpdateEntryFreeCount(free0_entry, free1_table);
 		}
 	}
 }
