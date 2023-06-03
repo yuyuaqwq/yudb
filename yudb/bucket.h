@@ -17,7 +17,10 @@ extern "C" {
     
 CUTILS_SPACE_MANAGER_BUDDY_DECLARATION(Bucket, int16_t)
 
-CUTILS_CONTAINER_BPLUS_TREE_DECLARATION(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, PageId, int16_t, int32_t, int32_t)
+typedef Data YuDbKey;
+typedef Data YuDbValue;
+
+CUTILS_CONTAINER_BPLUS_TREE_DECLARATION(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, PageId, int16_t, YuDbKey, YuDbValue)
 
 typedef struct _BucketEntryInfo {
     TxId last_write_tx_id;

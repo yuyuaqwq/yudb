@@ -115,7 +115,7 @@ __forceinline PageId* CacheLruHashEntryAccessor_GetKey(CacheHashListHashTable* t
 
 int main() {
 	int r = 0;
-	int m = 0;
+	int m = 1;
 
 	int64_t count = 100000;
 
@@ -128,7 +128,7 @@ int main() {
 	//}
 	
 
-	// 现在的页面分配器还有一个小问题，释放小id(6~1023)后，还是可能先分配大id(1026~2047)，页面利用率下降
+	// 现在的页面分配器还有一个小问题，释放小id(6~1023)后，还是可能先分配大id(1026~2047)，页面复用率下降
 	int seed =11323;
 	seed = GetTickCount();
 	srand(seed);
@@ -217,9 +217,9 @@ int main() {
 
 		int n = 0;
 	
-		if (i == 10781) {
-			printf("??");
-		}
+		//if (i == 10781) {
+		//	printf("??");
+		//}
 		
 		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
 			printf("NOW!");
@@ -290,7 +290,7 @@ int main() {
 			TxBegin(db, &tx, kTxReadOnly);
 		}
 		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter.first, 4)) {
-			printf("NOR!, %d  %d  ", iter.first, iter.second);
+			//printf("NOR!, %d  %d  ", iter.first, iter.second);
 		}
 		if (m == 0) {
 			TxCommit(&tx);
