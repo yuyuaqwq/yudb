@@ -27,7 +27,7 @@ void PrintBucket(Tx* tx, YuDbBPlusEntry* entry, int Level, int pos) {
 		//PrintRB(&entry->rb_tree, entry->rb_tree.root, 0, true);
 		for (int i = entry->element_count - 1; i >= 0; i--) {
 			
-			printf("%sleaf:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->leaf.key, empty, Level, empty/*, pos ? ((BPlusEntry*)PageGet(tree, entry->, 1))->indexElement[pos].key : 0*/);
+			printf("%sleaf:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->leaf.key.inline_.data, empty, Level, empty/*, pos ? ((BPlusEntry*)PageGet(tree, entry->, 1))->indexElement[pos].key : 0*/);
 			id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
 		}
 		free(empty);
@@ -41,7 +41,7 @@ void PrintBucket(Tx* tx, YuDbBPlusEntry* entry, int Level, int pos) {
 			PrintBucket(tx, BucketEntryToBPlusEntry(((BucketEntry*)PagerReference(pager, entry->index.tail_child_id))), Level + 1, i - 1);
 			continue;
 		}
-		printf("%sindex:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.key, empty, Level, empty/*, entry->parentId != kPageInvalidId ? ((BPlusEntry*)PageGet(tree, entry->parentId))->indexElement[pos].key: 0*/);
+		printf("%sindex:::key:%d\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.key.inline_.data, empty, Level, empty/*, entry->parentId != kPageInvalidId ? ((BPlusEntry*)PageGet(tree, entry->parentId))->indexElement[pos].key: 0*/);
 		PrintBucket(tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(pager, (PageId)YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.child_id)), Level + 1, i);
 		id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
 	}
@@ -117,7 +117,7 @@ int main() {
 	int r = 0;
 	int m = 1;
 
-	int64_t count = 100000;
+	int64_t count = 1000000;
 
 
 
@@ -194,7 +194,7 @@ int main() {
 	
 	srand(14134);//GetTickCount()
 
-	std::map<int, int> map;
+	std::map<int64_t, int64_t> map;
 	for (int i = 0; i < count; i++) {
 		int j = rand() << 16 | rand();
 		map.insert(std::make_pair(j, j));
@@ -221,11 +221,10 @@ int main() {
 		//	printf("??");
 		//}
 		
-		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
+		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 8, (void*)&iter.second, 8)) {
 			printf("NOW!");
 		}
 		//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
-
 		//printf("\n");
 
 		//BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id, '0');
@@ -289,8 +288,13 @@ int main() {
 		if (m == 0) {
 			TxBegin(db, &tx, kTxReadOnly);
 		}
-		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter.first, 4)) {
-			//printf("NOR!, %d  %d  ", iter.first, iter.second);
+		if (i == 14772) {
+			//printf("??");
+			//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
+
+		}
+		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter.first, 8)) {
+			printf("NOR!, %d  %d  ", iter.first, iter.second);
 		}
 		if (m == 0) {
 			TxCommit(&tx);

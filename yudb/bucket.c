@@ -248,7 +248,7 @@ int32_t YUDB_BUCKET_BPLUS_COMPARER_Subrrac(YuDbBPlusEntryRbTree* tree, YuDbKey* 
 	if (key1_size != key2_size) {
 		return key1_size - key2_size;
 	}
-	return memcmp(key1_data, key2_data, key1_size);
+	return MemoryCmpR(key1_data, key2_data, key1_size);
 }
 bool YUDB_BUCKET_BPLUS_COMPARER_Equal(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, YuDbKey* key2) {
 	return YUDB_BUCKET_BPLUS_COMPARER_Subrrac(tree, key1, key2) == 0;
