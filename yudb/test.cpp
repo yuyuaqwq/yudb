@@ -115,7 +115,7 @@ __forceinline PageId* CacheLruHashEntryAccessor_GetKey(CacheHashListHashTable* t
 
 int main() {
 	int r = 0;
-	int m = 1;
+	int m = 0;
 
 	int64_t count = 100000;
 
