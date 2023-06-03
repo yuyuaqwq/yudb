@@ -132,13 +132,7 @@ void YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(YuDbBPlusEntry* entry, YuD
 * B+树Element分配器
 */
 int16_t YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_CreateBySize(YuDbBPlusEntry* entry, int32_t size) {
-	if (size % kBPlusElementSizeUnit) {
-		size += (kBPlusElementSizeUnit - size % kBPlusElementSizeUnit);
-	}
-	int32_t count = size / kBPlusElementSizeUnit;
-
-	  assert(count);
-	if (count == 0) {
+	if (size < kBPlusElementSizeUnit) {
 		return -1;
 	}
 	BucketBuddy* buddy = BPlusEntryGetBuddy(entry);
@@ -151,8 +145,11 @@ int16_t YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_CreateBySize(YuDbBPlusEntry* entry, 
 		// 从大到小重新分配到新的entry，最后复制回当前entry
 
 	}
+	if (!CUTILS_SPACE_MANAGER_BUDDY_IS_POWER_OF_2(size)) {
+		size = BucketBuddyAlignToPowersOf2(size);
+	}
 	info->alloc_size += size;
-	int16_t offset = BucketBuddyAlloc(buddy, count);
+	int16_t offset = BucketBuddyAlloc(buddy, size / kBPlusElementSizeUnit);
 	return offset;
 }
 void YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_Release(YuDbBPlusEntry* entry, int16_t element_id) {
@@ -169,7 +166,11 @@ void YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_Release(YuDbBPlusEntry* entry, int16_t 
 * B+树Element访问器
 */
 int32_t YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(YuDbBPlusEntry* entry, YuDbBPlusElement* element) {
-	return entry->type == kBPlusEntryIndex ? sizeof(YuDbBPlusIndexElement) : sizeof(YuDbBPlusLeafElement);
+	int32_t size = entry->type == kBPlusEntryIndex ? sizeof(YuDbBPlusIndexElement) : sizeof(YuDbBPlusLeafElement);
+	if (!CUTILS_SPACE_MANAGER_BUDDY_IS_POWER_OF_2(size)) {
+		size = BucketBuddyAlignToPowersOf2(size);
+	}
+	return size;
 }
 
 void YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetData(YuDbBPlusEntry* entry, Data* dst, const Data* src) {
