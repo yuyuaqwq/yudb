@@ -14,7 +14,7 @@
 extern "C" {
 #endif //  __cplusplus
     
-CUTILS_CONTAINER_BPLUS_TREE_DECLARATION(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, PageId, int32_t, int32_t)
+CUTILS_CONTAINER_BPLUS_TREE_DECLARATION(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, PageId, int16_t, int32_t, int32_t)
 
 typedef struct _BucketEntry {
     TxId last_write_tx_id;
