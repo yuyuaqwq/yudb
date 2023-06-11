@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #include <CUtils/container/bplus_tree.h>
-#include <CUtils/space_manager/buddy.h>
+#include <CUtils/space_manager/free_list.h>
 
 #include <yudb/page.h>
 #include <yudb/txid.h>
@@ -15,25 +15,26 @@
 extern "C" {
 #endif //  __cplusplus
     
-CUTILS_SPACE_MANAGER_BUDDY_DECLARATION(Bucket, int16_t)
+CUTILS_CONTAINER_SPACE_MANAGER_FREE_LIST_DECLARATION(YuDbBPlusEntry, int16_t, uint8_t, 1)
 
 typedef Data YuDbKey;
 typedef Data YuDbValue;
 
 CUTILS_CONTAINER_BPLUS_TREE_DECLARATION(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, PageId, int16_t, YuDbKey, YuDbValue)
 
+#pragma pack(1)
 typedef struct _BucketEntryInfo {
     TxId last_write_tx_id;
-    PageSize page_size;
     int16_t alloc_size;
-    uint8_t padding[16 - sizeof(TxId) - sizeof(PageSize) - sizeof(int16_t)]; // padding to 16byte
+    int16_t page_size;
+    YuDbBPlusEntryFreeList free_list;
 } BucketEntryInfo;
 
 typedef struct _BucketEntry {
-    BucketBuddy buddy;
-    // BucketEntryInfo info;
+    BucketEntryInfo info;
     // YuDbBPlusEntry bp_entry;
 } BucketEntry;
+#pragma pack()
 
 typedef struct _Bucket {
     YuDbBPlusTree bp_tree;

@@ -19,6 +19,13 @@ typedef enum {
     kDataPage = 2,
     kDataMemory = 3,
 } DataType;
+
+typedef struct _MemoryData {
+    uint32_t type : 2;     // 11
+    uint32_t size : 30;    // 最大1G
+    uintptr_t mem_ptr;     // addr，8字节
+} MemoryData;
+
 typedef struct _Data {
     union {
         uint8_t type : 2;
@@ -26,25 +33,18 @@ typedef struct _Data {
             uint8_t type : 2;       // 00
             uint8_t invalid : 2;
             uint8_t size : 4;
-            uint8_t data[11];        // 最大嵌入11字节的数据
+            uint8_t data[3];        // 最大嵌入3字节的数据
         } inline_;        // 嵌入到element
         struct {
             uint16_t type : 2;      // 01
-            uint16_t invalid : 14;
-            uint16_t size;
-            uint16_t element_id;
-            uint64_t reserve;
+            uint16_t size : 14;     // 4字节对齐，>> 2 存储， << 2 使用
+            uint16_t element_id;    // 指向页内实际数据
         } block;        // entry中独立的块
-        struct {
-            uint64_t type : 2;      // 10
-            uint64_t size : 62;     // 最大2^62-1
-            PageId pgid;
-        } page;     // 独立页面
-        struct {
-            uint32_t type : 2;     // 11
-            uint32_t size : 30;    // 最大1G
-            uintptr_t mem_ptr;     // addr，8字节
-        } memory;       // 内存数据
+        //struct {
+        //    uint64_t type : 2;      // 10
+        //    uint16_t element_id;      // 指向页内的页描述块(描述长度、页信息(Page:4byte、logn:1byte))
+        //} page;     // 独立页面
+        //MemoryData memory;       // 内存数据
     };
 } Data;
 #pragma pack()
