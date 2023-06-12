@@ -95,6 +95,17 @@ int16_t YuDbBPlusEntryFreeListGetMaxFreeBlockSize(YuDbBPlusEntryFreeList* head, 
 	}
 	return max;
 }
+int16_t YuDbBPlusEntryFreeListGetFreeBlockSize(YuDbBPlusEntryFreeList* head, int16_t list_order) {
+	YuDbBPlusEntryFreeBlockEntry* prev_block = (YuDbBPlusEntryFreeBlockEntry*)((uintptr_t)&head->first_block[list_order]);
+	int16_t free_offset = head->first_block[list_order];
+	int16_t max = 0;
+	while (free_offset != (-1)) {
+		YuDbBPlusEntryFreeBlockEntry* block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset]);
+		max += block->count;
+		free_offset = block->next_block_offset;
+	}
+	return max;
+}
 
 static inline Tx* BPlusTreeToTx(YuDbBPlusTree* tree) {
 	Bucket* bucket = ObjectGetFromField(tree, Bucket, bp_tree);
@@ -261,7 +272,7 @@ void YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_Release(YuDbBPlusEntry* entry, int16_t 
 		DataRelease(entry, &element->leaf.value);
 		BlockRelease(bucket_entry, element_id, sizeof(YuDbBPlusLeafElement));
 	}
-	  assert(bucket_entry->info.alloc_size + YuDbBPlusEntryFreeListGetMaxFreeBlockSize(&bucket_entry->info.free_list, 0) == bucket_entry->info.page_size);
+	  assert(bucket_entry->info.alloc_size + YuDbBPlusEntryFreeListGetFreeBlockSize(&bucket_entry->info.free_list, 0) == bucket_entry->info.page_size);
 	YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(entry, element);
 }
 #define YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR
@@ -269,17 +280,28 @@ void YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_Release(YuDbBPlusEntry* entry, int16_t 
 /*
 * B+树Element访问器
 */
-int32_t YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(YuDbBPlusEntry* entry, YuDbBPlusElement* element) {
+int32_t YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(YuDbBPlusEntry* dst_entry, YuDbBPlusEntry* src_entry, YuDbBPlusElement* element) {
 	size_t size = 0;
-	if (entry->type == kBPlusEntryIndex) {
-		size += DataGetExpandSize(entry, &element->index.key);
-		size += sizeof(YuDbBPlusIndexElement);
+	if (src_entry) {
+		if (src_entry->type == kBPlusEntryIndex) {
+			size += DataGetExpandSize(src_entry, &element->index.key);
+		}
+		else {
+			size += DataGetExpandSize(src_entry, &element->leaf.key);
+			size += DataGetExpandSize(src_entry, &element->leaf.value);
+		}
 	}
 	else {
-		size += DataGetExpandSize(entry, &element->leaf.key);
-		size += DataGetExpandSize(entry, &element->leaf.value);
-		size += sizeof(YuDbBPlusLeafElement);
+		if (dst_entry->type == kBPlusEntryIndex) {
+			size += DataGetExpandSize(dst_entry, &element->index.key);
+		}
+		else {
+			size += DataGetExpandSize(dst_entry, &element->leaf.key);
+			size += DataGetExpandSize(dst_entry, &element->leaf.value);
+		}
 	}
+	
+	size += dst_entry->type == kBPlusEntryIndex ? sizeof(YuDbBPlusIndexElement) : sizeof(YuDbBPlusLeafElement);
 	return size;
 }
 
@@ -1319,7 +1341,7 @@ static int16_t YuDbBPlusEntrySplit(YuDbBPlusTree* tree, YuDbBPlusEntry* left, Pa
 	}
 	int16_t left_elemeng_id = YuDbBPlusEntryRbTreeIteratorLast(&left->rb_tree);
 	_Bool insert = 0;
-	int32_t fill_rate = (YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFillRate(tree, left) + YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(*src_entry ? *src_entry : left, insert_element)) / 2;
+	int32_t fill_rate = (YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFillRate(tree, left) + YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(right, *src_entry, insert_element)) / 2;
 	while (left_elemeng_id != YuDbBPlusEntryRbReferencer_InvalidId) {
 		if (YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFillRate(tree, left) <= fill_rate || left->element_count == 2) {
 			break;
@@ -1410,7 +1432,7 @@ static _Bool YuDbBPlusTreeInsertElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cu
 			YuDbBPlusElementSet(cur, cur_pos->element_id, src_entry, insert_element, insert_element_child_id);
 			break;
 		}
-		if (YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFreeRate(tree, cur) >= YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(src_entry ? src_entry : cur, insert_element)) {
+		if (YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFreeRate(tree, cur) >= YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(cur, src_entry, insert_element)) {
 			YuDbBPlusEntryInsertElement(cur, src_entry, insert_element, insert_element_child_id);
 			break;
 		}
@@ -1703,7 +1725,7 @@ int16_t YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_CreateBySize(YuDbBPlusEntry* entry, 
 	  assert(bucket_entry->info.alloc_size <= bucket_entry->info.page_size);
 
 	int16_t offset = YuDbBPlusEntryFreeListAlloc(&bucket_entry->info.free_list, 0, size);
-	  assert(bucket_entry->info.alloc_size + YuDbBPlusEntryFreeListGetMaxFreeBlockSize(&bucket_entry->info.free_list, 0) == bucket_entry->info.page_size);
+	  assert(bucket_entry->info.alloc_size + YuDbBPlusEntryFreeListGetFreeBlockSize(&bucket_entry->info.free_list, 0) == bucket_entry->info.page_size);
 	return offset;
 }
 
