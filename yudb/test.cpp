@@ -121,7 +121,7 @@ int main() {
 	int r = 0;
 	int m = 1;
 
-	int64_t count = 100000;
+	int64_t count = 1000000;
 
 
 	//for (int i = 0; i < count; i++) {
@@ -232,12 +232,6 @@ int main() {
 		//BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id);
 		//PrintBucket(&tx, BucketEntryToBPlusEntry(entry), 0, 0);
 		//printf("\n\n\n\n\n");
-		int64_t qqq = 14782;
-		if (!BucketFind(&tx.meta_info.bucket, (void*)&qqq, 8)) {
-			printf("NOR! %llx  %llx   ;", iter.first, iter.second);
-			PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
-			printf("\n");
-		}
 		
 		//
 		//printf("\n\n\n\n");
