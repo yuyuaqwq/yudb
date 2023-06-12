@@ -121,7 +121,7 @@ int main() {
 	int r = 0;
 	int m = 1;
 
-	int64_t count = 190;
+	int64_t count = 100000;
 
 
 	//for (int i = 0; i < count; i++) {
@@ -217,7 +217,9 @@ int main() {
 		if (m == 0) {
 			TxBegin(db, &tx, kTxReadWrite);
 		}
-
+		if (i == 278) {
+			printf("??");
+		}
 
 		int n = 0;
 		
@@ -294,7 +296,7 @@ int main() {
 
 		}
 		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter.first, 8)) {
-			printf("NOR!, %d  %d  ", iter.first, iter.second);
+			printf("NOR! %llx  %llx   ;", iter.first, iter.second);
 		}
 		if (m == 0) {
 			TxCommit(&tx);

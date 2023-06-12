@@ -261,6 +261,7 @@ void YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_Release(YuDbBPlusEntry* entry, int16_t 
 		DataRelease(entry, &element->leaf.value);
 		BlockRelease(bucket_entry, element_id, sizeof(YuDbBPlusLeafElement));
 	}
+	  assert(bucket_entry->info.alloc_size + YuDbBPlusEntryFreeListGetMaxFreeBlockSize(&bucket_entry->info.free_list, 0) == bucket_entry->info.page_size);
 	YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(entry, element);
 }
 #define YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR
@@ -397,7 +398,7 @@ bool YUDB_BUCKET_BPLUS_COMPARER_Less(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, 
 #define YUDB_BUCKET_BPLUS_COMPARER YUDB_BUCKET_BPLUS_COMPARER
 
 
-//#define AAA
+#define AAA
 #ifndef AAA
 CUTILS_CONTAINER_BPLUS_TREE_DEFINE(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, 
 	PageId, int16_t, YuDbKey, YuDbValue, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR,
@@ -1126,7 +1127,7 @@ int16_t YuDbBPlusEntryRbTreeIteratorNext(YuDbBPlusEntryRbTree* tree, int16_t cur
 int16_t YuDbBPlusEntryRbTreeIteratorPrev(YuDbBPlusEntryRbTree* tree, int16_t cur_id) {
 	return YuDbBPlusEntryRbBsTreeIteratorPrev((YuDbBPlusEntryRbBsTree*)tree, cur_id);
 }
-static void YuDbBPlusElementSet(YuDbBPlusEntry* dst_entry, int16_t element_id, YuDbBPlusEntry* src_entry, YuDbBPlusElement* element) {
+static void YuDbBPlusElementSet(YuDbBPlusEntry* dst_entry, int16_t element_id, YuDbBPlusEntry* src_entry, YuDbBPlusElement* element, PageId element_child_id) {
 	{
 		if (!(element_id >= 0)) {
 			*(int*)0 = 0;
@@ -1139,8 +1140,19 @@ static void YuDbBPlusElementSet(YuDbBPlusEntry* dst_entry, int16_t element_id, Y
 		YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetValue(dst_entry, dst_element, src_entry, &element->leaf.value);
 	}
 	else {
-		YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetKey(dst_entry, dst_element, src_entry, &element->index.key);
-		dst_element->index.child_id = element->index.child_id;
+		if (src_entry->type == kBPlusEntryLeaf) {
+			YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetKey(dst_entry, dst_element, src_entry, &element->leaf.key); {
+				if (!(element_child_id != -1)) {
+					*(int*)0 = 0;
+				}
+			}
+			;
+			dst_element->index.child_id = element_child_id;
+		}
+		else {
+			YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetKey(dst_entry, dst_element, src_entry, &element->index.key);
+			dst_element->index.child_id = element->index.child_id;
+		}
 	}
 	YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(dst_entry, dst_element);
 }
@@ -1256,20 +1268,20 @@ BPlusCursorStatus YuDbBPlusCursorNext(YuDbBPlusTree* tree, YuDbBPlusCursor* curs
 	YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, cur_entry);
 	return status;
 }
-static int16_t YuDbBPlusEntryInsertElement(YuDbBPlusEntry* dst_entry, YuDbBPlusEntry* src_entry, YuDbBPlusElement* insert_element) {
+static int16_t YuDbBPlusEntryInsertElement(YuDbBPlusEntry* dst_entry, YuDbBPlusEntry* src_entry, YuDbBPlusElement* insert_element, PageId element_child_id) {
 	int16_t element_id = YuDbBPlusElementCreate(dst_entry); {
 		if (!(element_id != YuDbBPlusEntryRbReferencer_InvalidId)) {
 			*(int*)0 = 0;
 		}
 	}
 	;
-	YuDbBPlusElementSet(dst_entry, element_id, src_entry, insert_element);
+	YuDbBPlusElementSet(dst_entry, element_id, src_entry, insert_element, element_child_id);
 	int16_t old_element_id = YuDbBPlusEntryRbTreePut(&dst_entry->rb_tree, element_id);
 	if (old_element_id != YuDbBPlusEntryRbReferencer_InvalidId && old_element_id != element_id) YuDbBPlusElementRelease(dst_entry, old_element_id);
 	dst_entry->element_count++;
 	return element_id;
 }
-static YuDbBPlusElement* YuDbBPlusEntryDeleteElement(YuDbBPlusEntry* entry, int16_t element_id) {
+static void YuDbBPlusEntryDeleteElement(YuDbBPlusEntry* entry, int16_t element_id) {
 	{
 		if (!(element_id != YuDbBPlusEntryRbReferencer_InvalidId)) {
 			*(int*)0 = 0;
@@ -1278,7 +1290,7 @@ static YuDbBPlusElement* YuDbBPlusEntryDeleteElement(YuDbBPlusEntry* entry, int1
 	;
 	YuDbBPlusEntryRbTreeDelete(&entry->rb_tree, element_id);
 	entry->element_count--;
-	return YuDbBPlusElementRelease(entry, element_id);
+	YuDbBPlusElementRelease(entry, element_id);
 }
 PageId YuDbBPlusEntryCreate(YuDbBPlusTree* tree, BPlusEntryType type) {
 	size_t size;
@@ -1299,52 +1311,51 @@ PageId YuDbBPlusEntryCreate(YuDbBPlusTree* tree, BPlusEntryType type) {
 void YuDbBPlusEntryRelease(YuDbBPlusTree* tree, PageId entry_id) {
 	YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR_Release(tree, entry_id);
 }
-static YuDbBPlusElement YuDbBPlusEntrySplit(YuDbBPlusTree* tree, YuDbBPlusEntry* left, PageId left_id, YuDbBPlusEntry* parent, int16_t parent_element_id, YuDbBPlusEntry** src_entry, YuDbBPlusElement* insert_element, int16_t insert_id, PageId* out_right_id) {
+static int16_t YuDbBPlusEntrySplit(YuDbBPlusTree* tree, YuDbBPlusEntry* left, PageId left_id, YuDbBPlusEntry* parent, int16_t parent_element_id, YuDbBPlusEntry** src_entry, YuDbBPlusElement* insert_element, int16_t insert_id, PageId insert_element_child_id, PageId* out_right_id) {
 	PageId right_id = YuDbBPlusEntryCreate(tree, left->type);
 	YuDbBPlusEntry* right = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(tree, right_id);
-	YuDbBPlusElement up_element;
+	int16_t up_element_id;
 	if (left->type == kBPlusEntryLeaf) {
 	}
 	int16_t left_elemeng_id = YuDbBPlusEntryRbTreeIteratorLast(&left->rb_tree);
 	_Bool insert = 0;
-	int32_t fill_rate = (YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFillRate(tree, left) + YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(left, insert_element)) / 2;
+	int32_t fill_rate = (YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFillRate(tree, left) + YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(*src_entry ? *src_entry : left, insert_element)) / 2;
 	while (left_elemeng_id != YuDbBPlusEntryRbReferencer_InvalidId) {
 		if (YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFillRate(tree, left) <= fill_rate || left->element_count == 2) {
 			break;
 		}
 		if (!insert && left_elemeng_id == insert_id) {
-			YuDbBPlusEntryInsertElement(right, *src_entry, insert_element);
+			YuDbBPlusEntryInsertElement(right, *src_entry, insert_element, insert_element_child_id);
 			insert = 1;
 			continue;
 		}
 		int16_t next_elemeng_id = YuDbBPlusEntryRbTreeIteratorPrev(&left->rb_tree, left_elemeng_id);
 		YuDbBPlusElement* left_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(left, left_elemeng_id);
-		YuDbBPlusEntryInsertElement(right, left, left_element);
+		YuDbBPlusEntryInsertElement(right, left, left_element, YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_InvalidId);
 		YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(left, left_element);
 		YuDbBPlusEntryDeleteElement(left, left_elemeng_id);
 		left_elemeng_id = next_elemeng_id;
 	}
 	if (!insert) {
-		YuDbBPlusEntryInsertElement(left, ((void*)0), insert_element);
+		YuDbBPlusEntryInsertElement(left, *src_entry, insert_element, insert_element_child_id);
 	}
 	if (*src_entry) YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, *src_entry);
+	YuDbBPlusElement* up_element;
 	if (left->type == kBPlusEntryLeaf) {
-		YuDbBPlusElement* first_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(right, YuDbBPlusEntryRbTreeIteratorFirst(&right->rb_tree));
 		*src_entry = right;
 		YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(tree, right_id);
-		up_element = *first_element;
-		YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(right, first_element);
-		YuDbKey key = up_element.leaf.key;
-		up_element.index.key = key;
+		up_element_id = YuDbBPlusEntryRbTreeIteratorFirst(&right->rb_tree);
+		up_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(*src_entry, up_element_id);
 	}
 	else {
 		right->index.tail_child_id = left->index.tail_child_id;
-		up_element = *YuDbBPlusEntryDeleteElement(left, YuDbBPlusEntryRbTreeIteratorLast(&left->rb_tree));
+		up_element_id = YuDbBPlusEntryRbTreeIteratorLast(&left->rb_tree);
 		*src_entry = left;
 		YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(tree, left_id);
-		left->index.tail_child_id = up_element.index.child_id;
+		up_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(*src_entry, up_element_id);
+		left->index.tail_child_id = up_element->index.child_id;
 	}
-	up_element.index.child_id = left_id;
+	YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(*src_entry, up_element);
 	YuDbBPlusElementSetChildId(parent, parent_element_id, right_id);
 	*out_right_id = right_id;
 	YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, right); {
@@ -1358,27 +1369,27 @@ static YuDbBPlusElement YuDbBPlusEntrySplit(YuDbBPlusTree* tree, YuDbBPlusEntry*
 		}
 	}
 	;
-	return up_element;
+	return up_element_id;
 }
 static void YuDbBPlusEntryMerge(YuDbBPlusTree* tree, YuDbBPlusEntry* left, PageId left_id, YuDbBPlusEntry* right, PageId right_id, YuDbBPlusEntry* parent, int16_t parent_index) {
-	int16_t right_elemeng_id = YuDbBPlusEntryRbTreeIteratorLast(&right->rb_tree);
+	int16_t right_element_id = YuDbBPlusEntryRbTreeIteratorLast(&right->rb_tree);
 	for (int32_t i = 0; i < right->element_count; i++) {
 		{
-			if (!(right_elemeng_id != YuDbBPlusEntryRbReferencer_InvalidId)) {
+			if (!(right_element_id != YuDbBPlusEntryRbReferencer_InvalidId)) {
 				*(int*)0 = 0;
 			}
 		}
 		;
-		YuDbBPlusElement* right_elemeng = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(right, right_elemeng_id);
-		YuDbBPlusEntryInsertElement(left, ((void*)0), right_elemeng);
-		YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(right, right_elemeng);
-		right_elemeng_id = YuDbBPlusEntryRbTreeIteratorPrev(&right->rb_tree, right_elemeng_id);
+		YuDbBPlusElement* right_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(right, right_element_id);
+		YuDbBPlusEntryInsertElement(left, ((void*)0), right_element, -1);
+		YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(right, right_element);
+		right_element_id = YuDbBPlusEntryRbTreeIteratorPrev(&right->rb_tree, right_element_id);
 	}
 	if (left->type == kBPlusEntryLeaf) {
 	}
 	else {
 		YuDbBPlusElement* parent_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(parent, parent_index);
-		int16_t left_element_id = YuDbBPlusEntryInsertElement(left, ((void*)0), parent_element);
+		int16_t left_element_id = YuDbBPlusEntryInsertElement(left, ((void*)0), parent_element, -1);
 		YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(parent, parent_element);
 		YuDbBPlusElementSetChildId(left, left_element_id, left->index.tail_child_id);
 		YuDbBPlusElementSetChildId(left, -1, right->index.tail_child_id);
@@ -1387,20 +1398,20 @@ static void YuDbBPlusEntryMerge(YuDbBPlusTree* tree, YuDbBPlusEntry* left, PageI
 	YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, right);
 	YuDbBPlusEntryRelease(tree, right_id);
 }
-static _Bool YuDbBPlusTreeInsertElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cursor, YuDbBPlusEntry* src_entry, YuDbBPlusElement* insert_element) {
+static _Bool YuDbBPlusTreeInsertElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cursor, YuDbBPlusEntry* src_entry, YuDbBPlusElement* insert_element, int16_t insert_element_id, PageId insert_element_child_id) {
 	YuDbBPlusElementPos* cur_pos = YuDbBPlusCursorCur(tree, cursor);
 	YuDbBPlusElementPos* parent_pos = YuDbBPlusCursorUp(tree, cursor);
 	PageId right_id;
 	YuDbBPlusEntry* cur = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(tree, cur_pos->entry_id);
 	_Bool success = 1, insert_up = 0;
-	YuDbBPlusElement up_element;
+	int16_t up_element_id = (-1);
 	do {
 		if (cursor->leaf_status == kBPlusCursorEq) {
-			YuDbBPlusElementSet(cur, cur_pos->element_id, src_entry, insert_element);
+			YuDbBPlusElementSet(cur, cur_pos->element_id, src_entry, insert_element, insert_element_child_id);
 			break;
 		}
-		if (YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFreeRate(tree, cur) >= YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(cur, insert_element)) {
-			YuDbBPlusEntryInsertElement(cur, src_entry, insert_element);
+		if (YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFreeRate(tree, cur) >= YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(src_entry ? src_entry : cur, insert_element)) {
+			YuDbBPlusEntryInsertElement(cur, src_entry, insert_element, insert_element_child_id);
 			break;
 		}
 		if (cur_pos->element_id == YuDbBPlusEntryRbReferencer_InvalidId) {
@@ -1412,22 +1423,29 @@ static _Bool YuDbBPlusTreeInsertElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cu
 		if (!parent_pos) {
 			PageId parent_id = YuDbBPlusEntryCreate(tree, kBPlusEntryIndex);
 			YuDbBPlusEntry* parent = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(tree, parent_id);
-			up_element = YuDbBPlusEntrySplit(tree, cur, cur_pos->entry_id, parent, -1, &src_entry, insert_element, cur_pos->element_id, &right_id);
-			YuDbBPlusEntryInsertElement(parent, src_entry, &up_element);
+			up_element_id = YuDbBPlusEntrySplit(tree, cur, cur_pos->entry_id, parent, -1, &src_entry, insert_element, cur_pos->element_id, insert_element_child_id, &right_id);
+			YuDbBPlusElement* up_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(src_entry, up_element_id);
+			YuDbBPlusEntryInsertElement(parent, src_entry, up_element, cur_pos->entry_id);
+			YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(src_entry, up_element);
 			tree->root_id = parent_id;
 			YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, parent);
 			break;
 		}
 		YuDbBPlusEntry* parent = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(tree, parent_pos->entry_id);
-		up_element = YuDbBPlusEntrySplit(tree, cur, cur_pos->entry_id, parent, parent_pos->element_id, &src_entry, insert_element, cur_pos->element_id, &right_id);
+		up_element_id = YuDbBPlusEntrySplit(tree, cur, cur_pos->entry_id, parent, parent_pos->element_id, &src_entry, insert_element, cur_pos->element_id, insert_element_child_id, &right_id);
 		YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, parent);
 		insert_up = 1;
 	} while (0);
 	YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, cur);
 	if (insert_up) {
-		return YuDbBPlusTreeInsertElement(tree, cursor, src_entry, &up_element);
+		YuDbBPlusElement* up_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(src_entry, up_element_id);
+		return YuDbBPlusTreeInsertElement(tree, cursor, src_entry, up_element, up_element_id, cur_pos->entry_id);
 	}
-	if (src_entry) YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, src_entry);
+	if (src_entry) {
+		YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(src_entry, insert_element);
+		if (src_entry->type == kBPlusEntryIndex) YuDbBPlusEntryDeleteElement(src_entry, insert_element_id);
+		YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, src_entry);
+	}
 	return success;
 }
 static _Bool YuDbBPlusTreeDeleteElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cursor) {
@@ -1507,8 +1525,10 @@ static _Bool YuDbBPlusTreeDeleteElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cu
 						}
 					}
 					;
-					YuDbBPlusElement* element = YuDbBPlusEntryDeleteElement(sibling, last);
-					YuDbBPlusEntryInsertElement(entry, sibling, element);
+					YuDbBPlusElement* element = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(sibling, last);
+					YuDbBPlusEntryInsertElement(entry, sibling, element, -1);
+					YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(sibling, element);
+					YuDbBPlusEntryDeleteElement(sibling, last);
 					YuDbBPlusElement* common_parent_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(parent, common_parent_element_id);
 					common_parent_element->index.key = element->leaf.key;
 					YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(parent, common_parent_element);
@@ -1526,8 +1546,10 @@ static _Bool YuDbBPlusTreeDeleteElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cu
 						}
 					}
 					;
-					YuDbBPlusElement* element = YuDbBPlusEntryDeleteElement(sibling, first);
-					YuDbBPlusEntryInsertElement(entry, sibling, element);
+					YuDbBPlusElement* element = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(sibling, first);
+					YuDbBPlusEntryInsertElement(entry, sibling, element, -1);
+					YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(sibling, element);
+					YuDbBPlusEntryDeleteElement(sibling, first);
 					YuDbBPlusElement* common_parent_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(parent, common_parent_element_id);
 					YuDbBPlusElement* sibling_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(sibling, new_first);
 					common_parent_element->index.key = sibling_element->leaf.key;
@@ -1543,17 +1565,21 @@ static _Bool YuDbBPlusTreeDeleteElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cu
 						}
 					}
 					;
-					YuDbBPlusElement* left_element = YuDbBPlusEntryDeleteElement(sibling, last); {
+					YuDbBPlusElement* left_element = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(sibling, last); {
 						PageId temp = left_element->index.child_id;
 						left_element->index.child_id = sibling->index.tail_child_id;
 						sibling->index.tail_child_id = temp;
 					}
 					;
-					YuDbBPlusElement* par_element = YuDbBPlusEntryDeleteElement(parent, common_parent_element_id);
+					YuDbBPlusElement* par_element = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(parent, common_parent_element_id);
 					par_element->index.child_id = left_element->index.child_id;
-					YuDbBPlusEntryInsertElement(entry, parent, par_element);
+					YuDbBPlusEntryInsertElement(entry, parent, par_element, -1);
 					left_element->index.child_id = sibling_entry_id;
-					YuDbBPlusEntryInsertElement(parent, sibling, left_element);
+					YuDbBPlusEntryInsertElement(parent, sibling, left_element, -1);
+					YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(sibling, left_element);
+					YuDbBPlusEntryDeleteElement(sibling, last);
+					YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(parent, par_element);
+					YuDbBPlusEntryDeleteElement(parent, common_parent_element_id);
 				}
 				else {
 					int16_t first = YuDbBPlusEntryRbTreeIteratorFirst(&sibling->rb_tree); {
@@ -1562,17 +1588,21 @@ static _Bool YuDbBPlusTreeDeleteElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cu
 						}
 					}
 					;
-					YuDbBPlusElement* right_element = YuDbBPlusEntryDeleteElement(sibling, first);
-					YuDbBPlusElement* par_element = YuDbBPlusEntryDeleteElement(parent, common_parent_element_id);
+					YuDbBPlusElement* right_element = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(sibling, first);
+					YuDbBPlusElement* par_element = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(parent, common_parent_element_id);
 					par_element->index.child_id = right_element->index.child_id; {
 						PageId temp = par_element->index.child_id;
 						par_element->index.child_id = entry->index.tail_child_id;
 						entry->index.tail_child_id = temp;
 					}
 					;
-					YuDbBPlusEntryInsertElement(entry, parent, par_element);
+					YuDbBPlusEntryInsertElement(entry, parent, par_element, -1);
 					right_element->index.child_id = cur_pos->entry_id;
-					YuDbBPlusEntryInsertElement(parent, sibling, right_element);
+					YuDbBPlusEntryInsertElement(parent, sibling, right_element, -1);
+					YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(sibling, right_element);
+					YuDbBPlusEntryDeleteElement(sibling, first);
+					YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(parent, par_element);
+					YuDbBPlusEntryDeleteElement(parent, common_parent_element_id);
 				}
 			}
 			break;
@@ -1618,7 +1648,7 @@ _Bool YuDbBPlusTreeInsert(YuDbBPlusTree* tree, YuDbBPlusLeafElement* element) {
 	while (status == kBPlusCursorNext) {
 		status = YuDbBPlusCursorNext(tree, &cursor, &element->key);
 	}
-	_Bool success = YuDbBPlusTreeInsertElement(tree, &cursor, ((void*)0), (YuDbBPlusElement*)element);
+	_Bool success = YuDbBPlusTreeInsertElement(tree, &cursor, ((void*)0), (YuDbBPlusElement*)element, (-1), -1);
 	YuDbBPlusCursorRelease(tree, &cursor);
 	return success;
 }
@@ -1660,7 +1690,7 @@ int16_t YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_CreateBySize(YuDbBPlusEntry* entry, 
 		while (element_id != YuDbBPlusEntryRbReferencer_InvalidId) {
 			int16_t next_elemeng_id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, element_id);
 			YuDbBPlusElement* element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, element_id);
-			YuDbBPlusEntryInsertElement(temp, entry, element);
+			YuDbBPlusEntryInsertElement(temp, entry, element, YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_InvalidId);
 			YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(entry, element);
 			YuDbBPlusEntryDeleteElement(entry, element_id);
 			element_id = next_elemeng_id;
@@ -1670,9 +1700,10 @@ int16_t YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_CreateBySize(YuDbBPlusEntry* entry, 
 		MemoryFree(temp);
 	}
 	bucket_entry->info.alloc_size += size;
-	assert(bucket_entry->info.alloc_size <= bucket_entry->info.page_size);
+	  assert(bucket_entry->info.alloc_size <= bucket_entry->info.page_size);
 
 	int16_t offset = YuDbBPlusEntryFreeListAlloc(&bucket_entry->info.free_list, 0, size);
+	  assert(bucket_entry->info.alloc_size + YuDbBPlusEntryFreeListGetMaxFreeBlockSize(&bucket_entry->info.free_list, 0) == bucket_entry->info.page_size);
 	return offset;
 }
 
@@ -1781,7 +1812,7 @@ bool BucketPut(Bucket* bucket, void* key_buf, int16_t key_size, void* value_buf,
 	if (success == false) {
 		return false;
 	}
-    success = YuDbBPlusTreeInsertElement(tree, &cursor, NULL, element, YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_InvalidId);
+    success = YuDbBPlusTreeInsertElement(tree, &cursor, NULL, element, YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_InvalidId, YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_InvalidId);
     YuDbBPlusCursorRelease(tree, &cursor);
     return success;
 }
