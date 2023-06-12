@@ -1162,8 +1162,8 @@ static void YuDbBPlusElementSet(YuDbBPlusEntry* dst_entry, int16_t element_id, Y
 		YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetValue(dst_entry, dst_element, src_entry, &element->leaf.value);
 	}
 	else {
-		if (src_entry->type == kBPlusEntryLeaf) {
-			YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetKey(dst_entry, dst_element, src_entry, &element->leaf.key); {
+		if (element_child_id != -1) {
+			YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetKey(dst_entry, dst_element, src_entry, src_entry->type == kBPlusEntryIndex ? &element->index.key : &element->leaf.key); {
 				if (!(element_child_id != -1)) {
 					*(int*)0 = 0;
 				}
@@ -1172,6 +1172,7 @@ static void YuDbBPlusElementSet(YuDbBPlusEntry* dst_entry, int16_t element_id, Y
 			dst_element->index.child_id = element_child_id;
 		}
 		else {
+			  assert(src_entry->type == dst_entry->type);
 			YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetKey(dst_entry, dst_element, src_entry, &element->index.key);
 			dst_element->index.child_id = element->index.child_id;
 		}
@@ -1333,7 +1334,7 @@ PageId YuDbBPlusEntryCreate(YuDbBPlusTree* tree, BPlusEntryType type) {
 void YuDbBPlusEntryRelease(YuDbBPlusTree* tree, PageId entry_id) {
 	YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR_Release(tree, entry_id);
 }
-static int16_t YuDbBPlusEntrySplit(YuDbBPlusTree* tree, YuDbBPlusEntry* left, PageId left_id, YuDbBPlusEntry* parent, int16_t parent_element_id, YuDbBPlusEntry** src_entry, YuDbBPlusElement* insert_element, int16_t insert_id, PageId insert_element_child_id, PageId* out_right_id) {
+static int16_t YuDbBPlusEntrySplit(YuDbBPlusTree* tree, YuDbBPlusEntry* left, PageId left_id, YuDbBPlusEntry* parent, int16_t parent_element_id, YuDbBPlusEntry** src_entry, YuDbBPlusElement* insert_element, int16_t insert_id, PageId insert_element_child_id, bool dereference_src_entry, PageId* out_right_id) {
 	PageId right_id = YuDbBPlusEntryCreate(tree, left->type);
 	YuDbBPlusEntry* right = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(tree, right_id);
 	int16_t up_element_id;
@@ -1361,7 +1362,7 @@ static int16_t YuDbBPlusEntrySplit(YuDbBPlusTree* tree, YuDbBPlusEntry* left, Pa
 	if (!insert) {
 		YuDbBPlusEntryInsertElement(left, *src_entry, insert_element, insert_element_child_id);
 	}
-	if (*src_entry) YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, *src_entry);
+	if (dereference_src_entry && *src_entry) YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, *src_entry);
 	YuDbBPlusElement* up_element;
 	if (left->type == kBPlusEntryLeaf) {
 		*src_entry = right;
@@ -1429,6 +1430,7 @@ static _Bool YuDbBPlusTreeInsertElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cu
 	int16_t up_element_id = (-1);
 	do {
 		if (cursor->leaf_status == kBPlusCursorEq) {
+			// 这里需要调整，有可能出现空间不够却直接设置的情况
 			YuDbBPlusElementSet(cur, cur_pos->element_id, src_entry, insert_element, insert_element_child_id);
 			break;
 		}
@@ -1445,16 +1447,18 @@ static _Bool YuDbBPlusTreeInsertElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cu
 		if (!parent_pos) {
 			PageId parent_id = YuDbBPlusEntryCreate(tree, kBPlusEntryIndex);
 			YuDbBPlusEntry* parent = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(tree, parent_id);
-			up_element_id = YuDbBPlusEntrySplit(tree, cur, cur_pos->entry_id, parent, -1, &src_entry, insert_element, cur_pos->element_id, insert_element_child_id, &right_id);
-			YuDbBPlusElement* up_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(src_entry, up_element_id);
-			YuDbBPlusEntryInsertElement(parent, src_entry, up_element, cur_pos->entry_id);
-			YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(src_entry, up_element);
+			YuDbBPlusEntry* new_src_entry = src_entry;
+			up_element_id = YuDbBPlusEntrySplit(tree, cur, cur_pos->entry_id, parent, -1, &new_src_entry, insert_element, cur_pos->element_id, insert_element_child_id, false, &right_id);
+			YuDbBPlusElement* up_element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(new_src_entry, up_element_id);
+			YuDbBPlusEntryInsertElement(parent, new_src_entry, up_element, cur_pos->entry_id);
+			YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(new_src_entry, up_element);
+			YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, new_src_entry);
 			tree->root_id = parent_id;
 			YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, parent);
 			break;
 		}
 		YuDbBPlusEntry* parent = YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(tree, parent_pos->entry_id);
-		up_element_id = YuDbBPlusEntrySplit(tree, cur, cur_pos->entry_id, parent, parent_pos->element_id, &src_entry, insert_element, cur_pos->element_id, insert_element_child_id, &right_id);
+		up_element_id = YuDbBPlusEntrySplit(tree, cur, cur_pos->entry_id, parent, parent_pos->element_id, &src_entry, insert_element, cur_pos->element_id, insert_element_child_id, true, &right_id);
 		YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Dereference(tree, parent);
 		insert_up = 1;
 	} while (0);
