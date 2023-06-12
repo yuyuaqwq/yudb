@@ -121,7 +121,7 @@ int main() {
 	int r = 0;
 	int m = 1;
 
-	int64_t count = 1000000;
+	int64_t count = 190;
 
 
 	//for (int i = 0; i < count; i++) {
