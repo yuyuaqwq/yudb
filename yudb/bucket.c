@@ -204,20 +204,20 @@ int32_t YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFillRate(YuDbBPlusTree* tree, YuDbBP
 * B+树Element引用器
 */
 #define YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_InvalidId (-1)
-YuDbBPlusElement* YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(YuDbBPlusEntry* entry, int16_t element_id) {
+forceinline YuDbBPlusElement* YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(YuDbBPlusEntry* entry, int16_t element_id) {
 	return (YuDbBPlusElement*)((uintptr_t)entry + element_id);
 }
-void YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(YuDbBPlusEntry* entry, YuDbBPlusElement* element) {
+forceinline void YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(YuDbBPlusEntry* entry, YuDbBPlusElement* element) {
 
 }
 #define YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER
 
 
-void BlockRelease(BucketEntry* entry, int16_t element_id, size_t size) {
+forceinline void BlockRelease(BucketEntry* entry, int16_t element_id, size_t size) {
 	entry->info.alloc_size -= size;
 	YuDbBPlusEntryFreeListFree(&entry->info.free_list, 0, element_id, size);
 }
-void* DataParser(YuDbBPlusEntry* entry, Data* data, size_t* size) {
+forceinline void* DataParser(YuDbBPlusEntry* entry, Data* data, size_t* size) {
 	void* data_buf = NULL;
 	if (data->type == kDataInline) {
 		data_buf = data->inline_.data;
@@ -236,8 +236,7 @@ void* DataParser(YuDbBPlusEntry* entry, Data* data, size_t* size) {
 	}
 	return data_buf;
 }
-
-size_t DataGetExpandSize(YuDbBPlusEntry* entry, Data* data) {
+forceinline size_t DataGetExpandSize(YuDbBPlusEntry* entry, Data* data) {
 	if (data->type == kDataBlock) {
 		return data->block.size;
 	}
@@ -246,8 +245,7 @@ size_t DataGetExpandSize(YuDbBPlusEntry* entry, Data* data) {
 	}
 	return 0;
 }
-
-void DataRelease(YuDbBPlusEntry* entry, Data* data) {
+forceinline void DataRelease(YuDbBPlusEntry* entry, Data* data) {
 	BucketEntry* bucket_entry = BPlusEntryToBucketEntry(entry);
 	if (data->type == kDataBlock) {
 		BlockRelease(bucket_entry, data->block.element_id, data->block.size);
@@ -300,7 +298,6 @@ int32_t YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(YuDbBPlusEntry* dst_entry
 			size += DataGetExpandSize(dst_entry, &element->leaf.value);
 		}
 	}
-	
 	size += dst_entry->type == kBPlusEntryIndex ? sizeof(YuDbBPlusIndexElement) : sizeof(YuDbBPlusLeafElement);
 	return size;
 }

@@ -288,7 +288,8 @@ CacheId CacherFind(Cacher* cacher, PageId pgid, bool put_first) {
 void* CacherGet(Cacher* cacher, CacheId cache_id) {
 	Pager* pager = ObjectGetFromField(cacher, Pager, cacher);
 	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
-	AtomicIncrement32(&cache_info->reference_count);
+	++cache_info->reference_count;
+	//AtomicIncrement32(&cache_info->reference_count);
 	return (void*)(((uintptr_t)cacher->cache_pool) + cache_id * pager->page_size);
 }
 
@@ -297,7 +298,8 @@ void* CacherGet(Cacher* cacher, CacheId cache_id) {
 */
 void CacherDereference(Cacher* cacher, CacheId cache_id) {
 	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
-	AtomicDecrement32(&cache_info->reference_count);
+	--cache_info->reference_count;
+	// AtomicDecrement32(&cache_info->reference_count);
 	  assert(cache_info->reference_count >= 0);
 }
 
