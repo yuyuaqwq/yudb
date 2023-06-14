@@ -120,6 +120,7 @@ __forceinline PageId* CacheLruHashEntryAccessor_GetKey(CacheHashListHashTable* t
 int main() {
 	int r = 0;
 	int m = 1;
+	int w = 1;
 
 	int64_t count = 1000000;
 
@@ -205,78 +206,79 @@ int main() {
 	}
 
 
-	l = GetTickCount64();
-	
-	
-	if (m == 1) {
-		TxBegin(db, &tx, kTxReadWrite);
-	}
-	i = 0;
-	for (auto& iter : map) {
-		i++;
-		if (m == 0) {
+	if (w) {
+		l = GetTickCount64();
+
+
+		if (m == 1) {
 			TxBegin(db, &tx, kTxReadWrite);
 		}
-		if (i == 99834) {
-			printf("??");
-		}
+		i = 0;
+		for (auto& iter : map) {
+			i++;
+			if (m == 0) {
+				TxBegin(db, &tx, kTxReadWrite);
+			}
+			if (i == 99834) {
+				//printf("??");
+			}
 
-		int n = 0;
-		
-		if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 8, (void*)&iter.second, 8)) {
-			printf("NOW!");
-		}
-		//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
-		//printf("\n");
+			int n = 0;
 
-		//BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id);
-		//PrintBucket(&tx, BucketEntryToBPlusEntry(entry), 0, 0);
-		//printf("\n\n\n\n\n");
-		
-		//
-		//printf("\n\n\n\n");
-		if (m == 0) {
+			if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 8, (void*)&iter.second, 8)) {
+				printf("NOW!");
+			}
+			//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
+			//printf("\n");
+
+			//BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, tx.meta_info.bucket.bp_tree.root_id);
+			//PrintBucket(&tx, BucketEntryToBPlusEntry(entry), 0, 0);
+			//printf("\n\n\n\n\n");
+
+			//
+			//printf("\n\n\n\n");
+			if (m == 0) {
+				TxCommit(&tx);
+			}
+		}
+		if (m == 1) {
 			TxCommit(&tx);
 		}
+
+
+		//if (m == 1) {
+		//	TxBegin(db, &tx, kTxReadWrite);
+		//}
+		//i = 0;
+		//for (auto& iter : map) {
+		//	i++;
+		//	
+		//	if (m == 0) {
+		//		TxBegin(db, &tx, kTxReadWrite);
+		//		//printf("%d    ", GetBucketCount(&tx));
+		//	}
+
+		//
+		//	if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
+		//		printf("NOW!");
+		//	}
+
+		//	
+		//	if (m == 0) {
+		//		TxCommit(&tx);
+		//	}
+		//}
+		//if (m == 1) {
+		//	TxCommit(&tx);
+		//}
+
+
+		l = GetTickCount64() - l;
+		if (l == 0) {
+			l = 1;
+		}
+		printf("write: %dms, %dtps, %dns/op\n", (int)l, (int)(count * 1000 / l), (int)((l * 1000 * 1000) / count));
 	}
-	if (m == 1) {
-		TxCommit(&tx);
-	}
-	
-
-	//if (m == 1) {
-	//	TxBegin(db, &tx, kTxReadWrite);
-	//}
-	//i = 0;
-	//for (auto& iter : map) {
-	//	i++;
-	//	
-	//	if (m == 0) {
-	//		TxBegin(db, &tx, kTxReadWrite);
-	//		//printf("%d    ", GetBucketCount(&tx));
-	//	}
-
-	//
-	//	if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
-	//		printf("NOW!");
-	//	}
-
-	//	
-	//	if (m == 0) {
-	//		TxCommit(&tx);
-	//	}
-	//}
-	//if (m == 1) {
-	//	TxCommit(&tx);
-	//}
-
-
-	l = GetTickCount64() - l;
-	if (l == 0) {
-		l = 1;
-	}
-	printf("write: %dms, %dtps, %dns/op\n", (int)l, (int)(count * 1000 / l), (int)((l * 1000 * 1000) / count));
-
 	l = GetTickCount64();
 
 	if (m == 1) {
