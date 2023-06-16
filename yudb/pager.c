@@ -23,7 +23,14 @@ bool PagerInit(Pager* pager, int16_t page_size, PageCount page_count, size_t cac
 	FreeTableInit(&pager->free_table);
 	PageIdVectorInit(&pager->free_pgid_pool, 4, true);
 	pager->free_pgid_pool.count = 0;
+
+	pager->temp_page = MemoryAlloc(page_size);
+
 	return true;
+}
+
+void PagerDestroy(Pager* pager) {
+	MemoryFree(pager->temp_page);
 }
 
 /*
