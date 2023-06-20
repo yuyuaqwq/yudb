@@ -144,7 +144,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PreprocessToFile>false</PreprocessToFile>
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-      <OmitFramePointers>false</OmitFramePointers>
+      <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
