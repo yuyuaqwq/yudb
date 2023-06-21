@@ -122,7 +122,7 @@ int main() {
 	int m = 1;
 	int w = 1;
 
-	int64_t count = 10000000;
+	int64_t count = 1000000;
 
 
 	//for (int i = 0; i < count; i++) {
@@ -225,7 +225,7 @@ int main() {
 
 			int n = 0;
 
-			if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 8, (void*)&iter.second, 8)) {
+			if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 3, (void*)&iter.second, 3)) {
 				printf("NOW!");
 			}
 			//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
@@ -297,7 +297,7 @@ int main() {
 			//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
 
 		}
-		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter.first, 8)) {
+		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter.first, 3)) {
 			printf("NOR! %llx  %llx   ;", iter.first, iter.second);
 		}
 		if (m == 0) {

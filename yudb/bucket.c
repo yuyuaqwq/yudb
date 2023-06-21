@@ -1412,7 +1412,7 @@ static int16_t YuDbBPlusEntrySplit(YuDbBPlusTree* tree, YuDbBPlusEntry* left, Pa
 	YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_Clean(tree, left);
 
 	do {
-		left_element_id = YuDbBPlusEntryRbTreeIteratorPrev(&left->rb_tree, left_element_id);
+		left_element_id = YuDbBPlusEntryRbTreeIteratorPrev(&temp_entry->rb_tree, left_element_id);
 		++left_count;
 	} while (left_element_id != (-1));
 	left_element_id = YuDbBPlusEntryRbTreeIteratorFirst(&temp_entry->rb_tree);
