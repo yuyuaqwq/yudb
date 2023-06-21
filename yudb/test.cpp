@@ -122,7 +122,7 @@ int main() {
 	int m = 1;
 	int w = 1;
 
-	int64_t count = 1000000;
+	int64_t count = 10000000;
 
 
 	//for (int i = 0; i < count; i++) {
@@ -199,9 +199,9 @@ int main() {
 	
 	srand(14134);//GetTickCount()
 
-	std::map<int64_t, int64_t> map;
+	std::map<uint64_t, uint64_t> map;
 	for (int i = 0; i < count; i++) {
-		int j = rand() << 16 | rand();
+		uint64_t j = (uint64_t)rand() << 48 | (uint64_t)rand() << 32 | (uint64_t)rand() << 16 | (uint64_t)rand();
 		map.insert(std::make_pair(j, j));
 	}
 
