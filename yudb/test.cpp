@@ -235,12 +235,13 @@ int main() {
 			if (m == 0) {
 				TxBegin(db, &tx, kTxReadWrite);
 			}
-			int64_t kk = 2531101099859663433;
-			if ( i>= 668 && !BucketFind(&tx.meta_info.bucket, (void*)&kk, 4)) {// 
-				printf("??");
-			}
+			//int64_t kk = 2531101099859663433;
+			//if ( i>= 668 && !BucketFind(&tx.meta_info.bucket, (void*)&kk, 4)) {// 
+			//	printf("??");
+			//}
 
 			int n = 0;
+
 
 			if (!BucketPut(&tx.meta_info.bucket, (void*)&iter, 4, (void*)&iter, 4)) {
 				printf("NOW!");
@@ -300,7 +301,11 @@ int main() {
 
 	l = GetTickCount64();
 
-	
+	//BucketEntry* entry = (BucketEntry*)PagerReference(&tx.db->pager, 12);
+	//printf("alloc_size %d, %p\n", entry->info.alloc_size, entry);
+	//PrintBucket(&tx, BucketEntryToBPlusEntry(entry), 0, 0);
+	//PagerDereference(&tx.db->pager, entry);
+
 
 	if (m == 1) {
 		TxBegin(db, &tx, kTxReadOnly);
@@ -319,15 +324,6 @@ int main() {
 		//	printf("??");
 		//}
 
-		if (i>=7) {
-			// == 8时找不到，==7时淘汰了12号页面，找不到的数据在12号，确定具体问题
-			int64_t kk = 0x2320470a3bbc5a49;
-			if (!BucketFind(&tx.meta_info.bucket, (void*)&kk, 4)) {
-				printf("??");
-			}
-
-			printf("??");
-		}
 		//	//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
 
 		//}

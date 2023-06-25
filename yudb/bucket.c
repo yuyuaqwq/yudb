@@ -5,116 +5,7 @@
 
 #define YUDB_BUCKET_FREE_LIST_REFEREBCER_InvalidId (-1)
 #define YUDB_BUCKET_FREE_LIST_REFEREBCER YUDB_BUCKET_FREE_LIST_REFEREBCER
-//CUTILS_CONTAINER_SPACE_MANAGER_FREE_LIST_DEFINE(YuDbBPlusEntry, int16_t, uint8_t, YUDB_BUCKET_FREE_LIST_REFEREBCER, 1)
-void YuDbBPlusEntryFreeListInit(YuDbBPlusEntryFreeList* head, int16_t element_count) {
-	head->first_block[0] = 0;
-	for (int16_t i = 1; i < 1; i++) {
-		head->first_block[i] = (-1);
-	}
-	YuDbBPlusEntryFreeBlockEntry* block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[0]);
-	block->next_block_offset = (-1);
-	block->count = element_count - element_count % sizeof(YuDbBPlusEntryFreeBlockEntry);
-}
-int16_t YuDbBPlusEntryFreeListAlloc(YuDbBPlusEntryFreeList* head, int16_t list_order, int16_t* count) {
-	if (*count % sizeof(YuDbBPlusEntryFreeBlockEntry)) {
-		*count = *count + (sizeof(YuDbBPlusEntryFreeBlockEntry) - *count % sizeof(YuDbBPlusEntryFreeBlockEntry));
-	}
-	int16_t count_ = *count;
-	YuDbBPlusEntryFreeBlockEntry* prev_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->first_block[list_order]);
-	int16_t free_offset = head->first_block[list_order];
-	while (free_offset != (-1)) {
-		YuDbBPlusEntryFreeBlockEntry* block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset]);
-		if (block->count > count_) {
-			YuDbBPlusEntryFreeBlockEntry* new_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset + count_]);
-			int16_t new_count = block->count - count_;
-			new_block->next_block_offset = block->next_block_offset;
-			  assert(new_block->next_block_offset != 0);
-			new_block->count = block->count - count_;
-			prev_block->next_block_offset += count_;
-			return free_offset;
-		}
-		else if (block->count == count_) {
-			prev_block->next_block_offset = block->next_block_offset;
-			return free_offset;
-		}
-		free_offset = block->next_block_offset;
-		prev_block = block;
-	}
-	;
-	return (-1);
-}
-void YuDbBPlusEntryFreeListFree(YuDbBPlusEntryFreeList* head, int16_t list_order, int16_t free_offset, int16_t* count) {
-	if (*count % sizeof(YuDbBPlusEntryFreeBlockEntry)) {
-		*count = *count + (sizeof(YuDbBPlusEntryFreeBlockEntry) - *count % sizeof(YuDbBPlusEntryFreeBlockEntry));
-	}
-	int16_t count_ = *count;
-	int16_t cur_offset = head->first_block[list_order];
-	YuDbBPlusEntryFreeBlockEntry* prev_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->first_block[list_order]);
-	YuDbBPlusEntryFreeBlockEntry* cur_block;
-	YuDbBPlusEntryFreeBlockEntry* free_prev_prev_block = ((void*)0), * free_next_prev_block = ((void*)0);
-	YuDbBPlusEntryFreeBlockEntry* free_prev_block = ((void*)0), * free_next_block = ((void*)0);
-	while (cur_offset != (-1)) {
-		cur_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[cur_offset]);
-		if (!free_next_block && free_offset + count_ == cur_offset) {
-			if (free_prev_block) {
-				free_prev_prev_block->next_block_offset = free_prev_block->next_block_offset;
-			}
-			count_ += cur_block->count;
-			int16_t next_offset = cur_block->next_block_offset;
-			cur_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset]);
-			cur_block->count = count_;
-			cur_block->next_block_offset = next_offset;
-			prev_block->next_block_offset = free_offset;
-			free_next_prev_block = prev_block;
-			free_next_block = cur_block;
-		}
-		else if (!free_prev_block && cur_offset + cur_block->count == free_offset) {
-			if (free_next_block) {
-				free_next_prev_block->next_block_offset = free_next_block->next_block_offset;
-			}
-			free_offset = cur_offset;
-			count_ += cur_block->count;
-			cur_block->count = count_;
-			free_prev_prev_block = prev_block;
-			free_prev_block = cur_block;
-		}
-		else {
-			prev_block = cur_block;
-		}
-		if (free_prev_block && free_next_block) break;
-		cur_offset = cur_block->next_block_offset;
-	}
-	if (!free_prev_block && !free_next_block) {
-		cur_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset]);
-		cur_block->next_block_offset = head->first_block[list_order];
-		cur_block->count = count_;
-		head->first_block[list_order] = free_offset;
-	}
-}
-int16_t YuDbBPlusEntryFreeListGetMaxFreeBlockSize(YuDbBPlusEntryFreeList* head, int16_t list_order) {
-	YuDbBPlusEntryFreeBlockEntry* prev_block = (YuDbBPlusEntryFreeBlockEntry*)((uintptr_t)&head->first_block[list_order]);
-	int16_t free_offset = head->first_block[list_order];
-	int16_t max = 0;
-	while (free_offset != (-1)) {
-		YuDbBPlusEntryFreeBlockEntry* block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset]);
-		if (block->count > max) {
-			max = block->count;
-		}
-		free_offset = block->next_block_offset;
-	}
-	return max;
-}
-int16_t YuDbBPlusEntryFreeListGetFreeBlockSize(YuDbBPlusEntryFreeList* head, int16_t list_order) {
-	YuDbBPlusEntryFreeBlockEntry* prev_block = (YuDbBPlusEntryFreeBlockEntry*)((uintptr_t)&head->first_block[list_order]);
-	int16_t free_offset = head->first_block[list_order];
-	int16_t max = 0;
-	while (free_offset != (-1)) {
-		YuDbBPlusEntryFreeBlockEntry* block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset]);
-		max += block->count;
-		free_offset = block->next_block_offset;
-	}
-	return max;
-}
+CUTILS_CONTAINER_SPACE_MANAGER_FREE_LIST_DEFINE(YuDbBPlusEntry, int16_t, uint8_t, YUDB_BUCKET_FREE_LIST_REFEREBCER, 1)
 
 static inline Tx* BPlusTreeToTx(YuDbBPlusTree* tree) {
 	Bucket* bucket = ObjectGetFromField(tree, Bucket, bp_tree);
@@ -452,7 +343,7 @@ bool YUDB_BUCKET_BPLUS_COMPARER_Less(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, 
 }
 #define YUDB_BUCKET_BPLUS_COMPARER YUDB_BUCKET_BPLUS_COMPARER
 
-#define AAA
+//#define AAA
 #ifndef AAA
 CUTILS_CONTAINER_BPLUS_TREE_DEFINE(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, 
 	PageId, int16_t, YuDbKey, YuDbValue, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR,
@@ -1917,6 +1808,7 @@ bool BucketPut(Bucket* bucket, void* key_buf, int16_t key_size, void* value_buf,
     do  {
 		YuDbBPlusElementPos* cur = YuDbBPlusCursorCur(tree, &cursor);
 		BucketEntry* entry = (BucketEntry*)PagerReference(&tx->db->pager, cur->entry_id);
+		PagerMarkDirty(&tx->db->pager, entry);
 		if (entry->info.last_write_tx_id != tx->meta_info.txid) {		// 当前事务创建/修改的页面不需要重复cow
 			PageId copy_id = BucketEntryCopy(&tx->meta_info.bucket, entry, cur->entry_id);
 			if (copy_id == kPageInvalidId) {
