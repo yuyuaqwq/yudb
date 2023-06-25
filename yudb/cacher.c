@@ -149,7 +149,7 @@ CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
 	CacheInfo* evict_cache_info;
 	size_t cur_count = cacher->lru_list.hash_table.bucket.count;
 	size_t max_count = cacher->lru_list.max_count;
-	if (cur_count >= max_count / 100 * db->config.hotspot_queue_full_percentage) {
+	if (cur_count >= max_count * db->config.hotspot_queue_full_percentage / 100) {
 		// 需要从热点队列驱逐缓存
 		CacheHashListEntry* lru_entry = CacheHashListPop(&cacher->lru_list);
 		  assert(lru_entry != NULL);

@@ -1,4 +1,5 @@
 #include <map>
+#include <vector>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -41,12 +42,16 @@ void PrintBucket(Tx* tx, YuDbBPlusEntry* entry, int Level, int pos) {
 	int16_t id = YuDbBPlusEntryRbTreeIteratorLast(&entry->rb_tree);
 	for (int i = entry->element_count; i >= 0; i--) {
 		if (i == entry->element_count) {
-			PrintBucket(tx, BucketEntryToBPlusEntry(((BucketEntry*)PagerReference(pager, entry->index.tail_child_id))), Level + 1, i - 1);
+			BucketEntry* bucket_entry = (BucketEntry*)PagerReference(pager, entry->index.tail_child_id);
+			PrintBucket(tx, BucketEntryToBPlusEntry(bucket_entry), Level + 1, i - 1);
+			PagerDereference(pager, bucket_entry);
 			continue;
 		}
 		size_t size;
 		printf("%sindex:::key:%x\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)DataParser(entry, &YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.key, &size), empty, Level, empty/*, entry->parentId != kPageInvalidId ? ((BPlusEntry*)PageGet(tree, entry->parentId))->indexElement[pos].key: 0*/);
-		PrintBucket(tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(pager, (PageId)YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.child_id)), Level + 1, i);
+		BucketEntry* bucket_entry = (BucketEntry*)PagerReference(pager, (PageId)YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.child_id);
+		PrintBucket(tx, BucketEntryToBPlusEntry(bucket_entry), Level + 1, i);
+		PagerDereference(pager, bucket_entry);
 		id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
 	}
 	free(empty);
@@ -120,9 +125,9 @@ __forceinline PageId* CacheLruHashEntryAccessor_GetKey(CacheHashListHashTable* t
 int main() {
 	int r = 0;
 	int m = 1;
-	int w = 0;
+	int w = 1;
 
-	int64_t count = 1000000;
+	int64_t count = 900;
 
 
 	//for (int i = 0; i < count; i++) {
@@ -152,7 +157,7 @@ int main() {
 
 	Config config;
 	config.page_size = 4096;
-	config.cacher_page_count = 20480;
+	config.cacher_page_count = 16;
 	config.sync_mode = kConfigSyncNormal;
 	config.update_mode = kConfigUpdateInPlace;
 	config.hotspot_queue_full_percentage = 50;
@@ -199,12 +204,22 @@ int main() {
 	
 	//srand(14134);//GetTickCount()
 
-	std::map<uint64_t, uint64_t> map;
+	//std::map<uint64_t, uint64_t> map;
+	std::vector<uint64_t> aaa(count);
+
 	for (int i = 0; i < count; i++) {
-		uint64_t j = (uint64_t)rand() << 48 | (uint64_t)rand() << 32 | (uint64_t)rand() << 16 | (uint64_t)rand();
-		//j &= 0xff;
-		map.insert(std::make_pair(j, j));
+		aaa[i] = (uint64_t)rand() << 48 | (uint64_t)rand() << 32 | (uint64_t)rand() << 16 | (uint64_t)rand();
+		//uint64_t j = (uint64_t)rand() << 48 | (uint64_t)rand() << 32 | (uint64_t)rand() << 16 | (uint64_t)rand();
+		//j &= 0xffffffff;
+		//map.insert(std::make_pair(j, j));
 	}
+
+	/*for (int i = 0; i < count; i++) {
+		std::swap(aaa[i], aaa[(rand() << 16 |rand()) & count]);
+	}*/
+
+
+	
 
 
 	if (w) {
@@ -215,19 +230,19 @@ int main() {
 			TxBegin(db, &tx, kTxReadWrite);
 		}
 		i = 0;
-		for (auto& iter : map) {
+		for (auto& iter : aaa) {
 			i++;
 			if (m == 0) {
 				TxBegin(db, &tx, kTxReadWrite);
 			}
-			//int64_t kk = 6141830907859451818;
-			//if ( i>= 666218 && !BucketFind(&tx.meta_info.bucket, (void*)&kk, 4)) {
+			//int64_t kk = 7120834621902825504;
+			//if ( i>= 58625 && !BucketFind(&tx.meta_info.bucket, (void*)&kk, 4)) {// 
 			//	printf("??");
 			//}
 
 			int n = 0;
 
-			if (!BucketPut(&tx.meta_info.bucket, (void*)&iter.first, 4, (void*)&iter.second, 4)) {
+			if (!BucketPut(&tx.meta_info.bucket, (void*)&iter, 4, (void*)&iter, 4)) {
 				printf("NOW!");
 			}
 			//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
@@ -280,8 +295,9 @@ int main() {
 		if (l == 0) {
 			l = 1;
 		}
-		printf("write: %dms, %dtps, %dns/op\n", (int)l, (int)(map.size() * 1000 / l), (int)((l * 1000 * 1000) / map.size()));
+		printf("write: %dms, %dtps, %dns/op\n", (int)l, (int)(aaa.size() * 1000 / l), (int)((l * 1000 * 1000) / aaa.size()));
 	}
+
 	l = GetTickCount64();
 
 	
@@ -293,23 +309,23 @@ int main() {
 	//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
 	//printf("%d", GetBucketCount(&tx));
 	i = 0;
-	for (auto& iter : map) {
+	for (auto& iter : aaa) {
 		++i;
 		if (m == 0) {
 			TxBegin(db, &tx, kTxReadOnly);
 		}
-		int64_t kk = 6141830907859451818;
-		if ( !BucketFind(&tx.meta_info.bucket, (void*)&kk, 4)) {
-			printf("??");
-		}
+		//int64_t kk = 6141830907859451818;
+		//if ( !BucketFind(&tx.meta_info.bucket, (void*)&kk, 4)) {
+		//	printf("??");
+		//}
 
 		//if (i == 34738) {
 		//	printf("??");
 		//	//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
 
 		//}
-		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter.first, 4)) {
-			printf("NOR! %llx  %llx   ;", iter.first, iter.second);
+		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter, 4)) {
+			printf("NOR! %llx  %llx   ;", iter, iter);
 		}
 		if (m == 0) {
 			TxCommit(&tx);
@@ -324,7 +340,7 @@ int main() {
 	if (l == 0) {
 		l = 1;
 	}
-	printf("read: %dms, %dtps, %dns/op", (int)l, (int)(map.size() * 1000 / l), (int)((l * 1000 * 1000) / map.size()));
+	printf("read: %dms, %dtps, %dns/op", (int)l, (int)(aaa.size() * 1000 / l), (int)((l * 1000 * 1000) / aaa.size()));
 	// YuDbPut(db, );
 	// YuDbPut(db, "dwadad", 6, "123456", 6);
 	printf("\n");

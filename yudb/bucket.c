@@ -13,22 +13,27 @@ void YuDbBPlusEntryFreeListInit(YuDbBPlusEntryFreeList* head, int16_t element_co
 	}
 	YuDbBPlusEntryFreeBlockEntry* block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[0]);
 	block->next_block_offset = (-1);
-	block->count = element_count;
+	block->count = element_count - element_count % sizeof(YuDbBPlusEntryFreeBlockEntry);
 }
-int16_t YuDbBPlusEntryFreeListAlloc(YuDbBPlusEntryFreeList* head, int16_t list_order, int16_t count) {
+int16_t YuDbBPlusEntryFreeListAlloc(YuDbBPlusEntryFreeList* head, int16_t list_order, int16_t* count) {
+	if (*count % sizeof(YuDbBPlusEntryFreeBlockEntry)) {
+		*count = *count + (sizeof(YuDbBPlusEntryFreeBlockEntry) - *count % sizeof(YuDbBPlusEntryFreeBlockEntry));
+	}
+	int16_t count_ = *count;
 	YuDbBPlusEntryFreeBlockEntry* prev_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->first_block[list_order]);
 	int16_t free_offset = head->first_block[list_order];
 	while (free_offset != (-1)) {
 		YuDbBPlusEntryFreeBlockEntry* block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset]);
-		if (block->count > count) {
-			YuDbBPlusEntryFreeBlockEntry* new_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset + count]);
+		if (block->count > count_) {
+			YuDbBPlusEntryFreeBlockEntry* new_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset + count_]);
+			int16_t new_count = block->count - count_;
 			new_block->next_block_offset = block->next_block_offset;
 			  assert(new_block->next_block_offset != 0);
-			new_block->count = block->count - count;
-			prev_block->next_block_offset += count;
+			new_block->count = block->count - count_;
+			prev_block->next_block_offset += count_;
 			return free_offset;
 		}
-		else if (block->count == count) {
+		else if (block->count == count_) {
 			prev_block->next_block_offset = block->next_block_offset;
 			return free_offset;
 		}
@@ -38,7 +43,11 @@ int16_t YuDbBPlusEntryFreeListAlloc(YuDbBPlusEntryFreeList* head, int16_t list_o
 	;
 	return (-1);
 }
-void YuDbBPlusEntryFreeListFree(YuDbBPlusEntryFreeList* head, int16_t list_order, int16_t free_offset, int16_t count) {
+void YuDbBPlusEntryFreeListFree(YuDbBPlusEntryFreeList* head, int16_t list_order, int16_t free_offset, int16_t* count) {
+	if (*count % sizeof(YuDbBPlusEntryFreeBlockEntry)) {
+		*count = *count + (sizeof(YuDbBPlusEntryFreeBlockEntry) - *count % sizeof(YuDbBPlusEntryFreeBlockEntry));
+	}
+	int16_t count_ = *count;
 	int16_t cur_offset = head->first_block[list_order];
 	YuDbBPlusEntryFreeBlockEntry* prev_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->first_block[list_order]);
 	YuDbBPlusEntryFreeBlockEntry* cur_block;
@@ -46,14 +55,14 @@ void YuDbBPlusEntryFreeListFree(YuDbBPlusEntryFreeList* head, int16_t list_order
 	YuDbBPlusEntryFreeBlockEntry* free_prev_block = ((void*)0), * free_next_block = ((void*)0);
 	while (cur_offset != (-1)) {
 		cur_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[cur_offset]);
-		if (!free_next_block && free_offset + count == cur_offset) {
+		if (!free_next_block && free_offset + count_ == cur_offset) {
 			if (free_prev_block) {
 				free_prev_prev_block->next_block_offset = free_prev_block->next_block_offset;
 			}
-			count += cur_block->count;
+			count_ += cur_block->count;
 			int16_t next_offset = cur_block->next_block_offset;
 			cur_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset]);
-			cur_block->count = count;
+			cur_block->count = count_;
 			cur_block->next_block_offset = next_offset;
 			prev_block->next_block_offset = free_offset;
 			free_next_prev_block = prev_block;
@@ -64,8 +73,8 @@ void YuDbBPlusEntryFreeListFree(YuDbBPlusEntryFreeList* head, int16_t list_order
 				free_next_prev_block->next_block_offset = free_next_block->next_block_offset;
 			}
 			free_offset = cur_offset;
-			count += cur_block->count;
-			cur_block->count = count;
+			count_ += cur_block->count;
+			cur_block->count = count_;
 			free_prev_prev_block = prev_block;
 			free_prev_block = cur_block;
 		}
@@ -78,7 +87,7 @@ void YuDbBPlusEntryFreeListFree(YuDbBPlusEntryFreeList* head, int16_t list_order
 	if (!free_prev_block && !free_next_block) {
 		cur_block = (YuDbBPlusEntryFreeBlockEntry*)(&head->obj_arr[free_offset]);
 		cur_block->next_block_offset = head->first_block[list_order];
-		cur_block->count = count;
+		cur_block->count = count_;
 		head->first_block[list_order] = free_offset;
 	}
 }
@@ -139,9 +148,9 @@ static void BucketEntryInit(BucketEntry* entry, size_t bp_entry_size, size_t pag
 	YuDbBPlusEntryFreeListInit(&entry->info.free_list, page_size - BucketEntryGetHeadSize(entry));
 	
 	// BPlusEntry头部占用
-	entry->info.alloc_size = BucketEntryGetHeadSize(entry) + bp_entry_size;		// 分配大小把BucketEntry头部长度算上，而free_list分配的偏移是不算上的
 	entry->info.page_size = page_size;
-	YuDbBPlusEntryFreeListAlloc(&entry->info.free_list, 0, bp_entry_size);
+	YuDbBPlusEntryFreeListAlloc(&entry->info.free_list, 0, &bp_entry_size);
+	entry->info.alloc_size = BucketEntryGetHeadSize(entry) + bp_entry_size;		// 分配大小把BucketEntry头部长度算上，而free_list分配的偏移是不算上的
 }
 
 PageId YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR_CreateBySize(YuDbBPlusTree* tree, size_t bp_entry_size) {
@@ -187,8 +196,9 @@ int32_t YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetMergeThresholdRate(YuDbBPlusTree* tr
 }
 int32_t YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetFreeRate(YuDbBPlusTree* tree, YuDbBPlusEntry* entry) {
 	Tx* tx = BPlusTreeToTx(tree); 
-	BucketEntry* buckey_entry = BPlusEntryToBucketEntry(entry);
-	int16_t max_free_size = YuDbBPlusEntryFreeListGetMaxFreeBlockSize(&buckey_entry->info.free_list, 0);
+	BucketEntry* bucket_entry = BPlusEntryToBucketEntry(entry);
+	int16_t max_free_size = YuDbBPlusEntryFreeListGetMaxFreeBlockSize(&bucket_entry->info.free_list, 0);
+	  assert(max_free_size <= bucket_entry->info.page_size - bucket_entry->info.alloc_size);
 	return max_free_size;
 }
 int32_t YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetMaxRate(YuDbBPlusTree* tree, YuDbBPlusEntry* entry) {
@@ -237,9 +247,9 @@ MemoryData g_key;
 MemoryData g_value;
 forceinline void BlockRelease(BucketEntry* entry, int16_t element_id, size_t size) {
 	  assert(size >= sizeof(YuDbBPlusEntryFreeBlockEntry));
-	entry->info.alloc_size -= size;
 	  assert(entry->info.alloc_size >= 4 && entry->info.alloc_size <= 4092);
-	YuDbBPlusEntryFreeListFree(&entry->info.free_list, 0, element_id, size);
+	YuDbBPlusEntryFreeListFree(&entry->info.free_list, 0, element_id, &size);
+	entry->info.alloc_size -= size;
 }
 forceinline void* DataParser(YuDbBPlusEntry* entry, Data* data, size_t* size) {
 	void* data_buf = NULL;
@@ -296,7 +306,8 @@ void YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_Release(YuDbBPlusEntry* entry, int16_t 
 		DataRelease(entry, &element->leaf.value);
 		BlockRelease(bucket_entry, element_id, sizeof(YuDbBPlusLeafElement));
 	}
-	  assert(bucket_entry->info.alloc_size + YuDbBPlusEntryFreeListGetFreeBlockSize(&bucket_entry->info.free_list, 0) == bucket_entry->info.page_size);
+	int16_t max_free;
+	  assert(bucket_entry->info.alloc_size + (max_free = YuDbBPlusEntryFreeListGetFreeBlockSize(&bucket_entry->info.free_list, 0)) == bucket_entry->info.page_size - 2);
 	YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(entry, element);
 }
 #define YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR
@@ -1430,14 +1441,6 @@ static int16_t YuDbBPlusEntrySplit(YuDbBPlusTree* tree, YuDbBPlusEntry* left, Pa
 	for (int32_t i = left_count; i > 0; i /= 2) ++logn;
 	left->rb_tree.root = YuDbBuildRbTree(temp_entry, &left_element_id, left, 0, left_count - 1, (-1), logn, 0);
 
-	int16_t qqqq = YuDbBPlusEntryRbTreeIteratorFirst(&right->rb_tree);
-	YuDbBPlusElement* kkk = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(right, qqqq);
-	void* buf = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(right, kkk->leaf.key.block.element_id);
-
-	qqqq = YuDbBPlusEntryRbTreeIteratorLast(&left->rb_tree);
-	kkk = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(left, qqqq);
-	buf = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(left, kkk->leaf.key.block.element_id);
-
 	if (insert_right) {
 		YuDbBPlusEntryInsertElement(right, *src_entry, insert_element, insert_element_child_id);
 		right_count++;
@@ -1801,7 +1804,6 @@ _Bool YuDbBPlusTreeDelete(YuDbBPlusTree* tree, YuDbKey* key) {
 #endif
 
 int16_t YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_CreateBySize(YuDbBPlusEntry* entry, int32_t size) {
-
 	BucketEntry* bucket_entry = BPlusEntryToBucketEntry(entry);
 
 	if (bucket_entry->info.alloc_size + size <= bucket_entry->info.page_size && YuDbBPlusEntryFreeListGetMaxFreeBlockSize(&bucket_entry->info.free_list, 0) < size) {
@@ -1833,12 +1835,12 @@ int16_t YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_CreateBySize(YuDbBPlusEntry* entry, 
 		memcpy(bucket_entry, temp, bucket_entry->info.page_size);
 		MemoryFree(temp);
 	}
-	bucket_entry->info.alloc_size += size;
 	  assert(bucket_entry->info.alloc_size <= bucket_entry->info.page_size);
 
 	  assert(size >= sizeof(YuDbBPlusEntryFreeBlockEntry));
-	int16_t offset = YuDbBPlusEntryFreeListAlloc(&bucket_entry->info.free_list, 0, size);
-	  assert(bucket_entry->info.alloc_size + YuDbBPlusEntryFreeListGetFreeBlockSize(&bucket_entry->info.free_list, 0) == bucket_entry->info.page_size);
+	int16_t offset = YuDbBPlusEntryFreeListAlloc(&bucket_entry->info.free_list, 0, &size);
+	bucket_entry->info.alloc_size += size;
+	  assert(bucket_entry->info.alloc_size + YuDbBPlusEntryFreeListGetFreeBlockSize(&bucket_entry->info.free_list, 0) == bucket_entry->info.page_size - 2);
 	return offset;
 }
 
