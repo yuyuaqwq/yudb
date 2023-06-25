@@ -21,8 +21,7 @@ typedef enum {
 } DataType;
 
 typedef struct _MemoryData {
-    uint32_t type : 2;     // 11
-    uint32_t size : 30;    // 最大1G
+    uint32_t size;
     uintptr_t mem_ptr;     // addr，8字节
 } MemoryData;
 
@@ -44,7 +43,10 @@ typedef struct _Data {
         //    uint64_t type : 2;      // 10
         //    uint16_t element_id;      // 指向页内的页描述块(描述长度、页信息(Page:4byte、logn:1byte))
         //} page;     // 独立页面
-        //MemoryData memory;       // 内存数据
+        struct {
+            uint8_t type : 2;       // 11
+            uint8_t is_value : 1;
+        } mem_buf;
     };
 } Data;
 #pragma pack()
