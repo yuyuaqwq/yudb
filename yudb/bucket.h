@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 #include <CUtils/container/bplus_tree.h>
-#include <CUtils/space_manager/free_list.h>
 
 #include <yudb/page.h>
 #include <yudb/txid.h>
@@ -15,10 +14,9 @@
 extern "C" {
 #endif //  __cplusplus
     
-CUTILS_CONTAINER_SPACE_MANAGER_FREE_LIST_DECLARATION(YuDbBPlusEntry, int16_t, uint8_t, 1)
 
-typedef Data YuDbKey;
-typedef Data YuDbValue;
+typedef DataDescriptor YuDbKey;
+typedef DataDescriptor YuDbValue;
 
 CUTILS_CONTAINER_BPLUS_TREE_DECLARATION(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, PageId, int16_t, YuDbKey, YuDbValue, 8)
 
@@ -27,7 +25,7 @@ typedef struct _BucketEntryInfo {
     TxId last_write_tx_id;
     int16_t alloc_size;
     int16_t page_size;
-    YuDbBPlusEntryFreeList free_list;
+    DataPool data_pool;
 } BucketEntryInfo;
 
 typedef struct _BucketEntry {

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include <CUtils/space_manager/object_pool.h>
+#include <CUtils/space_manager/free_list.h>
 
 #include <yudb/page.h>
 
@@ -25,7 +26,7 @@ typedef struct _MemoryData {
     uintptr_t mem_ptr;     // addr，8字节
 } MemoryData;
 
-typedef struct _Data {
+typedef struct _DataDescriptor {
     union {
         uint8_t type : 2;
         struct {
@@ -37,7 +38,7 @@ typedef struct _Data {
         struct {
             uint16_t type : 2;      // 01
             uint16_t size : 14;     // 4字节对齐，>> 2 存储， << 2 使用
-            uint16_t element_id;    // 指向页内实际数据
+            uint16_t data_id;    // 指向页内实际数据
         } block;        // entry中独立的块
         //struct {
         //    uint64_t type : 2;      // 10
@@ -48,10 +49,26 @@ typedef struct _Data {
             uint8_t is_value : 1;
         } mem_buf;
     };
-} Data;
+} DataDescriptor;
+
+CUTILS_CONTAINER_SPACE_MANAGER_FREE_LIST_DECLARATION(DataPool, int16_t, uint8_t, 1)
+
+typedef struct _DataPool {
+    DataPoolFreeList free_list;
+} DataPool;
 #pragma pack()
 
+extern MemoryData g_key;
+extern MemoryData g_value;
 
+void DataPoolInit(DataPool* data_pool, size_t pool_size);
+int16_t DataPoolAlloc(DataPool* data_pool, int16_t size);
+void DataPoolRelease(DataPool* data_pool, int16_t data_id, size_t size);
+void* DataPoolGetBlock(DataPool* data_pool, int16_t data_id);
+
+void* DataDescriptorParser(DataPool* data_pool, DataDescriptor* data, size_t* size);
+size_t DataDescriptorGetExpandSize(DataPool* data_pool, DataDescriptor* data);
+void DataDescriptorExpandRelease(DataPool* data_pool, DataDescriptor* data);
 
 #ifdef __cplusplus
 }

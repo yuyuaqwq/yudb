@@ -7,7 +7,7 @@
 #include <yudb/yudb.h>
 #include <yudb/transaction.h>
 
-extern "C" PageId GetDataBuf(Tx* tx, Data* data, void** data_buf, size_t* data_size);
+extern "C" PageId GetDataBuf(Tx* tx, DataDescriptor* data, void** data_buf, size_t* data_size);
 
 extern "C" YuDbBPlusElement * YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(YuDbBPlusEntry * entry, int16_t element_id);
 static inline uint32_t BucketEntryGetHeadSize(BucketEntry* entry) {
@@ -17,45 +17,45 @@ static inline YuDbBPlusEntry* BucketEntryToBPlusEntry(BucketEntry* entry) {
 	return (YuDbBPlusEntry*)((uintptr_t)entry + BucketEntryGetHeadSize(entry));
 }
 
-extern "C" void* DataParser(YuDbBPlusEntry * entry, Data * data, size_t * size);
-void PrintBucket(Tx* tx, YuDbBPlusEntry* entry, int Level, int pos) {
-	if (!entry) return;
-	Pager* pager = &tx->db->pager;
-	char* empty = (char*)malloc(Level * 8 + 1);
-	memset(empty, ' ', Level * 8);
-	empty[Level * 8] = 0;
-
-	if (entry->type == 1) {
-		int16_t id = YuDbBPlusEntryRbTreeIteratorLast(&entry->rb_tree);
-		//PrintRB(&entry->rb_tree, entry->rb_tree.root, 0, true);
-		for (int i = entry->element_count - 1; i >= 0; i--) {
-			
-			size_t size;
-			printf("%sleaf:::key:%x\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)DataParser(entry, &YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->leaf.key, &size), empty, Level, empty/*, pos ? ((BPlusEntry*)PageGet(tree, entry->, 1))->indexElement[pos].key : 0*/);
-			id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
-		}
-		free(empty);
-		return;
-	}
-
-	//PrintRB(&entry->rb_tree, entry->rb_tree.root, 0, false);
-	int16_t id = YuDbBPlusEntryRbTreeIteratorLast(&entry->rb_tree);
-	for (int i = entry->element_count; i >= 0; i--) {
-		if (i == entry->element_count) {
-			BucketEntry* bucket_entry = (BucketEntry*)PagerReference(pager, entry->index.tail_child_id);
-			PrintBucket(tx, BucketEntryToBPlusEntry(bucket_entry), Level + 1, i - 1);
-			PagerDereference(pager, bucket_entry);
-			continue;
-		}
-		size_t size;
-		printf("%sindex:::key:%x\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)DataParser(entry, &YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.key, &size), empty, Level, empty/*, entry->parentId != kPageInvalidId ? ((BPlusEntry*)PageGet(tree, entry->parentId))->indexElement[pos].key: 0*/);
-		BucketEntry* bucket_entry = (BucketEntry*)PagerReference(pager, (PageId)YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.child_id);
-		PrintBucket(tx, BucketEntryToBPlusEntry(bucket_entry), Level + 1, i);
-		PagerDereference(pager, bucket_entry);
-		id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
-	}
-	free(empty);
-}
+extern "C" void* DataDescriptorParser(DataPool * data_pool, DataDescriptor * data, size_t * size);
+//void PrintBucket(Tx* tx, YuDbBPlusEntry* entry, int Level, int pos) {
+//	if (!entry) return;
+//	Pager* pager = &tx->db->pager;
+//	char* empty = (char*)malloc(Level * 8 + 1);
+//	memset(empty, ' ', Level * 8);
+//	empty[Level * 8] = 0;
+//
+//	if (entry->type == 1) {
+//		int16_t id = YuDbBPlusEntryRbTreeIteratorLast(&entry->rb_tree);
+//		//PrintRB(&entry->rb_tree, entry->rb_tree.root, 0, true);
+//		for (int i = entry->element_count - 1; i >= 0; i--) {
+//			
+//			size_t size;
+//			printf("%sleaf:::key:%x\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)DataBlockParser(entry, &YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->leaf.key, size), empty, Level, empty/*, pos ? ((BPlusEntry*)PageGet(tree, entry->, 1))->indexElement[pos].key : 0*/);
+//			id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
+//		}
+//		free(empty);
+//		return;
+//	}
+//
+//	//PrintRB(&entry->rb_tree, entry->rb_tree.root, 0, false);
+//	int16_t id = YuDbBPlusEntryRbTreeIteratorLast(&entry->rb_tree);
+//	for (int i = entry->element_count; i >= 0; i--) {
+//		if (i == entry->element_count) {
+//			BucketEntry* bucket_entry = (BucketEntry*)PagerReference(pager, entry->index.tail_child_id);
+//			PrintBucket(tx, BucketEntryToBPlusEntry(bucket_entry), Level + 1, i - 1);
+//			PagerDereference(pager, bucket_entry);
+//			continue;
+//		}
+//		size_t size;
+//		printf("%sindex:::key:%x\n%sLevel:%d\n%sParent:%d\n\n", empty, *(uint32_t*)DataBlockParser(entry, &YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.key, size), empty, Level, empty/*, entry->parentId != kPageInvalidId ? ((BPlusEntry*)PageGet(tree, entry->parentId))->indexElement[pos].key: 0*/);
+//		BucketEntry* bucket_entry = (BucketEntry*)PagerReference(pager, (PageId)YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, id)->index.child_id);
+//		PrintBucket(tx, BucketEntryToBPlusEntry(bucket_entry), Level + 1, i);
+//		PagerDereference(pager, bucket_entry);
+//		id = YuDbBPlusEntryRbTreeIteratorPrev(&entry->rb_tree, id);
+//	}
+//	free(empty);
+//}
 
 //void PrintRB(YuDbBPlusEntryRbTree* tree, int16_t entry_id, int Level, bool index) {
 //	if (entry_id == -1) return;
