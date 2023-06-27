@@ -7,8 +7,8 @@
 #include "yudb/pager.h"
 #include "yudb/yudb.h"
 
-
 const CacheId kCacheInvalidId = -1;
+
 
 #define YUDB_CACHER_LRU_LIST_ACCESSOR_GetKey(LIST, ENTRY) (&ObjectGetFromField(ENTRY, CacheInfo, lru_entry)->pgid)
 #define YUDB_CACHER_LRU_LIST_ACCESSOR YUDB_CACHER_LRU_LIST_ACCESSOR
@@ -113,6 +113,10 @@ static void CacherEvict(Cacher* cacher, CacheId cache_id) {
 }
 
 
+static inline size_t CacherFastMapHash(PageId pgid) {
+	return  pgid % kCacherFastMapCount;
+}
+
 
 void CacherInit(Cacher* cacher, size_t count) {
 	Pager* pager = ObjectGetFromField(cacher, Pager, cacher);
@@ -181,7 +185,7 @@ CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
 	  assert(lru_entry == NULL);		// 不应该会推入已在链表的缓存
 	RwLockWriteRelease(&cacher->hotspot_queue_lock);
 	
-	size_t fast_map_index = pgid % (sizeof(cacher->fast_map) / sizeof(*cacher->fast_map));
+	size_t fast_map_index = CacherFastMapHash(pgid);
 	if (cacher->fast_map[fast_map_index].pgid == kPageInvalidId) {
 		cacher->fast_map[fast_map_index].pgid = pgid;
 		cacher->fast_map[fast_map_index].cacheid = cache_id;
@@ -198,7 +202,7 @@ void CacherFree(Cacher* cacher, CacheId cache_id) {
 	
 	// 原子比较等待引用计数归0
 	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
-	size_t fast_map_index = cache_info->pgid % (sizeof(cacher->fast_map) / sizeof(*cacher->fast_map));
+	size_t fast_map_index = CacherFastMapHash(cache_info->pgid);
 	if (cacher->fast_map[fast_map_index].pgid == cache_info->pgid) {
 		cacher->fast_map[fast_map_index].pgid = kPageInvalidId;
 	}
@@ -231,7 +235,7 @@ void CacherFree(Cacher* cacher, CacheId cache_id) {
 CacheId CacherFind(Cacher* cacher, PageId pgid, bool put_first) {
 	YuDb* db = ObjectGetFromField(cacher, YuDb, pager.cacher);
 
-	size_t fast_map_index = pgid % (sizeof(cacher->fast_map) / sizeof(*cacher->fast_map));
+	size_t fast_map_index = CacherFastMapHash(pgid);
 	if (cacher->fast_map[fast_map_index].pgid == pgid) {
 		return cacher->fast_map[fast_map_index].cacheid;
 	}
