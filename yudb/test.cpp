@@ -157,7 +157,7 @@ int main() {
 
 	Config config;
 	config.page_size = 4096;
-	config.cacher_page_count = 30720;
+	config.cacher_page_count = 40960;
 	config.sync_mode = kConfigSyncNormal;
 	config.update_mode = kConfigUpdateInPlace;
 	config.hotspot_queue_full_percentage = 50;
@@ -243,7 +243,7 @@ int main() {
 			int n = 0;
 
 
-			if (!BucketPut(&tx.meta_info.bucket, (void*)&iter, 4, (void*)&iter, 4)) {
+			if (!BucketPut(&tx.meta_info.bucket, (void*)&iter, 8, (void*)&iter, 8)) {
 				printf("NOW!");
 			}
 			//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
@@ -327,7 +327,7 @@ int main() {
 		//	//PrintBucket(&tx, BucketEntryToBPlusEntry((BucketEntry*)PagerReference(&db->pager, tx.meta_info.bucket.bp_tree.root_id)), 0, 0);
 
 		//}
-		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter, 4)) {
+		if (!BucketFind(&tx.meta_info.bucket, (void*)&iter, 8)) {
 			printf("NOR! %llx  %llx   ;", iter, iter);
 		}
 		if (m == 0) {

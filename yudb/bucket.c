@@ -257,7 +257,7 @@ YuDbKey* YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetKey(YuDbBPlusEntryRbTree* tree, Y
 /*
 * B+树比较器
 */
-int32_t YUDB_BUCKET_BPLUS_COMPARER_Subrrac(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, YuDbKey* key2) {
+forceinline int32_t YUDB_BUCKET_BPLUS_COMPARER_Subrrac(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, YuDbKey* key2) {
 	YuDbBPlusEntry* entry = ObjectGetFromField(tree, YuDbBPlusEntry, rb_tree);
 	BucketEntry* bucket_entry = BPlusEntryToBucketEntry(entry);
 	void* key1_data, *key2_data;
@@ -266,20 +266,20 @@ int32_t YUDB_BUCKET_BPLUS_COMPARER_Subrrac(YuDbBPlusEntryRbTree* tree, YuDbKey* 
 	key2_data = DataDescriptorParser(&bucket_entry->info.data_pool, key2, &key2_size);
 	ptrdiff_t res = 0;
 	if (key1_size == key2_size) {
-		res = MemoryCmpR(key1_data, key2_data, key1_size);
+		res = MemoryCmp(key1_data, key2_data, key1_size);
 	}
 	else {
 		res = key1_size - key2_size;
 	}
 	return res;
 }
-bool YUDB_BUCKET_BPLUS_COMPARER_Equal(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, YuDbKey* key2) {
+forceinline bool YUDB_BUCKET_BPLUS_COMPARER_Equal(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, YuDbKey* key2) {
 	return YUDB_BUCKET_BPLUS_COMPARER_Subrrac(tree, key1, key2) == 0;
 }
-bool YUDB_BUCKET_BPLUS_COMPARER_Greater(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, YuDbKey* key2) {
+forceinline bool YUDB_BUCKET_BPLUS_COMPARER_Greater(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, YuDbKey* key2) {
 	return YUDB_BUCKET_BPLUS_COMPARER_Subrrac(tree, key1, key2) > 0;
 }
-bool YUDB_BUCKET_BPLUS_COMPARER_Less(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, YuDbKey* key2) {
+forceinline bool YUDB_BUCKET_BPLUS_COMPARER_Less(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, YuDbKey* key2) {
 	return YUDB_BUCKET_BPLUS_COMPARER_Subrrac(tree, key1, key2) < 0;
 }
 #define YUDB_BUCKET_BPLUS_COMPARER YUDB_BUCKET_BPLUS_COMPARER
@@ -290,7 +290,7 @@ CUTILS_CONTAINER_BPLUS_TREE_DEFINE(YuDb, CUTILS_CONTAINER_BPLUS_TREE_LEAF_LINK_M
 	PageId, int16_t, YuDbKey, YuDbValue, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR,
 	YUDB_BUCKET_BPLUS_ENTRY_REFERENCER, YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR, YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR,
 	YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER, YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR, 
-	YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR, YUDB_BUCKET_BPLUS_COMPARER, 8)
+	YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR, YUDB_BUCKET_BPLUS_COMPARER, 32)
 #else
 #endif
 
