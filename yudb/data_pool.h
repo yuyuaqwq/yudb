@@ -63,12 +63,12 @@ extern MemoryData g_value;
 
 void DataPoolInit(DataPool* data_pool, size_t pool_size);
 int16_t DataPoolAlloc(DataPool* data_pool, int16_t size);
-void DataPoolRelease(DataPool* data_pool, int16_t data_id, size_t size);
+void DataPoolRelease(DataPool* data_pool, int16_t data_id, int16_t size);
 void* DataPoolGetBlock(DataPool* data_pool, int16_t data_id);
 
-void* DataDescriptorParser(DataPool* data_pool, DataDescriptor* data, size_t* size);
-size_t DataDescriptorGetExpandSize(DataPool* data_pool, DataDescriptor* data);
-void DataDescriptorExpandRelease(DataPool* data_pool, DataDescriptor* data);
+void* DataDescriptorParser(DataPool* data_pool, DataDescriptor* data, int16_t* size);
+int16_t DataDescriptorGetExpandSize(DataPool* data_pool, DataDescriptor* data);
+void DataDescriptorReleaseExpand(DataPool* data_pool, DataDescriptor* data);
 
 #ifdef __cplusplus
 }

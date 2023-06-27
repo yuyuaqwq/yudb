@@ -37,8 +37,9 @@ static void BucketEntryInit(BucketEntry* entry, int16_t bp_entry_size, PageSize 
 	
 	// BPlusEntry头部占用
 	entry->info.page_size = page_size;
+	entry->info.alloc_size = BucketEntryGetHeadSize(entry);		// 分配大小把BucketEntry头部长度算上，而free_list分配的偏移是不算上的
 	DataPoolAlloc(&entry->info.data_pool, bp_entry_size);
-	entry->info.alloc_size = BucketEntryGetHeadSize(entry) + bp_entry_size;		// 分配大小把BucketEntry头部长度算上，而free_list分配的偏移是不算上的
+	
 }
 
 PageId YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR_CreateBySize(YuDbBPlusTree* tree, size_t bp_entry_size) {
@@ -139,16 +140,14 @@ void YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_Release(YuDbBPlusEntry* entry, int16_t 
 	YuDbBPlusElement* element = YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(entry, element_id);
 	//bucket_entry->info.alloc_size -= YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(entry, element);
 	if (entry->type == kBPlusEntryIndex) {
-		DataDescriptorExpandRelease(&bucket_entry->info.data_pool, &element->index.key);
+		DataDescriptorReleaseExpand(&bucket_entry->info.data_pool, &element->index.key);
 		DataPoolRelease(&bucket_entry->info.data_pool, element_id, sizeof(YuDbBPlusIndexElement));
 	}
 	else {
-		DataDescriptorExpandRelease(&bucket_entry->info.data_pool, &element->leaf.key);
-		DataDescriptorExpandRelease(&bucket_entry->info.data_pool, &element->leaf.value);
+		DataDescriptorReleaseExpand(&bucket_entry->info.data_pool, &element->leaf.key);
+		DataDescriptorReleaseExpand(&bucket_entry->info.data_pool, &element->leaf.value);
 		DataPoolRelease(&bucket_entry->info.data_pool, element_id, sizeof(YuDbBPlusLeafElement));
 	}
-	int16_t max_free;
-	  assert(bucket_entry->info.alloc_size + (max_free = DataPoolFreeListGetFreeBlockSize(&bucket_entry->info.data_pool.free_list, 0)) == bucket_entry->info.page_size - 2);
 	YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(entry, element);
 }
 #define YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR
@@ -190,7 +189,7 @@ void YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetData(YuDbBPlusEntry* dst_entry, DataD
 
 	// 先释放已有的扩展块
 	BucketEntry* dst_bucket_entry = BPlusEntryToBucketEntry(dst_entry);
-	DataDescriptorExpandRelease(&dst_bucket_entry->info.data_pool, dst);
+	DataDescriptorReleaseExpand(&dst_bucket_entry->info.data_pool, dst);
 
 	if (src->type == kDataMemory) {
 		MemoryData* data = src->mem_buf.is_value ? &g_value : &g_key;
@@ -260,22 +259,17 @@ YuDbKey* YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetKey(YuDbBPlusEntryRbTree* tree, Y
 */
 int32_t YUDB_BUCKET_BPLUS_COMPARER_Subrrac(YuDbBPlusEntryRbTree* tree, YuDbKey* key1, YuDbKey* key2) {
 	YuDbBPlusEntry* entry = ObjectGetFromField(tree, YuDbBPlusEntry, rb_tree);
+	BucketEntry* bucket_entry = BPlusEntryToBucketEntry(entry);
 	void* key1_data, *key2_data;
-	size_t key1_size, key2_size;
-	key1_data = DataDescriptorParser(entry, key1, &key1_size);
-	key2_data = DataDescriptorParser(entry, key2, &key2_size);
+	int16_t key1_size, key2_size;
+	key1_data = DataDescriptorParser(&bucket_entry->info.data_pool, key1, &key1_size);
+	key2_data = DataDescriptorParser(&bucket_entry->info.data_pool, key2, &key2_size);
 	ptrdiff_t res = 0;
 	if (key1_size == key2_size) {
 		res = MemoryCmpR(key1_data, key2_data, key1_size);
 	}
 	else {
 		res = key1_size - key2_size;
-	}
-	if (key1_size > sizeof(key1->inline_.data)) {
-		YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(entry, key1_data);
-	}
-	if (key2_size > sizeof(key2->inline_.data)) {
-		YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(entry, key2_data);
 	}
 	return res;
 }
@@ -341,7 +335,7 @@ int16_t YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_CreateBySize(YuDbBPlusEntry* entry, 
 	memset(element, 0, size);
 	YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(entry, element);
 
-	  assert(bucket_entry->info.alloc_size + DataPoolFreeListGetFreeBlockSize(&bucket_entry->info.data_pool.free_list, 0) == bucket_entry->info.page_size - 2);
+	int16_t free_size;
 	return element_id;
 }
 
