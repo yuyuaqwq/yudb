@@ -127,7 +127,7 @@ int main() {
 	int m = 1;
 	int w = 1;
 
-	int64_t count = 1000000;
+	int64_t count = 100;
 
 
 	//for (int i = 0; i < count; i++) {
@@ -157,7 +157,7 @@ int main() {
 
 	Config config;
 	config.page_size = 4096;
-	config.cacher_page_count = 40960;
+	config.cacher_page_count = 30720;
 	config.sync_mode = kConfigSyncNormal;
 	config.update_mode = kConfigUpdateInPlace;
 	config.hotspot_queue_full_percentage = 50;
