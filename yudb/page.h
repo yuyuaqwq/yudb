@@ -6,6 +6,7 @@
 
 #include <CUtils/container/vector.h>
 #include <CUtils/container/hash_table.h>
+#include <CUtils/container/rb_tree.h>
 
 #ifdef  __cplusplus
 extern "C" {

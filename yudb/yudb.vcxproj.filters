@@ -13,8 +13,8 @@
     <ClCompile Include="db_file.c" />
     <ClCompile Include="bucket.c" />
     <ClCompile Include="free_table.c" />
-    <ClCompile Include="cacher.c" />
     <ClCompile Include="error.c" />
+    <ClCompile Include="cacher.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cacher.h" />

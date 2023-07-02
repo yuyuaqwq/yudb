@@ -1,18 +1,18 @@
-#include "yudb/cacher.h"
+#include <yudb/cacher.h>
 
-#include <CUtils/algorithm/hash_map.h>
+#include <CUtils/algorithm/hash_code.h>
 #include <CUtils/concurrency/thread.h>
 #include <CUtils/concurrency/atomic.h>
 
-#include "yudb/pager.h"
-#include "yudb/yudb.h"
+#include <yudb/pager.h>
+#include <yudb/yudb.h>
 
 const CacheId kCacheInvalidId = -1;
 
 
 #define YUDB_CACHER_LRU_LIST_ACCESSOR_GetKey(LIST, ENTRY) (&ObjectGetFromField(ENTRY, CacheInfo, lru_entry)->pgid)
 #define YUDB_CACHER_LRU_LIST_ACCESSOR YUDB_CACHER_LRU_LIST_ACCESSOR
-#define YUDB_CAHCER_LRU_LIST_HASHER(TABLE, KEY) Hashmap_hashint(*KEY)
+#define YUDB_CAHCER_LRU_LIST_HASHER(TABLE, KEY) HashCode_hashint(*KEY)
 CUTILS_CONTAINER_HASH_LIST_DEFINE(Cache, PageId, YUDB_CACHER_LRU_LIST_ACCESSOR, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_CAHCER_LRU_LIST_HASHER, CUTILS_OBJECT_COMPARER_DEFALUT)
 
 

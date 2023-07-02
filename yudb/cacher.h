@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include <CUtils/container/hash_list.h>
+#include <CUtils/container/rb_tree.h>
 #include <CUtils/container/doubly_static_list.h>
 #include <CUtils/concurrency/rw_lock.h>
 
