@@ -124,7 +124,8 @@ void CacherInit(Cacher* cacher, size_t count) {
 	cacher->cache_pool = malloc(pager->page_size * count);
 	cacher->cache_info_pool = malloc(sizeof(CacheDoublyStaticList) + sizeof(CacheInfo) * count);
 	CacheDoublyStaticListInit(cacher->cache_info_pool, count);
-	CacheHashListInit(&cacher->lru_list, count);
+	PageId invalid = kPageInvalidId;
+	CacheHashListInit(&cacher->lru_list, count, &invalid);
 	CacheRbTreeInit(&cacher->dirty_tree);
 	for (int i = 0; i < sizeof(cacher->fast_map) / sizeof(*cacher->fast_map); i++) {
 		cacher->fast_map[i].pgid = kPageInvalidId;
