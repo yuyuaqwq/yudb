@@ -66,6 +66,9 @@ bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count) {
 /*
 * 从db文件中分配页面
 */
+/*
+* 分配大于4页的页面时，采取分段分配，即根据多个2的幂，可以组合成任意数的数学原理
+*/
 PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
 	PageId disk_free_pgid;
 	YuDb* db = ObjectGetFromField(pager, YuDb, pager);
