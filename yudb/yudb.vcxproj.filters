@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="data_pool.cpp" />
+    <ClCompile Include="data_pool.c" />
     <ClCompile Include="import.c" />
     <ClCompile Include="meta_info.c" />
     <ClCompile Include="page.c" />
@@ -15,6 +15,7 @@
     <ClCompile Include="free_table.c" />
     <ClCompile Include="error.c" />
     <ClCompile Include="cacher.c" />
+    <ClCompile Include="merge.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cacher.h" />
