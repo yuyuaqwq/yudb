@@ -203,6 +203,7 @@ void CacherFree(Cacher* cacher, CacheId cache_id) {
 	
 	// 原子比较等待引用计数归0
 	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
+
 	size_t fast_map_index = CacherFastMapHash(cache_info->pgid);
 	if (cacher->fast_map[fast_map_index].pgid == cache_info->pgid) {
 		cacher->fast_map[fast_map_index].pgid = kPageInvalidId;
@@ -240,6 +241,7 @@ CacheId CacherFind(Cacher* cacher, PageId pgid, bool put_first) {
 	if (cacher->fast_map[fast_map_index].pgid == pgid) {
 		return cacher->fast_map[fast_map_index].cacheid;
 	}
+
 	RwLockReadAcquire(&cacher->hotspot_queue_lock);
 	CacheHashListEntry* lru_entry = CacheHashListGet(&cacher->lru_list, &pgid, put_first);
 	CacheInfo* cache_info;
@@ -282,9 +284,12 @@ CacheId CacherFind(Cacher* cacher, PageId pgid, bool put_first) {
 	}
 	RwLockReadRelease(&cacher->hotspot_queue_lock);
 
+	CacheId cache_id = CacherGetIdByInfo(cacher, cache_info);
+
 	cacher->fast_map[fast_map_index].pgid = pgid;
-	cacher->fast_map[fast_map_index].cacheid = CacherGetIdByInfo(cacher, cache_info);
-	return cacher->fast_map[fast_map_index].cacheid;
+	cacher->fast_map[fast_map_index].cacheid = cache_id;
+
+	return cache_id;
 }
 
 /*
