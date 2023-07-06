@@ -6,8 +6,11 @@
 
 #include <CUtils/container/hash_list.h>
 #include <CUtils/container/rb_tree.h>
+#include <CUtils/container/static_list.h>
 #include <CUtils/container/doubly_static_list.h>
 #include <CUtils/concurrency/rw_lock.h>
+
+#include <CUtils/algorithm/array.h>
 
 #include <yudb/page.h>
 
@@ -15,9 +18,15 @@
 extern "C" {
 #endif //  __cplusplus
 
-CUTILS_CONTAINER_HASH_LIST_DECLARATION(Cache, PageId)
 
 typedef int32_t CacheId;
+
+
+#define kCacherFastMapCount 32
+
+
+CUTILS_CONTAINER_HASH_LIST_DECLARATION(Cache, PageId)
+
 
 typedef enum {
 	kCacheTypeFree = 0,
@@ -59,8 +68,6 @@ typedef struct _CacheInfo {
 } CacheInfo;
 CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_2(Cache, int16_t, CacheInfo, 2)
 
-#define kCacherFastMapCount 32
-
 typedef struct _Cacher {
 	RwLock hotspot_queue_lock;		// 热点队列锁
 	CacheHashList lru_list;
@@ -77,9 +84,11 @@ typedef struct _Cacher {
 		PageId pgid;
 		CacheId cacheid;
 	} fast_map[kCacherFastMapCount];
+	
 	void* cache_pool;
 	CacheDoublyStaticList* cache_info_pool;
 } Cacher;
+
 
 void CacherInit(Cacher* cacher, size_t count);
 CacheId CacherAlloc(Cacher* cacher, PageId pgid);
