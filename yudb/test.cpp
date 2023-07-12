@@ -154,7 +154,7 @@ int main() {
 
 	Config config;
 	config.page_size = 4096;
-	config.cacher_page_count = 10240;
+	config.cacher_page_count = 8;
 	config.sync_mode = kConfigSyncNormal;
 	config.update_mode = kConfigUpdateInPlace;
 	config.hotspot_queue_full_percentage = 100;
