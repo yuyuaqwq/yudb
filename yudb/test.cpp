@@ -67,7 +67,7 @@ extern "C" void PrintRB(CacheRbTree * tree, CacheRbEntry * entry_id, int Level, 
 	//print
 	const char* str = "Not";
 	if (LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetParent(tree, entry) != NULL) {
-		str = (CacheRbEntry*)LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetParent(tree, entry)->right == entry_id ? "Right" : "Left";
+		str = ((CacheRbEntry*)LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetParent(tree, entry))->right == entry_id ? "Right" : "Left";
 	}
 	int aaa = LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetColor(tree, entry);
 	const char* color = aaa == 1 ? "Red" : "Black";

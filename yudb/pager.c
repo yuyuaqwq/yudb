@@ -145,6 +145,7 @@ void PagerFree(Pager* pager, PageId pgid, bool skip_pool) {
 * 引用页面获取缓存，递增页面引用计数
 */
 void* PagerReference(Pager* pager, PageId pgid) {
+	  assert(pgid != kPageInvalidId);
 	CacheId cache_id = CacherFind(&pager->cacher, pgid, true);
 	CacheInfo* info = CacherGetInfo(&pager->cacher, cache_id);
 	void* cache;
