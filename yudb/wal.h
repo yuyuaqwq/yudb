@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <CUtils/algorithm/crc32.h>
-#include <CUtils/container/rb_tree.h>
-#include <CUtils/container/vector.h>
+#include <libyuc/algorithm/crc32.h>
+#include <libyuc/container/rb_tree.h>
+#include <libyuc/container/vector.h>
 
 #include <yudb/db_file.h>
 #include <yudb/page.h>
@@ -42,7 +42,7 @@ typedef struct _LogEntry {
 } LogEntry;
 
 
-CUTILS_CONTAINER_VECTOR_DECLARATION(WalBuf, uint8_t)
+LIBYUC_CONTAINER_VECTOR_DECLARATION(WalBuf, uint8_t)
 
 typedef struct _WalManager {
 	DbFile* log_file;

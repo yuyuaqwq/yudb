@@ -1,6 +1,6 @@
 #include <yudb/pager.h>
 
-#include <CUtils/concurrency/thread.h>
+#include <libyuc/concurrency/thread.h>
 
 #include <yudb/db_file.h>
 #include <yudb/free_table.h>
@@ -65,6 +65,9 @@ bool PagerWrite(Pager* pager, PageId pgid, void* cache, PageCount count) {
 // 只有写事务会调用页面分配、释放函数，所以无需加锁
 /*
 * 从db文件中分配页面
+*/
+/*
+* 分配大于4页的页面时，采取分段分配，即根据多个2的幂，可以组合成任意数的数学原理
 */
 PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
 	PageId disk_free_pgid;
@@ -154,8 +157,8 @@ void* PagerReference(Pager* pager, PageId pgid) {
 		cache = CacherGet(&pager->cacher, cache_id);
 
 		if (!PagerRead(pager, pgid, cache, 1)) {
+			// 读取失败直接返回空，因为被引用的页面要么在缓存中，要么已经落盘到磁盘
 			CacherFree(&pager->cacher, cache_id);
-			// memset(cache, 0, pager->page_size);
 			return NULL;
 		}
 	}

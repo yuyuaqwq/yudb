@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <CUtils/container/vector.h>
-#include <CUtils/space_manager/buddy.h>
-#include <CUtils/container/static_list.h>
+#include <libyuc/container/vector.h>
+#include <libyuc/space_manager/buddy.h>
+#include <libyuc/container/static_list.h>
 
 #include <yudb/page.h>
 
@@ -18,7 +18,7 @@ extern "C" {
 /*
 * 当前的单向静态链表队列切换较困难，故暂时不分Full队列
 */
-CUTILS_SPACE_MANAGER_BUDDY_DECLARATION(Free, int16_t)
+LIBYUC_SPACE_MANAGER_BUDDY_DECLARATION(Free, int16_t)
 
 typedef enum {
 	//kFreePageEntryListFree = 0,
@@ -33,7 +33,7 @@ typedef struct _FreePageEntry {
 	};
 } FreePageEntry;
 #pragma pack()
-CUTILS_CONTAINER_STATIC_LIST_DECLARATION(FreePage, int16_t, FreePageEntry, 2)
+LIBYUC_CONTAINER_STATIC_LIST_DECLARATION(FreePage, int16_t, FreePageEntry, 2)
 typedef struct _FreePageTable {
 	FreeBuddy buddy;
 } FreePageTable;
@@ -44,7 +44,7 @@ typedef enum {
 	kFreeDirEntryListAlloc = 1,
 	//kFreeDirEntryListFull = 2,
 } FreeDirEntryListType;
-CUTILS_CONTAINER_STATIC_LIST_DECLARATION_1(FreeDir, int16_t)
+LIBYUC_CONTAINER_STATIC_LIST_DECLARATION_1(FreeDir, int16_t)
 #pragma pack(1)
 typedef struct _FreeDirEntry {
 	struct {
@@ -61,7 +61,7 @@ typedef struct _FreeDirEntry {
 } FreeDirEntry;
 #pragma pack()
 
-CUTILS_CONTAINER_STATIC_LIST_DECLARATION_2(FreeDir, int16_t, FreeDirEntry, 4)
+LIBYUC_CONTAINER_STATIC_LIST_DECLARATION_2(FreeDir, int16_t, FreeDirEntry, 4)
 
 typedef struct _FreeDirTable {
 	FreeBuddy buddy;
