@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <CUtils/container/vector.h>
-#include <CUtils/container/hash_table.h>
-#include <CUtils/container/rb_tree.h>
+#include <libyuc/container/vector.h>
+#include <libyuc/container/hash_table.h>
+#include <libyuc/container/rb_tree.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -19,8 +19,8 @@ typedef int32_t PageCount;
 
 extern const PageId kPageInvalidId;
 
-CUTILS_CONTAINER_VECTOR_DECLARATION(PageId, PageId)
-CUTILS_CONTAINER_HASH_TABLE_DECLARATION(PageId, PageId, PageId)
+LIBYUC_CONTAINER_VECTOR_DECLARATION(PageId, PageId)
+LIBYUC_CONTAINER_HASH_TABLE_DECLARATION(PageId, PageId, PageId)
 
 #ifdef __cplusplus
 }

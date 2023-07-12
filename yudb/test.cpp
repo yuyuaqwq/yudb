@@ -57,39 +57,36 @@ extern "C" void* DataDescriptorParser(DataPool * data_pool, DataDescriptor * dat
 //	free(empty);
 //}
 
-//void PrintRB(YuDbBPlusEntryRbTree* tree, int16_t entry_id, int Level, bool index) {
-//	if (entry_id == -1) return;
-//	YuDbBPlusEntryRbEntry* entry = YuDbBPlusEntryRbReferencer_Reference(tree, entry_id);
-//	PrintRB(tree, entry->right, Level + 1, index);
-//
-//	//print
-//	const char* str = "Not";
-//	if (YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetParent(tree, entry) != -1) {
-//		str = (YuDbBPlusEntryRbReferencer_Reference(tree, YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetParent(tree, entry))->right == entry_id ? "Right" : "Left");
-//	}
-//	int aaa = YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetColor(tree, entry);
-//	const char* color = aaa == 1 ? "Red" : "Black";
-//
-//	char* empty = (char*)malloc(Level * 8 + 1);
-//	memset(empty, ' ', Level * 8);
-//	empty[Level * 8] = 0;
-//
-//	int parentKey = 0;
-//	if (YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetParent(tree, entry) != -1) {
-//		if (index) {
-//			parentKey = ((YuDbBPlusIndexElement*)YuDbBPlusEntryRbReferencer_Reference(tree, YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetParent(tree, entry)))->key;
-//		}
-//		else {
-//			parentKey = ((YuDbBPlusLeafElement*)YuDbBPlusEntryRbReferencer_Reference(tree, YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetParent(tree, entry)))->key;
-//		}
-//	}
-//
-//	printf("%skey:%x\n%sLevel:%d\n%sParent.%s:%x\n%scolor:%s\n\n", empty, *YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR_GetKey(tree, entry), empty, Level, empty, str, parentKey, empty, color);
-//
-//	free(empty);
-//
-//	PrintRB(tree, entry->left, Level + 1, index);
-//}
+
+#define LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetKey(TREE, ENTRY) (&ObjectGetFromField((ENTRY), CacheInfo, dirty_entry)->pgid)
+extern "C" void PrintRB(CacheRbTree * tree, CacheRbEntry * entry_id, int Level, bool index) {
+	if (entry_id == NULL) return;
+	CacheRbEntry* entry = entry_id;
+	PrintRB(tree, entry->right, Level + 1, index);
+
+	//print
+	const char* str = "Not";
+	if (LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetParent(tree, entry) != NULL) {
+		str = (CacheRbEntry*)LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetParent(tree, entry)->right == entry_id ? "Right" : "Left";
+	}
+	int aaa = LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetColor(tree, entry);
+	const char* color = aaa == 1 ? "Red" : "Black";
+
+	char* empty = (char*)malloc(Level * 8 + 1);
+	memset(empty, ' ', Level * 8);
+	empty[Level * 8] = 0;
+
+	PageId parentKey = 0;
+	if (LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetParent(tree, entry) != NULL) {
+		parentKey = *LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetKey(tree, entry);
+	}
+
+	printf("%skey:%d\n%sLevel:%d\n%sParent.%s:%x\n%scolor:%s\n\n", empty, *LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetKey(tree, entry), empty, Level, empty, str, parentKey, empty, color);
+
+	free(empty);
+
+	PrintRB(tree, entry->left, Level + 1, index);
+}
 
 
 //
@@ -127,7 +124,7 @@ int main() {
 	int m = 1;
 	int w = 1;
 
-	int64_t count = 1000000;
+	int64_t count = 100000;
 
 
 	//for (int i = 0; i < count; i++) {
@@ -157,7 +154,7 @@ int main() {
 
 	Config config;
 	config.page_size = 4096;
-	config.cacher_page_count = 30720;
+	config.cacher_page_count = 1024;
 	config.sync_mode = kConfigSyncNormal;
 	config.update_mode = kConfigUpdateInPlace;
 	config.hotspot_queue_full_percentage = 50;
@@ -239,6 +236,23 @@ int main() {
 			//if ( i>= 668 && !BucketFind(&tx.meta_info.bucket, (void*)&kk, 4)) {// 
 			//	printf("??");
 			//}
+
+			//PageId pgid = 28;
+			//auto id = CacheHashListGet(&tx.db->pager.cacher.lru_list, &pgid, false);
+			//if (i > 4176 && id == NULL) {
+			//	printf("??");
+			//}
+			//PrintRB(&tx.db->pager.cacher.dirty_tree, tx.db->pager.cacher.dirty_tree.root, 0, true);
+			//if (!CacheRbTreeVerify(&tx.db->pager.cacher.dirty_tree)) {
+			//	printf("???");
+			//}
+			/*if (i == 4585) {
+				printf("??");
+			}
+			if (i > 4337 && !CacheHashListGet(&tx.db->pager.cacher.lru_list, &pgid, false)) {
+				printf("??");
+			}
+			*/
 
 			int n = 0;
 
@@ -346,6 +360,7 @@ int main() {
 	printf("read: %dms, %dtps, %dns/op", (int)l, (int)(aaa.size() * 1000 / l), (int)((l * 1000 * 1000) / aaa.size()));
 	// YuDbPut(db, );
 	// YuDbPut(db, "dwadad", 6, "123456", 6);
+
 	printf("\n");
 
 

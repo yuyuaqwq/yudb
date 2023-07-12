@@ -239,7 +239,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\..\..\..\lib\CUtils\algorithm\array.h" />
+    <ClInclude Include="..\..\..\..\..\..\lib\LIBYUC\algorithm\array.h" />
     <ClInclude Include="bucket.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>

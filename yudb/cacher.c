@@ -1,8 +1,8 @@
 #include <yudb/cacher.h>
 
-#include <CUtils/algorithm/hash_code.h>
-#include <CUtils/concurrency/thread.h>
-#include <CUtils/concurrency/atomic.h>
+#include <libyuc/algorithm/hash_code.h>
+#include <libyuc/concurrency/thread.h>
+#include <libyuc/concurrency/atomic.h>
 
 #include <yudb/pager.h>
 #include <yudb/yudb.h>
@@ -11,9 +11,10 @@ const CacheId kCacheInvalidId = -1;
 
 
 #define YUDB_CACHER_LRU_LIST_ACCESSOR_GetKey(LIST, ENTRY) (&ObjectGetFromField(ENTRY, CacheInfo, lru_entry)->pgid)
+#define YUDB_CACHER_LRU_LIST_ACCESSOR_SetKey(LIST, ENTRY, PGID) (ObjectGetFromField(ENTRY, CacheInfo, lru_entry)->pgid = *(PGID))
 #define YUDB_CACHER_LRU_LIST_ACCESSOR YUDB_CACHER_LRU_LIST_ACCESSOR
 #define YUDB_CAHCER_LRU_LIST_HASHER(TABLE, KEY) HashCode_hashint(*KEY)
-CUTILS_CONTAINER_HASH_LIST_DEFINE(Cache, PageId, YUDB_CACHER_LRU_LIST_ACCESSOR, CUTILS_OBJECT_ALLOCATOR_DEFALUT, YUDB_CAHCER_LRU_LIST_HASHER, CUTILS_OBJECT_COMPARER_DEFALUT)
+LIBYUC_CONTAINER_HASH_LIST_DEFINE(Cache, PageId, YUDB_CACHER_LRU_LIST_ACCESSOR, LIBYUC_OBJECT_ALLOCATOR_DEFALUT, YUDB_CAHCER_LRU_LIST_HASHER, LIBYUC_OBJECT_COMPARER_DEFALUT)
 
 
 #define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_GetNext(list, cache_info) ((cache_info)->free_entry.next)
@@ -21,12 +22,12 @@ CUTILS_CONTAINER_HASH_LIST_DEFINE(Cache, PageId, YUDB_CACHER_LRU_LIST_ACCESSOR, 
 #define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_SetNext(list, cache_info, new_next) ((cache_info)->free_entry.next = (new_next))
 #define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_SetPrev(list, cache_info, new_prev) ((cache_info)->free_entry.prev = (new_prev))
 #define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR
-CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DEFINE(Cache, int16_t, CacheInfo, CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DEFAULT_REFERENCER, YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR, 2)
+LIBYUC_CONTAINER_DOUBLY_STATIC_LIST_DEFINE(Cache, int16_t, CacheInfo, LIBYUC_CONTAINER_DOUBLY_STATIC_LIST_DEFAULT_REFERENCER, YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR, 2)
 
 
-#define CUTILS_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetKey(TREE, ENTRY) (&ObjectGetFromField((ENTRY), CacheInfo, dirty_entry)->pgid)
-#define YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR CUTILS_CONTINUE_RB_TREE_ACCESSOR_DEFALUT
-CUTILS_CONTAINER_RB_TREE_DEFINE(Cache, struct _CacheRbEntry*, PageId, CUTILS_OBJECT_REFERENCER_DEFALUT, CUTILS_CONTINUE_RB_TREE_ACCESSOR_DEFALUT, CUTILS_OBJECT_COMPARER_DEFALUT)
+#define LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetKey(TREE, ENTRY) (&ObjectGetFromField((ENTRY), CacheInfo, dirty_entry)->pgid)
+#define YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT
+LIBYUC_CONTAINER_RB_TREE_DEFINE(Cache, struct _CacheRbEntry*, PageId, LIBYUC_OBJECT_REFERENCER_DEFALUT, LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT, LIBYUC_OBJECT_COMPARER_DEFALUT)
 
 
 inline CacheInfo* CacherGetInfo(Cacher* cacher, CacheId id) {
@@ -124,8 +125,7 @@ void CacherInit(Cacher* cacher, size_t count) {
 	cacher->cache_pool = malloc(pager->page_size * count);
 	cacher->cache_info_pool = malloc(sizeof(CacheDoublyStaticList) + sizeof(CacheInfo) * count);
 	CacheDoublyStaticListInit(cacher->cache_info_pool, count);
-	PageId invalid = kPageInvalidId;
-	CacheHashListInit(&cacher->lru_list, count, &invalid);
+	CacheHashListInit(&cacher->lru_list, count, &kPageInvalidId);
 	CacheRbTreeInit(&cacher->dirty_tree);
 	for (int i = 0; i < sizeof(cacher->fast_map) / sizeof(*cacher->fast_map); i++) {
 		cacher->fast_map[i].pgid = kPageInvalidId;
@@ -149,7 +149,6 @@ void CacherInit(Cacher* cacher, size_t count) {
 CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
 	YuDb* db = ObjectGetFromField(cacher, YuDb, pager.cacher);
 	RwLockWriteAcquire(&cacher->hotspot_queue_lock);
-
 	CacheId cache_id = CacheDoublyStaticListPop(cacher->cache_info_pool, kCacheTypeFree);
 	CacheInfo* evict_cache_info;
 	size_t cur_count = cacher->lru_list.hash_table.bucket.count;

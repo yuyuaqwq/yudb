@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <CUtils/space_manager/object_pool.h>
-#include <CUtils/space_manager/free_list.h>
+#include <libyuc/space_manager/object_pool.h>
+#include <libyuc/space_manager/free_list.h>
 
 #include <yudb/page.h>
 
@@ -51,7 +51,7 @@ typedef struct _DataDescriptor {
     };
 } DataDescriptor;
 
-CUTILS_CONTAINER_SPACE_MANAGER_FREE_LIST_DECLARATION(DataPool, int16_t, uint8_t, 1)
+LIBYUC_CONTAINER_SPACE_MANAGER_FREE_LIST_DECLARATION(DataPool, int16_t, uint8_t, 1)
 
 typedef struct _DataPool {
     DataPoolFreeList free_list;

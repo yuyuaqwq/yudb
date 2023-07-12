@@ -1,6 +1,6 @@
 #include <yudb/pager.h>
 
-#include <CUtils/concurrency/thread.h>
+#include <libyuc/concurrency/thread.h>
 
 #include <yudb/db_file.h>
 #include <yudb/free_table.h>
@@ -157,8 +157,8 @@ void* PagerReference(Pager* pager, PageId pgid) {
 		cache = CacherGet(&pager->cacher, cache_id);
 
 		if (!PagerRead(pager, pgid, cache, 1)) {
+			// 读取失败直接返回空，因为被引用的页面要么在缓存中，要么已经落盘到磁盘
 			CacherFree(&pager->cacher, cache_id);
-			// memset(cache, 0, pager->page_size);
 			return NULL;
 		}
 	}

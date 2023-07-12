@@ -4,14 +4,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <CUtils/container/rb_tree.h>
-#include <CUtils/container/vector.h>
+#include <libyuc/container/rb_tree.h>
+#include <libyuc/container/vector.h>
 
 #include <yudb/page.h>
 #include <yudb/txid.h>
 #include <yudb/meta_info.h>
 
-CUTILS_CONTAINER_RB_TREE_DECLARATION(Tx, struct _TxRbEntry*, TxId)
+LIBYUC_CONTAINER_RB_TREE_DECLARATION(Tx, struct _TxRbEntry*, TxId)
 
 #ifdef  __cplusplus
 extern "C" {

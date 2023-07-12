@@ -4,13 +4,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <CUtils/container/hash_list.h>
-#include <CUtils/container/rb_tree.h>
-#include <CUtils/container/static_list.h>
-#include <CUtils/container/doubly_static_list.h>
-#include <CUtils/concurrency/rw_lock.h>
+#include <libyuc/container/hash_list.h>
+#include <libyuc/container/rb_tree.h>
+#include <libyuc/container/static_list.h>
+#include <libyuc/container/doubly_static_list.h>
+#include <libyuc/concurrency/rw_lock.h>
 
-#include <CUtils/algorithm/array.h>
+#include <libyuc/algorithm/array.h>
 
 #include <yudb/page.h>
 
@@ -25,7 +25,7 @@ typedef int32_t CacheId;
 #define kCacherFastMapCount 32
 
 
-CUTILS_CONTAINER_HASH_LIST_DECLARATION(Cache, PageId)
+LIBYUC_CONTAINER_HASH_LIST_DECLARATION(Cache, PageId)
 
 
 typedef enum {
@@ -37,8 +37,8 @@ typedef enum {
 	kCacheTypeImmutableWriteLater = 4,
 } CacheType;
 
-CUTILS_CONTAINER_RB_TREE_DECLARATION(Cache, struct _CacheRbEntry*, PageId)
-CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_1(Cache, int16_t)
+LIBYUC_CONTAINER_RB_TREE_DECLARATION(Cache, struct _CacheRbEntry*, PageId)
+LIBYUC_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_1(Cache, int16_t)
 
 typedef enum _CacheWriteThreadStatus {
 	kCacheWriteThreadReady,
@@ -54,19 +54,17 @@ typedef struct _CacheInfo {
 	CacheType type;
 	CacheHashListEntry lru_entry;		// 基于LRU策略管理缓存页面
 	union {
-		union {
-			CacheDoublyStaticListEntry free_entry;
-			CacheDoublyStaticListEntry clean_entry;
+		CacheDoublyStaticListEntry free_entry;
+		CacheDoublyStaticListEntry clean_entry;
 
-			CacheRbEntry dirty_entry;
+		CacheRbEntry dirty_entry;
 
-			/* 稍后落盘队列，wal模式使用 */
-			CacheRbEntry write_later_entry;
-			CacheRbEntry immutable_write_later_entry;
-		};
+		/* 稍后落盘队列，wal模式使用 */
+		CacheRbEntry write_later_entry;
+		CacheRbEntry immutable_write_later_entry;
 	};
 } CacheInfo;
-CUTILS_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_2(Cache, int16_t, CacheInfo, 2)
+LIBYUC_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_2(Cache, int16_t, CacheInfo, 2)
 
 typedef struct _Cacher {
 	RwLock hotspot_queue_lock;		// 热点队列锁

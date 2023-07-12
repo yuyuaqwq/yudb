@@ -5,7 +5,7 @@
 #include <yudb/yudb.h>
 
 
-CUTILS_SPACE_MANAGER_BUDDY_DEFINE(Free, int16_t, CUTILS_SPACE_MANAGER_BUDDY_4BIT_INDEXER, CUTILS_OBJECT_ALLOCATOR_DEFALUT)
+LIBYUC_SPACE_MANAGER_BUDDY_DEFINE(Free, int16_t, LIBYUC_SPACE_MANAGER_BUDDY_4BIT_INDEXER, LIBYUC_OBJECT_ALLOCATOR_DEFALUT)
 
 
 #define YUDB_FREE_TABLE_FREE_REFERENCER_InvalidId (-1)
@@ -13,9 +13,9 @@ CUTILS_SPACE_MANAGER_BUDDY_DEFINE(Free, int16_t, CUTILS_SPACE_MANAGER_BUDDY_4BIT
 #define YUDB_FREE_TABLE_FREE0_ACCESSOR_GetNext(list, element) ((element)->entry_list_next)
 #define YUDB_FREE_TABLE_FREE0_ACCESSOR_SetNext(list, element, new_next) ((element)->entry_list_next = new_next)
 #define YUDB_FREE_TABLE_FREE0_ACCESSOR YUDB_FREE_TABLE_FREE0_ACCESSOR
-CUTILS_CONTAINER_STATIC_LIST_DEFINE(FreeDir, int16_t, FreeDirEntry, YUDB_FREE_TABLE_FREE_REFERENCER, YUDB_FREE_TABLE_FREE0_ACCESSOR, 4)
+LIBYUC_CONTAINER_STATIC_LIST_DEFINE(FreeDir, int16_t, FreeDirEntry, YUDB_FREE_TABLE_FREE_REFERENCER, YUDB_FREE_TABLE_FREE0_ACCESSOR, 4)
 
-CUTILS_CONTAINER_STATIC_LIST_DEFINE(FreePage, int16_t, FreePageEntry, YUDB_FREE_TABLE_FREE_REFERENCER, YUDB_FREE_TABLE_FREE0_ACCESSOR, 2)
+LIBYUC_CONTAINER_STATIC_LIST_DEFINE(FreePage, int16_t, FreePageEntry, YUDB_FREE_TABLE_FREE_REFERENCER, YUDB_FREE_TABLE_FREE0_ACCESSOR, 2)
 
 
 const PageId kMetaStartId = 0;
@@ -146,7 +146,7 @@ int16_t FreeDirTableFindBySubFreeCount(FreeDirTable* dir_table, int16_t sub_coun
 			FreeDirStaticListPush(static_list, kFreeDirEntryListAlloc, free0_entry_id);
 			free0_entry->entry_list_type = kFreeDirEntryListAlloc;
 		}
-		int16_t sub_max_free = CUTILS_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(static_list->obj_arr[free0_entry_id].sub_max_free_log-1);
+		int16_t sub_max_free = LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(static_list->obj_arr[free0_entry_id].sub_max_free_log-1);
 		if (sub_max_free >= sub_count) {
 			break;
 		}
@@ -188,7 +188,7 @@ void* FreeDirTableGetSubTable(FreeTable* free_table, int16_t free0_entry_id, Cac
 	if (read_cache_id == kCacheInvalidId) {
 		if (!PagerRead(pager, free1_table_pgid_read, write_cache, 1)) {
 			// 如果读取失败，若是从未使用过的f1则将其初始化
-			if (CUTILS_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(free0_entry->sub_max_free_log-1) != FreePageTableGetMaxCount(FreeDirGetPageSize(free_table->free0_table))) {
+			if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(free0_entry->sub_max_free_log-1) != FreePageTableGetMaxCount(FreeDirGetPageSize(free_table->free0_table))) {
 				return NULL;
 			}
 			FreePageTableInit(write_cache, pager->page_size);
@@ -265,7 +265,7 @@ int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_entry_id_
 	CacheId cache_id;
 	FreePageTable* free1_table = FreeDirTableGetSubTable(table, free0_entry_id, &cache_id);
 	  assert(free1_table != NULL);
-	if (CUTILS_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(static_list->obj_arr[free0_entry_id].sub_max_free_log-1) == FreePageTableGetMaxCount(FreeDirGetPageSize(table->free0_table))) {
+	if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(static_list->obj_arr[free0_entry_id].sub_max_free_log-1) == FreePageTableGetMaxCount(FreeDirGetPageSize(table->free0_table))) {
 		// 初次分配的f1，前2页提前占用
 		FreePageTableAlloc(free1_table, kFreePageStaticEntryIdOffset);
 	}
