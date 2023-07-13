@@ -145,16 +145,17 @@ void PagerFree(Pager* pager, PageId pgid, bool skip_pool) {
 * 引用页面获取缓存，递增页面引用计数
 */
 void* PagerReference(Pager* pager, PageId pgid) {
-    CacheId cache_id = CacherFind(&pager->cacher, pgid, true);
-    CacheInfo* info = CacherGetInfo(&pager->cacher, cache_id);
-    void* cache;
-    if (cache_id == kCacheInvalidId) {
-        cache_id = CacherAlloc(&pager->cacher, pgid);
-        if (cache_id == kCacheInvalidId) {
-              assert(0);
-            return NULL;
-        }
-        cache = CacherGet(&pager->cacher, cache_id);
+	  assert(pgid != kPageInvalidId);
+	CacheId cache_id = CacherFind(&pager->cacher, pgid, true);
+	CacheInfo* info = CacherGetInfo(&pager->cacher, cache_id);
+	void* cache;
+	if (cache_id == kCacheInvalidId) {
+		cache_id = CacherAlloc(&pager->cacher, pgid);
+		if (cache_id == kCacheInvalidId) {
+			  assert(0);
+			return NULL;
+		}
+		cache = CacherGet(&pager->cacher, cache_id);
 
         if (!PagerRead(pager, pgid, cache, 1)) {
             // 读取失败直接返回空，因为被引用的页面要么在缓存中，要么已经落盘到磁盘

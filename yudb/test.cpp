@@ -64,13 +64,13 @@ extern "C" void PrintRB(CacheRbTree * tree, CacheRbEntry * entry_id, int Level, 
     CacheRbEntry* entry = entry_id;
     PrintRB(tree, entry->right, Level + 1, index);
 
-    //print
-    const char* str = "Not";
-    if (LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetParent(tree, entry) != NULL) {
-        str = (CacheRbEntry*)LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetParent(tree, entry)->right == entry_id ? "Right" : "Left";
-    }
-    int aaa = LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetColor(tree, entry);
-    const char* color = aaa == 1 ? "Red" : "Black";
+	//print
+	const char* str = "Not";
+	if (LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetParent(tree, entry) != NULL) {
+		str = ((CacheRbEntry*)LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetParent(tree, entry))->right == entry_id ? "Right" : "Left";
+	}
+	int aaa = LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetColor(tree, entry);
+	const char* color = aaa == 1 ? "Red" : "Black";
 
     char* empty = (char*)malloc(Level * 8 + 1);
     memset(empty, ' ', Level * 8);
@@ -152,16 +152,16 @@ int main() {
     //    arr[k] = temp;
     //}
 
-    Config config;
-    config.page_size = 4096;
-    config.cacher_page_count = 20480;
-    config.sync_mode = kConfigSyncNormal;
-    config.update_mode = kConfigUpdateInPlace;
-    config.hotspot_queue_full_percentage = 100;
-    config.wal_max_page_count = 8;
-    config.wal_max_tx_count = 100000;
-    config.wal_write_thread_disk_drop_interval = 100;
-    YuDb* db = YuDbOpen("Z:\\test.ydb", &config);
+	Config config;
+	config.page_size = 4096;
+	config.cacher_page_count = 8;
+	config.sync_mode = kConfigSyncNormal;
+	config.update_mode = kConfigUpdateInPlace;
+	config.hotspot_queue_full_percentage = 100;
+	config.wal_max_page_count = 8;
+	config.wal_max_tx_count = 100000;
+	config.wal_write_thread_disk_drop_interval = 100;
+	YuDb* db = YuDbOpen("Z:\\test.ydb", &config);
 
     /*l = GetTickCount64();
     for (int i = 0; i < count; i++) {
