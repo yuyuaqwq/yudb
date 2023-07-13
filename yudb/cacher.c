@@ -147,51 +147,51 @@ void CacherInit(Cacher* cacher, size_t count) {
 * 从缓存管理器中分配一页缓存
 */
 CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
-	YuDb* db = ObjectGetFromField(cacher, YuDb, pager.cacher);
-	RwLockWriteAcquire(&cacher->hotspot_queue_lock);
-	CacheId cache_id = CacheDoublyStaticListPop(cacher->cache_info_pool, kCacheTypeFree);
-	CacheInfo* evict_cache_info;
-	size_t cur_count = cacher->lru_list.hash_table.bucket.count;
-	size_t max_count = cacher->lru_list.max_count;
-	if (cur_count + 1 >= max_count * db->config.hotspot_queue_full_percentage / 100) {
-		// 需要从热点队列驱逐缓存
-		CacheHashListEntry* lru_entry = CacheHashListPop(&cacher->lru_list);
-		  assert(lru_entry != NULL);
-		evict_cache_info = ObjectGetFromField(lru_entry, CacheInfo, lru_entry);
-		CacherEvict(cacher, CacherGetIdByInfo(cacher, evict_cache_info));
-		if (cache_id == kCacheInvalidId) {
-		retry:
-			cache_id = CacheDoublyStaticListPop(cacher->cache_info_pool, kCacheTypeFree);
-			if (db->config.update_mode == kConfigUpdateWal) {
-				// Wal模式下，缓存页面可能未来得及落盘导致没有空闲缓存页，需要多次尝试
-				if (cache_id == kCacheInvalidId) {
-					MutexLockRelease(&cacher->hotspot_queue_lock);
-					ThreadSwitch();
-					MutexLockAcquire(&cacher->hotspot_queue_lock);
-					goto retry;
-				}
-			}
-		}
-	}
-	  assert(cache_id != kCacheInvalidId);
-	// 新分配的缓存挂到干净的链表上
-	CacheDoublyStaticListPush(cacher->cache_info_pool, kCacheTypeClean, cache_id);
-	// 同时挂到Lru中
-	CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
-	cache_info->pgid = pgid;
-	cache_info->reference_count = 0;
-	cache_info->type = kCacheTypeClean;
-	CacheHashListEntry* lru_entry = CacheHashListPut(&cacher->lru_list, &cache_info->lru_entry);
-	  assert(lru_entry == NULL);		// 不应该会推入已在链表的缓存
-	RwLockWriteRelease(&cacher->hotspot_queue_lock);
-	
-	size_t fast_map_index = CacherFastMapHash(pgid);
-	if (cacher->fast_map[fast_map_index].pgid == kPageInvalidId) {
-		cacher->fast_map[fast_map_index].pgid = pgid;
-		cacher->fast_map[fast_map_index].cacheid = cache_id;
-	}
-	
-	return cache_id;
+    YuDb* db = ObjectGetFromField(cacher, YuDb, pager.cacher);
+    RwLockWriteAcquire(&cacher->hotspot_queue_lock);
+    CacheId cache_id = CacheDoublyStaticListPop(cacher->cache_info_pool, kCacheTypeFree);
+    CacheInfo* evict_cache_info;
+    size_t cur_count = cacher->lru_list.hash_table.bucket.count;
+    size_t max_count = cacher->lru_list.max_count;
+    if (cur_count + 1 >= max_count * db->config.hotspot_queue_full_percentage / 100) {
+        // 需要从热点队列驱逐缓存
+        CacheHashListEntry* lru_entry = CacheHashListPop(&cacher->lru_list);
+          assert(lru_entry != NULL);
+        evict_cache_info = ObjectGetFromField(lru_entry, CacheInfo, lru_entry);
+        CacherEvict(cacher, CacherGetIdByInfo(cacher, evict_cache_info));
+        if (cache_id == kCacheInvalidId) {
+        retry:
+            cache_id = CacheDoublyStaticListPop(cacher->cache_info_pool, kCacheTypeFree);
+            if (db->config.update_mode == kConfigUpdateWal) {
+                // Wal模式下，缓存页面可能未来得及落盘导致没有空闲缓存页，需要多次尝试
+                if (cache_id == kCacheInvalidId) {
+                    MutexLockRelease(&cacher->hotspot_queue_lock);
+                    ThreadSwitch();
+                    MutexLockAcquire(&cacher->hotspot_queue_lock);
+                    goto retry;
+                }
+            }
+        }
+    }
+      assert(cache_id != kCacheInvalidId);
+    // 新分配的缓存挂到干净的链表上
+    CacheDoublyStaticListPush(cacher->cache_info_pool, kCacheTypeClean, cache_id);
+    // 同时挂到Lru中
+    CacheInfo* cache_info = CacherGetInfo(cacher, cache_id);
+    cache_info->pgid = pgid;
+    cache_info->reference_count = 0;
+    cache_info->type = kCacheTypeClean;
+    CacheHashListEntry* lru_entry = CacheHashListPut(&cacher->lru_list, &cache_info->lru_entry);
+      assert(lru_entry == NULL);        // 不应该会推入已在链表的缓存
+    RwLockWriteRelease(&cacher->hotspot_queue_lock);
+    
+    size_t fast_map_index = CacherFastMapHash(pgid);
+    if (cacher->fast_map[fast_map_index].pgid == kPageInvalidId) {
+        cacher->fast_map[fast_map_index].pgid = pgid;
+        cacher->fast_map[fast_map_index].cacheid = cache_id;
+    }
+    
+    return cache_id;
 }
 
 /*
