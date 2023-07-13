@@ -14,17 +14,17 @@ extern "C" {
 #endif //  __cplusplus
 
 typedef struct _Pager {
-	int16_t page_size;
-	PageCount page_count;
-	FreeTable free_table;		// 磁盘空闲页面管理表
-	Cacher cacher;		// 缓存管理器
+    int16_t page_size;
+    PageCount page_count;
+    FreeTable free_table;        // 磁盘空闲页面管理表
+    Cacher cacher;        // 缓存管理器
 
-	void* temp_page;		// b+树内部使用的临时页面
+    void* temp_page;        // b+树内部使用的临时页面
 
-	/* wal模式使用 */
-	PageIdVector free_pgid_pool;		// 空闲页号池
-	PageIdVector reserve_pgid_pool;		// 保留页号池，即已持久化版本的待释放页面
-	// PageIdHashTable pending_pgid_pool;	// 待决页号池，即未持久化版本的待释放页面，在事务管理器中记录就足够了
+    /* wal模式使用 */
+    PageIdVector free_pgid_pool;        // 空闲页号池
+    PageIdVector reserve_pgid_pool;        // 保留页号池，即已持久化版本的待释放页面
+    // PageIdHashTable pending_pgid_pool;    // 待决页号池，即未持久化版本的待释放页面，在事务管理器中记录就足够了
 } Pager;
 
 bool PagerInit(Pager* pager, int16_t page_size, PageCount page_count, size_t cache_count);

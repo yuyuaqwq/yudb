@@ -21,59 +21,59 @@ extern "C" {
 LIBYUC_SPACE_MANAGER_BUDDY_DECLARATION(Free, int16_t)
 
 typedef enum {
-	//kFreePageEntryListFree = 0,
-	kFreePageEntryListPending = 1,
+    //kFreePageEntryListFree = 0,
+    kFreePageEntryListPending = 1,
 } FreePageEntryListType;
 #pragma pack(1)
 typedef struct _FreePageEntry {
-	int16_t entry_list_next;
-	struct {
-		uint8_t is_pending : 1;
-		uint8_t : 7;
-	};
+    int16_t entry_list_next;
+    struct {
+        uint8_t is_pending : 1;
+        uint8_t : 7;
+    };
 } FreePageEntry;
 #pragma pack()
 LIBYUC_CONTAINER_STATIC_LIST_DECLARATION(FreePage, int16_t, FreePageEntry, 2)
 typedef struct _FreePageTable {
-	FreeBuddy buddy;
+    FreeBuddy buddy;
 } FreePageTable;
 
 
 typedef enum {
-	//kFreeDirEntryListFree = 0,
-	kFreeDirEntryListAlloc = 1,
-	//kFreeDirEntryListFull = 2,
+    //kFreeDirEntryListFree = 0,
+    kFreeDirEntryListAlloc = 1,
+    //kFreeDirEntryListFull = 2,
 } FreeDirEntryListType;
 LIBYUC_CONTAINER_STATIC_LIST_DECLARATION_1(FreeDir, int16_t)
 #pragma pack(1)
 typedef struct _FreeDirEntry {
-	struct {
-		uint16_t read_select : 1;		// 读取是选择sub_0还是sub_1
-		uint16_t write_select : 1;		// 写入是选择sub_0还是sub_1
-		int16_t entry_list_next : 14;		// static_list 存储index，2^13
-	};
-	struct {
-		uint8_t entry_list_type : 2;		// FreeDirEntryListType
-		uint8_t sub_table_dirty : 1;		// sub是否为脏表
-		uint8_t sub_table_pending : 1;		// sub是否存在pending
-		uint8_t sub_max_free_log : 4;		// sub最大连续空闲位，存储的是指数+1
-	};
+    struct {
+        uint16_t read_select : 1;        // 读取是选择sub_0还是sub_1
+        uint16_t write_select : 1;        // 写入是选择sub_0还是sub_1
+        int16_t entry_list_next : 14;        // static_list 存储index，2^13
+    };
+    struct {
+        uint8_t entry_list_type : 2;        // FreeDirEntryListType
+        uint8_t sub_table_dirty : 1;        // sub是否为脏表
+        uint8_t sub_table_pending : 1;        // sub是否存在pending
+        uint8_t sub_max_free_log : 4;        // sub最大连续空闲位，存储的是指数+1
+    };
 } FreeDirEntry;
 #pragma pack()
 
 LIBYUC_CONTAINER_STATIC_LIST_DECLARATION_2(FreeDir, int16_t, FreeDirEntry, 4)
 
 typedef struct _FreeDirTable {
-	FreeBuddy buddy;
+    FreeBuddy buddy;
 } FreeDirTable;
 
 typedef struct _FreeTable {
-	FreeDirTable* free0_table;
+    FreeDirTable* free0_table;
 } FreeTable;
 
 typedef enum {
-	kFreeDirTable = 0,
-	kFreePageTable = 1,
+    kFreeDirTable = 0,
+    kFreePageTable = 1,
 } FreeTableType;
 
 FreeDirStaticList* FreeDirTableGetStaticList(FreeDirTable* free0_table);
