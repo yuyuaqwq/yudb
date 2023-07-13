@@ -1,12 +1,14 @@
 #include <yudb/meta_info.h>
 
+#include <libyuc/algorithm/crc32.h>
+
 #include <yudb/free_table.h>
 #include <yudb/yudb.h>
 
 
 bool MetaInfoRead(YuDb* db, Config* config) {
     if (!DbFileRead(db->db_file, &db->meta_info, sizeof(db->meta_info))) {
-        // 初始化数据库必要的页面，meta、free_l0_list、free_l1_list
+        // 初始化数据库必要的页面，meta、free0_table、free1_table、free2_table
         uint8_t* empty_page = malloc(config->page_size);
         memset(empty_page, 0, config->page_size);
 
@@ -17,8 +19,7 @@ bool MetaInfoRead(YuDb* db, Config* config) {
 
         // free0_table
         FreeDirTable* free0_table = empty_page;
-        FreeDirTableInit(free0_table, config->page_size, kFreePageTable);
-        FreeDirStaticList* static_list = FreeDirTableGetStaticList(free0_table);
+        FreeDirTableInit(free0_table, config->page_size, 1);
 
         DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
         DbFileWrite(db->db_file, empty_page, config->page_size);
@@ -27,13 +28,22 @@ bool MetaInfoRead(YuDb* db, Config* config) {
 
         // free1_table
         memset(empty_page, 0, config->page_size);
-        FreePageTable* free1_table = empty_page;
-        FreePageTableInit(free1_table, config->page_size);
-        // 前6个页面不可分配
-        FreePageTableAlloc(free1_table, 4);
-        FreePageTableAlloc(free1_table, 2);
+        FreeDirTable* free1_table = empty_page;
+        FreeDirTableInit(free1_table, config->page_size, 0);
 
-        
+        DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
+        DbFileWrite(db->db_file, empty_page, config->page_size);
+        DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
+        DbFileWrite(db->db_file, empty_page, config->page_size);
+
+        // free2_table
+        memset(empty_page, 0, config->page_size);
+        FreePageTable* free2_table = empty_page;
+        FreePageTableInit(free2_table, config->page_size);
+
+        // 前8个页面不可分配: meta0, meta1; free0_table0, free0_table1; free1_table0, free1_table1; free2_table0, free2_table1;
+        FreePageTableAlloc(free2_table, 8);
+
         DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
         DbFileWrite(db->db_file, empty_page, config->page_size);
         DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
@@ -46,6 +56,10 @@ bool MetaInfoRead(YuDb* db, Config* config) {
         db->meta_info.page_size = config->page_size;
         db->meta_info.page_count = 6;
         db->meta_info.txid = 0;
+
+        uint32_t crc32 = Crc32Start();
+        crc32 = Crc32Continue(crc32, &db->meta_info, sizeof(db->meta_info) - sizeof(uint32_t));
+        db->meta_info.crc32 = Crc32End(crc32);
 
         DbFileSeek(db->db_file, 0, kDbFilePointerSet);
         DbFileWrite(db->db_file, &db->meta_info, sizeof(db->meta_info));
@@ -77,7 +91,21 @@ bool MetaInfoRead(YuDb* db, Config* config) {
             db->meta_index = 1;
         }
 
-        // 检查元信息是否完整，不完整则使用另一个
+        // 校验元信息是否完整，不完整则使用另一个
+        uint32_t crc32 = Crc32Start();
+        crc32 = Crc32Continue(crc32, &meta_list[db->meta_index], sizeof(meta_list[db->meta_index]) - sizeof(uint32_t));
+        crc32 = Crc32End(crc32);
+        if (crc32 != meta_list[db->meta_index].crc32) {
+            if (db->meta_index == 1) { 
+                return false; 
+            }
+            crc32 = Crc32Start();
+            crc32 = Crc32Continue(crc32, &meta_list[1], sizeof(meta_list[1]) - sizeof(uint32_t));
+            crc32 = Crc32End(crc32);
+            if (crc32 != meta_list[1].crc32) {
+                return false;
+            }
+        }
 
         // 页面尺寸不匹配则不允许打开
         if (meta_list[db->meta_index].page_size != config->page_size) {
@@ -91,6 +119,9 @@ bool MetaInfoRead(YuDb* db, Config* config) {
 bool MetaInfoWrite(YuDb* db, int32_t meta_index) {
     int64_t offset = (int64_t)db->pager.page_size * meta_index;
     DbFileSeek(db->db_file, offset, kDbFilePointerSet);
+    uint32_t crc32 = Crc32Start();
+    crc32 = Crc32Continue(crc32, &db->meta_info, sizeof(db->meta_info) - sizeof(uint32_t));
+    db->meta_info.crc32 = Crc32End(crc32);
     DbFileWrite(db->db_file, &db->meta_info, sizeof(db->meta_info));
     if (db->config.sync_mode == kConfigSyncFull) {
         DbFileSync(db->db_file);

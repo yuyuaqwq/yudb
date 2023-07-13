@@ -50,3 +50,7 @@ void YuDbClose(YuDb* db) {
     }
     DbFileClose(db->db_file);
 }
+
+const char* YuDbGetErrMsg(YuDb* db) {
+    return db->err_msg;
+}

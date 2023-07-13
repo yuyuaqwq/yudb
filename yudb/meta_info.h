@@ -11,6 +11,7 @@
 extern "C" {
 #endif //  __cplusplus
 
+#pragma pack(1)
 typedef struct {
     uint32_t magic;
     uint32_t min_version;
@@ -19,7 +20,9 @@ typedef struct {
     Bucket bucket;
     uint32_t txid;
     time_t time;        // 为了避免txid回卷，另外记录事务的提交时间；如果提交时检测到发生回卷，就会强制使用未来时间(cur_time+1)，以避免相同的时间记录
+    uint32_t crc32;
 } MetaInfo;
+#pragma pack()
 
 bool MetaInfoRead(struct _YuDb* db, Config* config);
 bool MetaInfoWrite(struct _YuDb* db, int32_t meta_index);

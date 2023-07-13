@@ -32,6 +32,5 @@
     <ClInclude Include="bucket.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="error.h" />
-    <ClInclude Include="..\..\..\..\..\..\lib\LIBYUC\algorithm\array.h" />
   </ItemGroup>
 </Project>

@@ -25,10 +25,14 @@ typedef struct _YuDb {
     Pager pager;        // 页面管理器
     TxManager tx_manager;        // 事务管理器
     WalManager wal_manager;
+
+    char err_msg[256];
 } YuDb;
 
 YuDb* YuDbOpen(const char* path, const Config* config);
 void YuDbClose(YuDb* db);
+
+const char* YuDbGetErrMsg(YuDb* db);
 
 #ifdef __cplusplus
 }

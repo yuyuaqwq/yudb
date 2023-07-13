@@ -63,7 +63,7 @@ void YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR_Release(YuDbBPlusTree* tree, PageId pgid)
 /*
 * B+树Entry引用器
 */
-#define YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_InvalidId -1
+#define YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_InvalidId (-1)
 YuDbBPlusEntry* YUDB_BUCKET_BPLUS_ENTRY_REFERENCER_Reference(YuDbBPlusTree* tree, PageId pgid) {
     Tx* tx = BPlusTreeToTx(tree);
     BucketEntry* entry = (BucketEntry*)PagerReference(&tx->db->pager, pgid);
@@ -1357,7 +1357,7 @@ static _Bool YuDbBPlusTreeInsertElement(YuDbBPlusTree* tree, YuDbBPlusCursor* cu
             int16_t raw_rate = YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_GetNeedRate(cur, cur, raw);
             YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Dereference(cur, raw);
             if (free_rate + need_rate >= raw_rate) {
-                YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetValue(cur, insert_element, cur, &insert_element->leaf.value);
+                YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR_SetValue(cur, raw, cur, &insert_element->leaf.value);
                 break;
             }
             else {
@@ -1633,6 +1633,7 @@ int16_t YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR_CreateBySize(YuDbBPlusEntry* entry, 
 
     if (bucket_entry->info.alloc_size + size <= bucket_entry->info.page_size && DataPoolFreeListGetMaxFreeBlockSize(&bucket_entry->info.data_pool.free_list, 0) < size) {
         // 需要进行碎片整理
+          assert(0);
         BucketEntry* temp = (BucketEntry*)MemoryAlloc(bucket_entry->info.page_size);
 
         size_t bp_entry_size;

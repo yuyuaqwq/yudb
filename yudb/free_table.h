@@ -53,10 +53,10 @@ typedef struct _FreeDirEntry {
         int16_t entry_list_next : 14;        // static_list 存储index，2^13
     };
     struct {
-        uint8_t entry_list_type : 2;        // FreeDirEntryListType
+        // uint8_t entry_list_type : 2;        // FreeDirEntryListType
         uint8_t sub_table_dirty : 1;        // sub是否为脏表
         uint8_t sub_table_pending : 1;        // sub是否存在pending
-        uint8_t sub_max_free_log : 4;        // sub最大连续空闲位，存储的是指数+1
+        uint8_t sub_max_free_log : 5;        // sub最大连续空闲(下一级位x)page，存储的是指数+1
     };
 } FreeDirEntry;
 #pragma pack()
@@ -76,13 +76,13 @@ typedef enum {
     kFreePageTable = 1,
 } FreeTableType;
 
-FreeDirStaticList* FreeDirTableGetStaticList(FreeDirTable* free0_table);
-void FreeDirTableInit(FreeDirTable* free0_table, int16_t page_size, FreeTableType sub_table_type);
+FreeDirStaticList* FreeDirTableGetStaticList(FreeDirTable* dir_table);
+void FreeDirTableInit(FreeDirTable* dir_table, int16_t page_size, int32_t sub_dir_level);
 
-void FreePageTableInit(FreePageTable* free1_table, int16_t page_size);
-int16_t FreePageTableAlloc(FreePageTable* free1_table, int16_t count);
-int16_t FreePageTableGetMaxFreeCount(FreePageTable* free1_table);
-FreePageStaticList* FreePageTableGetStaticList(FreePageTable* free0_table);
+void FreePageTableInit(FreePageTable* page_table, int16_t page_size);
+int16_t FreePageTableAlloc(FreePageTable* page_table, int16_t count);
+int16_t FreePageTableGetMaxFreeCount(FreePageTable* page_table);
+FreePageStaticList* FreePageTableGetStaticList(FreePageTable* page_table);
 
 PageId FreeTablePosToPageId(FreeTable* free_table, int16_t free0_entry_pos, int16_t free1_entry_pos);
 void FreeTableGetPosFromPageId(FreeTable* free_table, PageId pgid, int16_t* free0_entry_pos, int16_t* free1_entry_pos);
