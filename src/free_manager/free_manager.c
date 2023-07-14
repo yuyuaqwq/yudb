@@ -195,7 +195,7 @@ int16_t FreeManagerAlloc(FreeManager* manager, int32_t count, int16_t* free0_ent
           assert(free1_table != NULL);
         uint32_t sub_max_free = LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(f0_static_list->obj_arr[free0_entry_id].sub_max_free_log - 1);
         if (sub_max_free == page_table_max_count * dir_table_max_count) {
-            // 初次从f0中分配的f1，应当构建f2的关系，前2页应当是被分配的，但此时还未构建f3，顺便构建f3并从f3分配前4页？
+            // 初次从f0中分配的f1，应当构建f2的关系，前2页应当是被分配的，但此时还未构建f2，顺便构建f2并从f2分配前4页？
             FreeDirTableAlloc(free1_table, kFreePageStaticEntryIdOffset);
         }
 
