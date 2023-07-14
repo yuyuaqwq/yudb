@@ -69,18 +69,19 @@ static void* FreeManagerGetSubTable(FreeManager* manager, FreeDirTable* dir_tabl
 
     if (read_cache_id == kCacheInvalidId) {
         if (!PagerRead(pager, sub_table_pgid_read, write_cache, 1)) {
-              assert(0);
-            return NULL;
             // 如果读取失败，若是从未使用过的free_table则将其初始化
-            /*if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(dir_entry->sub_max_free_log - 1) != FreePageTableGetMaxCount(pager->page_size)) {
-                return NULL;
-            }
             if (level == kFreeTableLevel - 1) {
+                if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(dir_entry->sub_max_free_log - 1) != FreePageTableGetMaxCount(pager->page_size)) {
+                    return NULL;
+                }
                 FreePageTableInit((FreePageTable*)write_cache, pager->page_size);
             }
             else {
+                if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(dir_entry->sub_max_free_log - 1) != FreeDirTableGetMaxCount(pager->page_size)) {
+                    return NULL;
+                }
                 FreeDirTableInit((FreeDirTable*)write_cache, pager->page_size, level + 1);
-            }*/
+            }
         }
     }
     else {
