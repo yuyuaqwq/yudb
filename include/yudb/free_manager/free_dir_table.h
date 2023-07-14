@@ -1,0 +1,51 @@
+#ifndef YUDB_FREE_MANAGER_FREE_DIR_TABLE_H_
+#define YUDB_FREE_MANAGER_FREE_DIR_TABLE_H_
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include <yudb/page.h>
+#include <yudb/free_manager/free_table.h>
+
+#ifdef  __cplusplus
+extern "C" {
+#endif //  __cplusplus
+
+typedef enum {
+    //kFreeDirEntryListFree = 0,
+    kFreeDirEntryListSubAlloc = 1,
+    //kFreeDirEntryListSubFull = 2,
+} FreeDirEntryListType;
+
+LIBYUC_CONTAINER_STATIC_LIST_DECLARATION_1(FreeDir, int16_t)
+#pragma pack(1)
+typedef struct _FreeDirEntry {
+    struct {
+        uint16_t read_select : 1;        // 读取是选择sub_0还是sub_1
+        uint16_t write_select : 1;        // 写入是选择sub_0还是sub_1
+        int16_t entry_list_next : 14;        // static_list 存储index，2^13
+    };
+    struct {
+        // uint8_t entry_list_type : 2;        // FreeDirEntryListType
+        uint8_t sub_table_dirty : 1;        // sub是否为脏表
+        uint8_t sub_table_pending : 1;        // sub是否存在pending
+        uint8_t sub_max_free_log : 5;        // sub最大连续空闲(下一级位x)page，存储的是指数+1
+    };
+} FreeDirEntry;
+#pragma pack()
+LIBYUC_CONTAINER_STATIC_LIST_DECLARATION_2(FreeDir, int16_t, FreeDirEntry, 4)
+
+typedef struct _FreeDirTable {
+    FreeTableBuddy buddy;
+} FreeDirTable;
+
+
+FreeDirStaticList* FreeDirTableGetStaticList(FreeDirTable* dir_table);
+void FreeDirTableInit(FreeDirTable* dir_table, int16_t page_size, uint32_t level);
+
+
+#ifdef __cplusplus
+}
+#endif //  __cplusplus
+
+#endif // YUDB_FREE_MANAGER_FREE_DIR_TABLE_H_

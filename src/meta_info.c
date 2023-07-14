@@ -54,7 +54,7 @@ bool MetaInfoRead(YuDb* db, Config* config) {
         db->meta_info.magic = 'yudb';
         db->meta_info.min_version = YUDB_VERSION;
         db->meta_info.page_size = config->page_size;
-        db->meta_info.page_count = 6;
+        db->meta_info.page_count = 8;
         db->meta_info.txid = 0;
 
         uint32_t crc32 = Crc32Start();
@@ -65,6 +65,10 @@ bool MetaInfoRead(YuDb* db, Config* config) {
         DbFileWrite(db->db_file, &db->meta_info, sizeof(db->meta_info));
 
         db->meta_info.txid = 1;
+        crc32 = Crc32Start();
+        crc32 = Crc32Continue(crc32, &db->meta_info, sizeof(db->meta_info) - sizeof(uint32_t));
+        db->meta_info.crc32 = Crc32End(crc32);
+
         DbFileSeek(db->db_file, config->page_size, kDbFilePointerSet);
         DbFileWrite(db->db_file, &db->meta_info, sizeof(db->meta_info));
 
