@@ -77,7 +77,7 @@ typedef enum {
 } FreeTableType;
 
 FreeDirStaticList* FreeDirTableGetStaticList(FreeDirTable* dir_table);
-void FreeDirTableInit(FreeDirTable* dir_table, int16_t page_size, int32_t sub_dir_level);
+void FreeDirTableInit(FreeDirTable* dir_table, int16_t page_size, int32_t sub_dir_level_count);
 
 void FreePageTableInit(FreePageTable* page_table, int16_t page_size);
 int16_t FreePageTableAlloc(FreePageTable* page_table, int16_t count);

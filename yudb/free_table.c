@@ -19,11 +19,14 @@ LIBYUC_CONTAINER_STATIC_LIST_DEFINE(FreePage, int16_t, FreePageEntry, YUDB_FREE_
 
 
 const PageId kMetaStartId = 0;
-const PageId kFree0DirTableStartId = 2;
-const PageId kFree1DirTableStartId = 4;
-const PageId kFree2PageTableStartId = 6;
+const PageId kFreeDirTableStartId = 2;
+
 
 const uint16_t kFreePageStaticEntryIdOffset = 2;
+
+const uint32_t kFreeTableLevel = 3;
+
+
 
 
 /*
@@ -86,12 +89,6 @@ void FreePageTableFree(FreePageTable* free_page_table, int16_t free1_entry_id) {
     FreeBuddyFree(&free_page_table->buddy, free1_entry_id);
 }
 
-void FreePageTableMarkDirty(FreeTable* table, FreePageTable* free_page_table) {
-    Pager* pager = ObjectGetFromField(table, Pager, free_table);
-    CacheId cache_id = CacherGetIdByBuf(&pager->cacher, free_page_table);
-    CacheInfo* cache_info = CacherGetInfo(&pager->cacher, cache_id);
-    CacherMarkDirty(&pager->cacher, cache_id);
-}
 
 
 /*
@@ -100,6 +97,48 @@ void FreePageTableMarkDirty(FreeTable* table, FreePageTable* free_page_table) {
 static int16_t FreeDirTableGetMaxCount(int16_t page_size) {
     return (page_size - (page_size / 4)) / sizeof(FreeDirEntry);
 }
+
+static int16_t FreeDirTableGetMaxFreeCount(FreeDirTable* free_dir_table) {
+    return FreeBuddyGetMaxFreeCount(&free_dir_table->buddy);
+}
+
+
+static uint32_t GetFreeDirLevel(PageId pgid, int16_t page_size) {
+    /*
+    * 2(0) 4(1) 6(2)
+    * 1024(2)
+    * 2048
+    * 3072
+    * ...
+    * 1048576(1) 1048578(2)
+    * 1049600(2)
+    * ...
+    * 2097152(1) 2097154(2)
+    * ...
+    */
+    if (pgid < kFreeDirTableStartId + kFreeTableLevel * 2) {
+        return (pgid - kFreeDirTableStartId) / 2;
+    }
+
+    if (pgid % 1) {
+        pgid--;
+    }
+
+    PageId level_pgid_factor = FreePageTableGetMaxCount(page_size);
+    for (uint32_t i = 1; i < kFreeTableLevel - 1; i++) {
+        level_pgid_factor *= FreeDirTableGetMaxCount(page_size);
+    }
+
+    for (uint32_t i = 1; i < kFreeTableLevel - 1; i++) {
+        if (pgid % level_pgid_factor == 0) {
+            return i;
+        }
+        level_pgid_factor /= FreeDirTableGetMaxCount(page_size);
+    }
+    return kFreeTableLevel - 1;
+}
+
+
 
 static int16_t FreeDirGetPageSize(FreeDirTable* free_dir_table) {
     return FreeBuddyGetMaxCount(&free_dir_table->buddy) * 4;
@@ -110,7 +149,7 @@ FreeDirStaticList* FreeDirTableGetStaticList(FreeDirTable* free_dir_table) {
     return (FreeDirStaticList*)((uintptr_t)free_dir_table + FreeBuddyGetMaxCount(&free_dir_table->buddy));
 }
 
-void FreeDirTableInit(FreeDirTable* free_dir_table, int16_t page_size, int32_t dir_level) {
+void FreeDirTableInit(FreeDirTable* free_dir_table, int16_t page_size, int32_t sub_dir_level_count) {
     int16_t max_count = FreeDirTableGetMaxCount(page_size);
     FreeBuddyInit(&free_dir_table->buddy, max_count);
     max_count -= 3;
@@ -118,7 +157,7 @@ void FreeDirTableInit(FreeDirTable* free_dir_table, int16_t page_size, int32_t d
     FreeDirStaticListInit(static_list, max_count);
     
     int32_t sub_max_free_page = FreePageTableGetMaxCount(page_size);
-    for (int32_t i = 0; i < dir_level; i++) {
+    for (int32_t i = 0; i < sub_dir_level_count; i++) {
         sub_max_free_page *= FreeDirTableGetMaxCount(page_size);
     }
 
@@ -166,15 +205,19 @@ int16_t FreeDirTableFindBySubFreeCount(FreeDirTable* dir_table, int32_t sub_coun
     return dir_entry_id;
 }
 
-void* FreeDirTableGetSubTable(FreeTable* free_table, FreeDirTable* dir_table, int32_t dir_level, FreeTableType sub_table_type, int16_t free_dir_entry_id, CacheId* cache_id) {
+void* FreeDirTableGetSubTable(FreeTable* free_table, FreeDirTable* dir_table, int16_t free_dir_entry_id, CacheId* cache_id) {
     Pager* pager = ObjectGetFromField(free_table, Pager, free_table);
     YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 
     FreeDirEntry* dir_entry = &FreeDirTableGetStaticList(dir_table)->obj_arr[free_dir_entry_id];
     PageId free_page_table_pgid_start;
 
+    // 根据dir_table的pgid拿到其sub_table
+    CacheInfo* info = CacherGetInfo(&pager->cacher, CacherGetIdByBuf(&pager->cacher, dir_table));
+
     if (free_dir_entry_id == 0) {
-        free_page_table_pgid_start = kFree0DirTableStartId * dir_level;        // meta  free0_table  free1_table  free2_table(page_table)
+        // meta  free0_table  free1_table  free2_table(page_table)
+        free_page_table_pgid_start = info->pgid + 2;
     }
     else {
         free_page_table_pgid_start = free_dir_entry_id * FreePageTableGetMaxCount(pager->page_size);
@@ -196,15 +239,15 @@ void* FreeDirTableGetSubTable(FreeTable* free_table, FreeDirTable* dir_table, in
     if (write_cache_id == kCacheInvalidId) {
         write_cache_id = CacherAlloc(&pager->cacher, free_page_table_pgid_write);
     }
-    write_cache = CacherGet(&pager->cacher, write_cache_id);
+    write_cache = (FreePageEntry*)CacherGet(&pager->cacher, write_cache_id);
 
     if (read_cache_id == kCacheInvalidId) {
         if (!PagerRead(pager, free_page_table_pgid_read, write_cache, 1)) {
             // 如果读取失败，若是从未使用过的f1则将其初始化
-            if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(dir_entry->sub_max_free_log-1) != FreePageTableGetMaxCount(FreeDirGetPageSize(dir_table))) {
+            if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(dir_entry->sub_max_free_log-1) != FreePageTableGetMaxCount(pager->page_size)) {
                 return NULL;
             }
-            FreePageTableInit(write_cache, pager->page_size);
+            FreePageTableInit((FreePageTable*)write_cache, pager->page_size);
         }
     }
     else {
@@ -232,6 +275,16 @@ void FreeDirTableUpdateEntryFreeCount(FreeDirEntry* free_dir_entry, FreePageTabl
 }
 
 
+
+static void FreeDirOrPageTableMarkDirty(FreeTable* table, void* free_table) {
+    Pager* pager = ObjectGetFromField(table, Pager, free_table);
+    CacheId cache_id = CacherGetIdByBuf(&pager->cacher, free_table);
+    CacheInfo* cache_info = CacherGetInfo(&pager->cacher, cache_id);
+    CacherMarkDirty(&pager->cacher, cache_id);
+}
+
+
+
 /*
 * FreeTable
 */
@@ -253,10 +306,10 @@ bool FreeTableInit(FreeTable* free_table) {
     YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 
     int16_t max_count = FreeDirTableGetMaxCount(pager->page_size);
-    free_table->free0_table = malloc(pager->page_size);
+    free_table->free0_table = (FreeDirTable*)malloc(pager->page_size);
 
     // free0_table常驻内存
-    PageId free_dir_table_pgid = kFree0DirTableStartId + db->meta_index;
+    PageId free_dir_table_pgid = kFreeDirTableStartId + db->meta_index;
     if (!PagerRead(pager, free_dir_table_pgid, db->pager.free_table.free0_table, 1)) {
         return false;
     }
@@ -271,45 +324,17 @@ int16_t FreeTableAlloc(FreeTable* table, int32_t count, int16_t* free0_entry_id_
 
     int16_t page_table_max_count = FreePageTableGetMaxCount(pager->page_size);
     int16_t dir_table_max_count = FreeDirTableGetMaxCount(pager->page_size);
+    
+    if (count > dir_table_max_count * dir_table_max_count * page_table_max_count) {
+        return YUDB_FREE_TABLE_REFERENCER_InvalidId;
+    }
+
     FreeDirStaticList* f0_static_list = FreeDirTableGetStaticList(table->free0_table);
 
-
-    if (count < page_table_max_count) {
-        // 从f2分配
-        int16_t free0_entry_id = FreeDirTableFindBySubFreeCount(table->free0_table, count);
-        FreeDirEntry* free0_entry = &f0_static_list->obj_arr[free0_entry_id];
-    }
-
-    if (count < page_table_max_count * dir_table_max_count) {
-        // 从f1分配
-        int16_t f1_count = count / page_table_max_count;
-        f1_count += count % page_table_max_count ? 1 : 0;
-
-        // 从f0中查找足够空位的f0_entry
-        int16_t free0_entry_id = FreeDirTableFindBySubFreeCount(table->free0_table, count);
-        if (free0_entry_id == YUDB_FREE_TABLE_REFERENCER_InvalidId) {
-            return YUDB_FREE_TABLE_REFERENCER_InvalidId;
-        }
-        FreeDirEntry* free0_entry = &f0_static_list->obj_arr[free0_entry_id];
-        int16_t free1_entry_id = FreeDirTableAlloc(table->free0_table, f1_count);
-        if (free1_entry_id == YUDB_FREE_TABLE_REFERENCER_InvalidId) {
-            return YUDB_FREE_TABLE_REFERENCER_InvalidId;
-        }
-
-        CacheId cache_id;
-        FreeDirTable* free1_table = FreeDirTableGetSubTable(table, table->free0_table, 0, free0_entry_id, &cache_id);
-
-        FreeDirStaticList* f1_static_list = FreeDirTableGetStaticList(free1_table);
-        FreeDirEntry* free1_entry = &f1_static_list->obj_arr[free1_entry_id];
-        FreeDirStaticListPush(f1_static_list, kFreeDirEntryListAlloc, free1_entry_id);
-
-
-    }
-
-    if (count < page_table_max_count * dir_table_max_count * dir_table_max_count) {
+    if (count > dir_table_max_count * page_table_max_count) {
         // 直接从f0分配
-        int16_t f0_count = count / (page_table_max_count * dir_table_max_count);
-        f0_count += count % (page_table_max_count * dir_table_max_count) ? 1 : 0;
+        int16_t f0_count = count / (dir_table_max_count * page_table_max_count);
+        f0_count += count % (dir_table_max_count * page_table_max_count) ? 1 : 0;
         int16_t free0_entry_id = FreeDirTableAlloc(table->free0_table, f0_count);
         if (free0_entry_id == YUDB_FREE_TABLE_REFERENCER_InvalidId) {
             return YUDB_FREE_TABLE_REFERENCER_InvalidId;
@@ -320,18 +345,53 @@ int16_t FreeTableAlloc(FreeTable* table, int32_t count, int16_t* free0_entry_id_
 
         *free0_entry_id_out = free0_entry_id;
         *free1_entry_id_out = 0;
-        return free0_entry_id * page_table_max_count * dir_table_max_count;
+        return free0_entry_id * dir_table_max_count * page_table_max_count;
     }
 
 
-
-
-
-
-    
-    else {
+    // 从f0中查找足够空位的f0_entry
+    int16_t free0_entry_id = FreeDirTableFindBySubFreeCount(table->free0_table, count);
+    if (free0_entry_id == YUDB_FREE_TABLE_REFERENCER_InvalidId) {
         return YUDB_FREE_TABLE_REFERENCER_InvalidId;
     }
+
+    if (count > page_table_max_count) {
+        // 从f1分配
+        int16_t f1_count = count / page_table_max_count;
+        f1_count += count % page_table_max_count ? 1 : 0;
+
+        
+        FreeDirEntry* free0_entry = &f0_static_list->obj_arr[free0_entry_id];
+        int16_t free1_entry_id = FreeDirTableAlloc(table->free0_table, f1_count);
+        if (free1_entry_id == YUDB_FREE_TABLE_REFERENCER_InvalidId) {
+            return YUDB_FREE_TABLE_REFERENCER_InvalidId;
+        }
+
+        CacheId cache_id;
+        FreeDirTable* free1_table = (FreeDirTable*)FreeDirTableGetSubTable(table, table->free0_table, free0_entry_id, &cache_id);
+
+        FreeDirStaticList* f1_static_list = FreeDirTableGetStaticList(free1_table);
+        FreeDirEntry* free1_entry = &f1_static_list->obj_arr[free1_entry_id];
+        FreeDirStaticListPush(f1_static_list, kFreeDirEntryListAlloc, free1_entry_id);
+
+
+        free0_entry->sub_max_free_log = FreeBuddyToExponentOf2(FreeDirTableGetMaxFreeCount(free1_table) * page_table_max_count) + 1;
+        if (free0_entry->sub_max_free_log == 0) {
+            // 下级没有可分配的空间，挂到满队列中
+            // FreeDirStaticListSwitch(static_list, kFreeDirEntryListAlloc, free0_entry_prev_id, free0_entry_id, kFreeDirEntryListFull);
+        }
+
+        // 该f1表已是脏页
+        free0_entry->sub_table_dirty = true;
+        if (free0_entry_id_out) {
+            *free0_entry_id_out = free0_entry_id;
+        }
+        FreeDirOrPageTableMarkDirty(table, free1_table);
+
+        return free0_entry_id * dir_table_max_count * page_table_max_count + free1_entry_id * page_table_max_count;
+    }
+
+    
 
     // 从f2分配页面
     CacheId cache_id;
@@ -359,7 +419,7 @@ int16_t FreeTableAlloc(FreeTable* table, int32_t count, int16_t* free0_entry_id_
     if (free0_entry_id_out) {
         *free0_entry_id_out = free0_entry_id;
     }
-    FreePageTableMarkDirty(table, free_page_table);
+    FreeDirOrPageTableMarkDirty(table, free_page_table);
 
     CacherDereference(&pager->cacher, cache_id);
       assert(free1_entry_id);
@@ -379,7 +439,7 @@ void FreeTablePending(FreeTable* table, PageId pgid) {
     CacheId cache_id;
     FreePageEntry* free_page_table = FreeDirTableGetSubTable(table, free0_entry_id, &cache_id);
     FreePageTablePending(free_page_table, free1_entry_id);
-    FreePageTableMarkDirty(table, free_page_table);
+    FreeDirOrPageTableMarkDirty(table, free_page_table);
 
     FreeDirEntry* free0_entry = &static_list->obj_arr[free0_entry_id];
     free0_entry->sub_table_dirty = true;
@@ -404,7 +464,7 @@ void FreeTableFree(FreeTable* table, PageId pgid) {
     FreePageTable* free_page_table = FreeDirTableGetSubTable(table, free0_entry_id, &cache_id);
       assert(free_page_table != NULL);
     FreePageTableFree(free_page_table, free1_entry_id);
-    FreePageTableMarkDirty(table, free_page_table);
+    FreeDirOrPageTableMarkDirty(table, free_page_table);
 
     FreeDirTableUpdateEntryFreeCount(free0_entry, free_page_table);
 
@@ -449,7 +509,7 @@ void FreeTableCleanPending(FreeTable* table) {
 bool FreeTableWrite(FreeTable* table, int32_t meta_index) {
     Pager* pager = ObjectGetFromField(table, Pager, free_table);
     YuDb* db = ObjectGetFromField(pager, YuDb, pager);
-    PageId pgid = ((int64_t)kFree0DirTableStartId + meta_index);
+    PageId pgid = (kFreeDirTableStartId + meta_index);
 
     bool dirty = false;
     FreeDirEntryListType list_type[] = { kFreeDirEntryListAlloc, /*kFreeDirEntryListFull*/ };
