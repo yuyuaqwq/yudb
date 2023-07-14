@@ -106,7 +106,7 @@ extern "C" void PrintRB(CacheRbTree * tree, CacheRbEntry * entry_id, int Level, 
 //}
 
 
-#include <yudb/free_table.h>
+#include <yudb/free_manager/free_manager.h>
 
 extern "C" void aaaa() {
 
@@ -162,6 +162,8 @@ int main() {
     config.wal_max_tx_count = 100000;
     config.wal_write_thread_disk_drop_interval = 100;
     YuDb* db = YuDbOpen("Z:\\test.ydb", &config);
+
+    FreeManagerTest(&db->pager.free_manager);
 
     /*l = GetTickCount64();
     for (int i = 0; i < count; i++) {

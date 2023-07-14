@@ -59,7 +59,7 @@ static void TxBeginReadWrite(Tx* tx) {
     // 将低于最低读事务id的写事务待决页面释放
     if (tx->db->tx_manager.write_tx_record.root == NULL) {
         // 初次开启写事务时，清理空闲表内所有pending页面
-        FreeTableCleanPending(&tx->db->pager.free_table);
+        FreeManagerCleanPending(&tx->db->pager.free_manager);
     } else {
         TxFreePendingPoolPage(tx->db);
     }
@@ -110,7 +110,7 @@ void TxCommit(Tx* tx) {
     memcpy(&tx->db->meta_info, &tx->meta_info, sizeof(tx->meta_info));
     if (tx->db->config.update_mode == kConfigUpdateInPlace) {
         PagerSyncWriteAllDirty(&tx->db->pager);
-        FreeTableWrite(&tx->db->pager.free_table, tx->meta_index);
+        FreeManagerWrite(&tx->db->pager.free_manager, tx->meta_index);
         MetaInfoWrite(tx->db, tx->meta_index);
         tx->db->meta_index = tx->meta_index;        // Wal模式不在提交时更新，因为元信息并未落盘，不能变动最近完成持久化版本
     }  

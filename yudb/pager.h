@@ -6,7 +6,7 @@
 
 #include <yudb/page.h>
 #include <yudb/txid.h>
-#include <yudb/free_table.h>
+#include <yudb/free_manager/free_manager.h>
 #include <yudb/cacher.h>
 
 #ifdef  __cplusplus
@@ -16,7 +16,7 @@ extern "C" {
 typedef struct _Pager {
     int16_t page_size;
     PageCount page_count;
-    FreeTable free_table;        // 磁盘空闲页面管理表
+    FreeManager free_manager;        // 磁盘空闲页面管理表
     Cacher cacher;        // 缓存管理器
 
     void* temp_page;        // b+树内部使用的临时页面

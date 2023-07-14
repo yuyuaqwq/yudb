@@ -3,7 +3,7 @@
 #include <libyuc/concurrency/thread.h>
 
 #include <yudb/db_file.h>
-#include <yudb/free_table.h>
+#include <yudb/free_manager/free_manager.h>
 #include <yudb/yudb.h>
 
 
@@ -20,7 +20,7 @@ bool PagerInit(Pager* pager, int16_t page_size, PageCount page_count, size_t cac
     pager->page_size = page_size;
     pager->page_count = page_count;
     CacherInit(&pager->cacher, cache_count);
-    FreeTableInit(&pager->free_table);
+    FreeManagerInit(&pager->free_manager);
     PageIdVectorInit(&pager->free_pgid_pool, 4, true);
     pager->free_pgid_pool.count = 0;
 
@@ -80,11 +80,11 @@ PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
         YuDb* db = ObjectGetFromField(pager, YuDb, pager);
         do {
             int16_t free0_entry_pos;
-            int16_t free1_entry_pos = FreeTableAlloc(&pager->free_table, count, &free0_entry_pos);
+            int16_t free1_entry_pos = FreeManagerAlloc(&pager->free_manager, count, &free0_entry_pos);
             if (free1_entry_pos == -1) {
                 return kPageInvalidId;
             }
-            disk_free_pgid = FreeTablePosToPageId(&pager->free_table, free0_entry_pos, free1_entry_pos);
+            disk_free_pgid = FreeManagerPosToPageId(&pager->free_manager, free0_entry_pos, free1_entry_pos);
         } while (false);
         if (put_cache) {
             // 申请后可能就会使用，直接挂到缓存中可以避免在PageGet接口发生一次磁盘读取
@@ -92,7 +92,7 @@ PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
             if (cache_id == kCacheInvalidId) {
                 cache_id = CacherAlloc(&pager->cacher, disk_free_pgid);
                 if (cache_id == kCacheInvalidId) {
-                    FreeTableFree(&pager->free_table, disk_free_pgid);
+                    FreeManagerFree(&pager->free_manager, disk_free_pgid);
                     return kPageInvalidId;
                 }
             }
@@ -119,7 +119,7 @@ void PagerPending(Pager* pager, Tx* tx, PageId pgid) {
     PageIdVectorPushTail(&pending_list_entry->pending_pgid_arr, &pgid);
     if (db->config.update_mode != kConfigUpdateWal) {
         // 非wal模式需要写入到空闲表
-        FreeTablePending(&pager->free_table, pgid);
+        FreeManagerPending(&pager->free_manager, pgid);
     }
 }
 
@@ -138,7 +138,7 @@ void PagerFree(Pager* pager, PageId pgid, bool skip_pool) {
     if (cache_id != kCacheInvalidId) {
         CacherFree(&pager->cacher, cache_id);
     }
-    FreeTableFree(&pager->free_table, pgid);
+    FreeManagerFree(&pager->free_manager, pgid);
 }
 
 /*

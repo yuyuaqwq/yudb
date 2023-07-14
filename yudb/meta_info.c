@@ -2,7 +2,7 @@
 
 #include <libyuc/algorithm/crc32.h>
 
-#include <yudb/free_table.h>
+#include <yudb/free_manager/free_manager.h>
 #include <yudb/yudb.h>
 
 
@@ -19,7 +19,7 @@ bool MetaInfoRead(YuDb* db, Config* config) {
 
         // free0_table
         FreeDirTable* free0_table = empty_page;
-        FreeDirTableInit(free0_table, config->page_size, 1);
+        FreeDirTableInit(free0_table, config->page_size, 0);
 
         DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
         DbFileWrite(db->db_file, empty_page, config->page_size);
@@ -29,7 +29,7 @@ bool MetaInfoRead(YuDb* db, Config* config) {
         // free1_table
         memset(empty_page, 0, config->page_size);
         FreeDirTable* free1_table = empty_page;
-        FreeDirTableInit(free1_table, config->page_size, 0);
+        FreeDirTableInit(free1_table, config->page_size, 1);
 
         DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
         DbFileWrite(db->db_file, empty_page, config->page_size);

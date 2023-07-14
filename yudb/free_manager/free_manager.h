@@ -67,9 +67,9 @@ typedef struct _FreeDirTable {
     FreeBuddy buddy;
 } FreeDirTable;
 
-typedef struct _FreeTable {
+typedef struct _FreeManager {
     FreeDirTable* free0_table;
-} FreeTable;
+} FreeManager;
 
 typedef enum {
     kFreeDirTable = 0,
@@ -77,21 +77,25 @@ typedef enum {
 } FreeTableType;
 
 FreeDirStaticList* FreeDirTableGetStaticList(FreeDirTable* dir_table);
-void FreeDirTableInit(FreeDirTable* dir_table, int16_t page_size, int32_t sub_dir_level_count);
+void FreeDirTableInit(FreeDirTable* dir_table, int16_t page_size, int32_t level);
 
 void FreePageTableInit(FreePageTable* page_table, int16_t page_size);
 int16_t FreePageTableAlloc(FreePageTable* page_table, int16_t count);
 int16_t FreePageTableGetMaxFreeCount(FreePageTable* page_table);
 FreePageStaticList* FreePageTableGetStaticList(FreePageTable* page_table);
 
-PageId FreeTablePosToPageId(FreeTable* free_table, int16_t free0_entry_pos, int16_t free1_entry_pos);
-void FreeTableGetPosFromPageId(FreeTable* free_table, PageId pgid, int16_t* free0_entry_pos, int16_t* free1_entry_pos);
-bool FreeTableInit(FreeTable* table);
-int16_t FreeTableAlloc(FreeTable* table, int16_t count, int16_t* free0_table_pos);
-void FreeTablePending(FreeTable* table, PageId pgid);
-void FreeTableFree(FreeTable* table, PageId pgid);
-void FreeTableCleanPending(FreeTable* table);
-bool FreeTableWrite(FreeTable* table, int32_t meta_index);
+PageId FreeManagerPosToPageId(FreeManager* free_manager, int16_t free0_entry_pos, int16_t free1_entry_pos);
+void FreeManagerGetPosFromPageId(FreeManager* free_manager, PageId pgid, int16_t* free0_entry_pos, int16_t* free1_entry_pos);
+bool FreeManagerInit(FreeManager* free_manager);
+int16_t FreeManagerAlloc(FreeManager* free_manager, int16_t count, int16_t* free0_table_pos);
+void FreeManagerPending(FreeManager* free_manager, PageId pgid);
+void FreeManagerFree(FreeManager* free_manager, PageId pgid);
+void FreeManagerCleanPending(FreeManager* free_manager);
+bool FreeManagerWrite(FreeManager* free_manager, int32_t meta_index);
+
+
+
+void FreeManagerTest(FreeManager* manager);
 
 #ifdef __cplusplus
 }

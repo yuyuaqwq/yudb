@@ -45,7 +45,7 @@ void YuDbClose(YuDb* db) {
         PagerCleanPageIdPool(&db->pager);
         PagerSyncWriteAllDirty(&db->pager);
         db->meta_index = (db->meta_index + 1) % 2;
-        FreeTableWrite(&db->pager.free_table, db->meta_index);
+        FreeManagerWrite(&db->pager.free_manager, db->meta_index);
         MetaInfoWrite(db, db->meta_index);
     }
     DbFileClose(db->db_file);
