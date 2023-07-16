@@ -32,7 +32,7 @@ static forceinline BucketEntry* BPlusEntryToBucketEntry(YuDbBPlusEntry* entry) {
 /*
 * B+树Entry分配器
 */
-static void BucketEntryInit(BucketEntry* entry, int16_t bp_entry_size, PageSize page_size) {
+static void BucketEntryInit(BucketEntry* entry, int16_t bp_entry_size, PageOffset page_size) {
     DataPoolInit(&entry->info.data_pool, page_size - BucketEntryGetHeadSize(entry));
     
     // BPlusEntry头部占用

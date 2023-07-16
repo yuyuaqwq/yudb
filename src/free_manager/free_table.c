@@ -4,13 +4,13 @@ const PageId kMetaStartId = 0;
 const PageId kFreeTableStartId = 2;
 const uint32_t kFreeTableLevel = 3;
 
-LIBYUC_SPACE_MANAGER_BUDDY_DEFINE(FreeTable, int16_t, LIBYUC_SPACE_MANAGER_BUDDY_4BIT_INDEXER, LIBYUC_OBJECT_ALLOCATOR_DEFALUT)
+LIBYUC_SPACE_MANAGER_BUDDY_DEFINE(FreeTable, PageOffset, LIBYUC_SPACE_MANAGER_BUDDY_4BIT_INDEXER, LIBYUC_OBJECT_ALLOCATOR_DEFALUT)
 
 
 /*
 * 获取不同层级的空闲表所管理的page_count
 */
-uint32_t FreeTableGetPageCount(uint32_t level, int16_t page_size) {
+uint32_t FreeTableGetPageCount(uint32_t level, PageOffset page_size) {
     uint32_t page_count = FreePageTableGetMaxCount(page_size);
     for (uint32_t i = 1; i < kFreeTableLevel - level; i++) {
         page_count *= FreeDirTableGetMaxCount(page_size);
@@ -18,7 +18,7 @@ uint32_t FreeTableGetPageCount(uint32_t level, int16_t page_size) {
     return page_count;
 }
 
-uint32_t FreeTableGetLevel(PageId pgid, int16_t page_size) {
+uint32_t FreeTableGetLevel(PageId pgid, PageOffset page_size) {
     /*
     * 2(0) 4(1) 6(2)
     * 1024(2)

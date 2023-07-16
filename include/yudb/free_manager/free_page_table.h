@@ -18,26 +18,26 @@ typedef enum {
 
 #pragma pack(1)
 typedef struct _FreePageEntry {
-    int16_t entry_list_next;
+    PageOffset entry_list_next;
     struct {
         uint8_t is_pending : 1;
         uint8_t : 7;
     };
 } FreePageEntry;
 #pragma pack()
-LIBYUC_CONTAINER_STATIC_LIST_DECLARATION(FreePage, int16_t, FreePageEntry, 2)
+LIBYUC_CONTAINER_STATIC_LIST_DECLARATION(FreePage, PageOffset, FreePageEntry, 2)
 
 typedef struct _FreePageTable {
     FreeTableBuddy buddy;
 } FreePageTable;
 
 
-void FreePageTableInit(FreePageTable* page_table, int16_t page_size);
-int16_t FreePageTableAlloc(FreePageTable* page_table, int16_t count);
-int16_t FreePageTableGetMaxFreeCount(FreePageTable* page_table);
+void FreePageTableInit(FreePageTable* page_table, PageOffset page_size);
+PageOffset FreePageTableAlloc(FreePageTable* page_table, PageOffset count);
+PageOffset FreePageTableGetMaxFreeCount(FreePageTable* page_table);
 FreePageStaticList* FreePageTableGetStaticList(FreePageTable* page_table);
 
-extern const uint16_t kFreePageStaticEntryIdOffset;
+extern const PageOffset kFreePageStaticEntryIdOffset;
 
 #ifdef __cplusplus
 }

@@ -25,10 +25,9 @@ typedef struct _FreeManager {
 } FreeManager;
 
 
-PageId FreeManagerPosToPageId(FreeManager* free_manager, int16_t free0_entry_pos, int16_t free1_entry_pos);
-void FreeManagerGetPosFromPageId(FreeManager* free_manager, PageId pgid, int16_t* free0_entry_pos, int16_t* free1_entry_pos);
 bool FreeManagerInit(FreeManager* free_manager);
-int16_t FreeManagerAlloc(FreeManager* free_manager, int16_t count, int16_t* free0_table_pos);
+bool FreeManagerBuildTable(FreeManager* manager, uint32_t level, void* free_table);
+PageId FreeManagerAlloc(FreeManager* free_manager, uint32_t count);
 void FreeManagerPending(FreeManager* free_manager, PageId pgid);
 void FreeManagerFree(FreeManager* free_manager, PageId pgid);
 void FreeManagerCleanPending(FreeManager* free_manager);

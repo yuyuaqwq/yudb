@@ -19,35 +19,41 @@ bool MetaInfoRead(YuDb* db, Config* config) {
 
         // free0_table
         FreeDirTable* free0_table = empty_page;
-        FreeDirTableInit(free0_table, config->page_size, 0);
+        FreeManagerBuildTable(&db->pager.free_manager, 0, free0_table);
+        // 再分配2页，因为构建时meta_info的2页没有被计算
+        FreeManagerAlloc(&db->pager.free_manager, 2);
+
+
+        // FreeDirTableInit(free0_table, config->page_size, 0);
 
         DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
         DbFileWrite(db->db_file, empty_page, config->page_size);
         DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
         DbFileWrite(db->db_file, empty_page, config->page_size);
 
-        // free1_table
-        memset(empty_page, 0, config->page_size);
-        FreeDirTable* free1_table = empty_page;
-        FreeDirTableInit(free1_table, config->page_size, 1);
+        //// free1_table
+        //memset(empty_page, 0, config->page_size);
+        //FreeDirTable* free1_table = empty_page;
+        //FreeDirTableInit(free1_table, config->page_size, 1);
 
-        DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
-        DbFileWrite(db->db_file, empty_page, config->page_size);
-        DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
-        DbFileWrite(db->db_file, empty_page, config->page_size);
+        //DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
+        //DbFileWrite(db->db_file, empty_page, config->page_size);
+        //DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
+        //DbFileWrite(db->db_file, empty_page, config->page_size);
 
-        // free2_table
-        memset(empty_page, 0, config->page_size);
-        FreePageTable* free2_table = empty_page;
-        FreePageTableInit(free2_table, config->page_size);
+        //// free2_table
+        //memset(empty_page, 0, config->page_size);
+        //FreePageTable* free2_table = empty_page;
+        //FreePageTableInit(free2_table, config->page_size);
 
         // 前8个页面不可分配: meta0, meta1; free0_table0, free0_table1; free1_table0, free1_table1; free2_table0, free2_table1;
-        FreePageTableAlloc(free2_table, 8);
+        // FreePageTableAlloc(free2_table, 8);
 
-        DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
-        DbFileWrite(db->db_file, empty_page, config->page_size);
-        DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
-        DbFileWrite(db->db_file, empty_page, config->page_size);
+        //DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
+        //DbFileWrite(db->db_file, empty_page, config->page_size);
+        //DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
+        //DbFileWrite(db->db_file, empty_page, config->page_size);
+
         free(empty_page);
 
         // meta

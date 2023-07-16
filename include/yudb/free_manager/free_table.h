@@ -18,7 +18,7 @@ typedef enum {
     kFreePageTable = 1,
 } FreeTableType;
 
-LIBYUC_SPACE_MANAGER_BUDDY_DECLARATION(FreeTable, int16_t)
+LIBYUC_SPACE_MANAGER_BUDDY_DECLARATION(FreeTable, PageOffset)
 
 #define YUDB_FREE_TABLE_REFERENCER_InvalidId (-1)
 #define YUDB_FREE_TABLE_REFERENCER YUDB_FREE_TABLE_REFERENCER
@@ -30,8 +30,8 @@ extern const PageId kMetaStartId;
 extern const PageId kFreeTableStartId;
 extern const uint32_t kFreeTableLevel;
 
-uint32_t FreeTableGetPageCount(uint32_t level, int16_t page_size);
-uint32_t FreeTableGetLevel(PageId pgid, int16_t page_size);
+PageCount FreeTableGetPageCount(uint32_t level, PageOffset page_size);
+PageCount FreeTableGetLevel(PageId pgid, PageOffset page_size);
 
 #ifdef __cplusplus
 }

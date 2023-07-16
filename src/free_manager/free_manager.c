@@ -12,11 +12,11 @@ static void FreeManagerMarkDirtyTable(FreeManager* table, void* free_table) {
     CacherMarkDirty(&pager->cacher, cache_id);
 }
 
-static void* FreeManagerGetSubTable(FreeManager* manager, FreeDirTable* dir_table, int16_t free_dir_entry_id, CacheId* cache_id) {
+static void* FreeManagerGetSubTable(FreeManager* manager, FreeDirTable* dir_table, PageOffset free_dir_entry_id, CacheId* cache_id) {
     Pager* pager = ObjectGetFromField(manager, Pager, free_manager);
     YuDb* db = ObjectGetFromField(pager, YuDb, pager);
 
-    FreeDirEntry* dir_entry = &FreeDirTableGetStaticList(dir_table)->obj_arr[free_dir_entry_id];
+    FreeDirEntry* table_entry = &FreeDirTableGetStaticList(dir_table)->obj_arr[free_dir_entry_id];
 
     // 根据dir_table的pgid拿到其sub_table
     PageId pgid;
@@ -50,8 +50,8 @@ static void* FreeManagerGetSubTable(FreeManager* manager, FreeDirTable* dir_tabl
     }
 
     // 从一端读取(最新版本)，写入到另一端(旧版本)
-    PageId sub_table_pgid_read = sub_table_pgid_start + dir_entry->read_select;
-    PageId sub_table_pgid_write = sub_table_pgid_start + dir_entry->write_select;
+    PageId sub_table_pgid_read = sub_table_pgid_start + table_entry->read_select;
+    PageId sub_table_pgid_write = sub_table_pgid_start + table_entry->write_select;
 
     FreePageEntry* read_cache, * write_cache;
     CacheId read_cache_id = CacherFind(&pager->cacher, sub_table_pgid_read, true);
@@ -71,17 +71,15 @@ static void* FreeManagerGetSubTable(FreeManager* manager, FreeDirTable* dir_tabl
         if (!PagerRead(pager, sub_table_pgid_read, write_cache, 1)) {
             // 如果读取失败，若是从未使用过的free_table则将其初始化
             if (level == kFreeTableLevel - 1) {
-                if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(dir_entry->sub_max_free_log - 1) != FreePageTableGetMaxCount(pager->page_size)) {
+                if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(table_entry->sub_max_free_log - 1) != FreePageTableGetMaxCount(pager->page_size)) {
                     return NULL;
                 }
-                FreePageTableInit((FreePageTable*)write_cache, pager->page_size);
-            }
-            else {
-                if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(dir_entry->sub_max_free_log - 1) != FreeDirTableGetMaxCount(pager->page_size)) {
+            } else {
+                if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(table_entry->sub_max_free_log - 1) != FreeDirTableGetMaxCount(pager->page_size)) {
                     return NULL;
                 }
-                FreeDirTableInit((FreeDirTable*)write_cache, pager->page_size, level + 1);
             }
+            FreeManagerBuildTable((FreeDirTable*)write_cache, level + 1, pager->page_size);
         }
     }
     else {
@@ -92,24 +90,13 @@ static void* FreeManagerGetSubTable(FreeManager* manager, FreeDirTable* dir_tabl
         }
     }
 
-    if (dir_entry->read_select != dir_entry->write_select) {
+    if (table_entry->read_select != table_entry->write_select) {
         // 初次从磁盘读取之后，由于read的内容会被拷贝到write，并且write可能会被修改，此时write才是最新的版本(尚未落盘)，下次read应该读取当前的write
-        dir_entry->read_select = dir_entry->write_select;
+        table_entry->read_select = table_entry->write_select;
     }
     if (cache_id) { *cache_id = write_cache_id; }
     return write_cache;
 }
-
-PageId FreeManagerPosToPageId(FreeManager* manager, int16_t free0_entry_id, int16_t free1_entry_pos) {
-    return free0_entry_id * FreePageTableGetMaxCount(FreeDirGetPageSize(manager->free0_table)) + free1_entry_pos;
-}
-
-void FreeManagerGetPosFromPageId(FreeManager* manager, PageId pgid, int16_t* free0_entry_id, int16_t* free1_entry_id) {
-    *free0_entry_id = pgid / FreePageTableGetMaxCount(FreeDirGetPageSize(manager->free0_table));
-    *free1_entry_id = pgid % FreePageTableGetMaxCount(FreeDirGetPageSize(manager->free0_table));
-}
-
-
 
 
 /*
@@ -131,145 +118,96 @@ bool FreeManagerInit(FreeManager* manager) {
 }
 
 /*
+* 递归分配，返回的PageId基于free_table的PageId的
+*/
+PageId FreeManagerAllocFromTable(FreeManager* manager, uint32_t level, void* free_table, uint32_t cur_level_max_count, uint32_t count) {
+    Pager* pager = ObjectGetFromField(manager, Pager, free_manager);
+    PageOffset free_entry_id;
+    if (level < kFreeTableLevel - 1) {
+        PageOffset dir_max_count = FreeDirTableGetMaxCount(pager->page_size);
+        cur_level_max_count /= dir_max_count;
+        if (cur_level_max_count < count) {
+            // 在当前层进行分配
+            for (int32_t i = 0; i < kFreeTableLevel - level - 1; i++) {
+                count /= dir_max_count;
+            }
+            FreeDirTableAlloc(free_table, count);
+            return;
+        }
+        CacheId cache_id;
+        
+        free_entry_id = FreeDirTableFindByPageCount(free_table, count);
+        
+        void* sub_table = FreeManagerGetSubTable(manager, free_table, free_entry_id, &cache_id);
+        FreeDirStaticList* static_list = FreeDirTableGetStaticList(sub_table);
+        uint32_t sub_max_free = LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(static_list->obj_arr[free_entry_id].sub_max_free_log - 1);
+        if (sub_max_free == cur_level_max_count) {
+            // 需要构建
+            FreeManagerBuildTable((FreeDirTable*)sub_table, level + 1, pager->page_size);
+        }
+
+        FreeManagerAllocFromTable(manager, level + 1, sub_table, cur_level_max_count, count);
+
+        FreeDirEntry* free_entry = &static_list->obj_arr[free_entry_id];
+
+        // 更新f1中对应的f2最大连续空位
+        free_entry->sub_max_free_log = LIBYUC_SPACE_MANAGER_BUDDY_TO_EXPONENT_OF_2(FreePageTableGetMaxFreeCount(sub_table)) + 1;
+        if (free_entry->sub_max_free_log == 0) {
+            // 下级没有可分配的空间，挂到满队列中
+            // FreeDirStaticListSwitch(static_list, kFreeDirEntryListAlloc, free0_entry_prev_id, free0_entry_id, kFreeDirEntryListFull);
+        }
+
+        // 该sub表已是脏页
+        free_entry->sub_table_dirty = true;
+        FreeManagerMarkDirtyTable(manager, sub_table);
+
+        CacherDereference(&pager->cacher, cache_id);
+    }
+    else {
+        FreePageTableAlloc(free_table, count);
+    }
+}
+
+bool FreeManagerBuildTable(FreeManager* manager, uint32_t level, void* free_table) {
+    Pager* pager = ObjectGetFromField(manager, Pager, free_manager);
+
+    CacheInfo* cache_info = CacherGetInfo(&pager->cacher, CacherGetIdByBuf(&pager->cacher, free_table));
+
+    void* sub_table = free_table;
+    CacheId cache_id = kCacheInvalidId;
+    for (int32_t i = level; i < kFreeTableLevel - 2; i++) {
+        FreeDirTableInit(sub_table, i, pager->page_size);
+        CacheId old_cache_id = cache_id;
+        sub_table = FreeManagerGetSubTable(manager, sub_table, 0, &cache_id);
+        if (old_cache_id != kCacheInvalidId) {
+            CacherDereference(&pager->cacher, old_cache_id);
+        }
+    }
+    FreePageTableInit(sub_table, pager->page_size);
+    // dir_table和page_table所占用的页面都进行提前分配
+    for (int32_t i = level; i < kFreeTableLevel - 1; i++) {
+        FreePageTableAlloc(sub_table, 2);
+    }
+    if (cache_id != kCacheInvalidId) {
+        CacherDereference(&pager->cacher, cache_id);
+    }
+}
+
+/*
 * 从空闲管理器中分配页面，返回f2_id
 */
 
 /*
 * 是当前层级的数量级，就调用当前层级的BuddyAlloc，返回
 * 不是当前层级的数量级，调用findsub，从当前SubAlloc静态链中查找足够分配的entry
-*    如果没有，就调用BuddyAlloc分配一个entry，挂到SubAlloc，并且初始化entry对应的sub_table
+*    如果没有，就调用BuddyAlloc分配一个entry，挂到SubAlloc，并且初始化entry对应的sub_table(实际上需要循环到page_table，在该page_table中分配n*2页面, n是循环的次数)
 *    进入该sub_table，递归
 *    更新entry的sub_max_free
 */
-int16_t FreeManagerAlloc(FreeManager* manager, int32_t count, int16_t* free0_entry_id_out, int16_t* free1_entry_id_out) {
-    Pager* pager = ObjectGetFromField(manager, Pager, free_manager);
+PageId FreeManagerAlloc(FreeManager* manager, int32_t count) {
 
-    if (!LIBYUC_SPACE_MANAGER_BUDDY_IS_POWER_OF_2(count)) {
-        count = LIBYUC_SPACE_MANAGER_BUDDY_ALIGN_TO_POWER_OF_2(count);
-    }
+    FreeManagerAllocFromTable(manager, 0, manager->free0_table, , count);
 
-    int16_t page_table_max_count = FreePageTableGetMaxCount(pager->page_size);
-    int16_t dir_table_max_count = FreeDirTableGetMaxCount(pager->page_size);
-    
-    uint32_t max_page_count = FreeTableGetPageCount(0, pager->page_size);
-    if (count > max_page_count) {
-        return YUDB_FREE_TABLE_REFERENCER_InvalidId;
-    }
-
-    // 根据分配大小从不同层级开始分配
-
-    FreeDirStaticList* f0_static_list = FreeDirTableGetStaticList(manager->free0_table);
-
-    if (count >= dir_table_max_count * page_table_max_count) {
-        // 直接从f0分配
-        int16_t f0_count = count / (dir_table_max_count * page_table_max_count);
-        f0_count += count % (dir_table_max_count * page_table_max_count) ? 1 : 0;
-        int16_t free0_entry_id = FreeDirTableAlloc(manager->free0_table, f0_count);
-        if (free0_entry_id == YUDB_FREE_TABLE_REFERENCER_InvalidId) {
-            return YUDB_FREE_TABLE_REFERENCER_InvalidId;
-        }
-        FreeDirEntry* free0_entry = &f0_static_list->obj_arr[free0_entry_id];
-        FreeDirStaticListPush(f0_static_list, kFreeDirEntryListSubAlloc, free0_entry_id);
-        // free0_entry->entry_list_type = kFreeDirEntryListAlloc;
-
-        *free0_entry_id_out = free0_entry_id;
-        *free1_entry_id_out = 0;
-        return 0;// free0_entry_id* dir_table_max_count* page_table_max_count;
-    }
-
-    // 从f0中查找足够空位的f0_entry
-    int16_t free0_entry_id = FreeDirTableFindBySubPageCount(manager->free0_table, count);
-    if (free0_entry_id == YUDB_FREE_TABLE_REFERENCER_InvalidId) {
-        return YUDB_FREE_TABLE_REFERENCER_InvalidId;
-    }
-    *free0_entry_id_out = free0_entry_id;
-    FreeDirEntry* free0_entry = &f0_static_list->obj_arr[free0_entry_id];
-
-    CacheId f1_cache_id;
-    FreeDirTable* free1_table = (FreeDirTable*)FreeManagerGetSubTable(manager, manager->free0_table, free0_entry_id, &f1_cache_id);
-    FreeDirStaticList* f1_static_list = FreeDirTableGetStaticList(free1_table);
-
-    int16_t free1_entry_id;
-    if (count >= page_table_max_count) {
-        // 从f1分配页面
-          assert(free1_table != NULL);
-        uint32_t sub_max_free = LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(f0_static_list->obj_arr[free0_entry_id].sub_max_free_log - 1);
-        if (sub_max_free == page_table_max_count * dir_table_max_count) {
-            // 初次从f0中分配的f1，应当构建f2的关系，前2页应当是被分配的，但此时还未构建f2，顺便构建f2并从f2分配前4页？
-            FreeDirTableAlloc(free1_table, kFreePageStaticEntryIdOffset);
-        }
-
-        int16_t f1_count = count / page_table_max_count;
-        f1_count += count % page_table_max_count ? 1 : 0;
-
-        free1_entry_id = FreeDirTableAlloc(free1_table, f1_count);
-        if (free1_entry_id == YUDB_FREE_TABLE_REFERENCER_InvalidId) {
-            return YUDB_FREE_TABLE_REFERENCER_InvalidId;
-        }
-        FreeDirEntry* free1_entry = &f1_static_list->obj_arr[free1_entry_id];
-        FreeDirStaticListPush(f1_static_list, kFreeDirEntryListSubAlloc, free1_entry_id);
-
-        free0_entry->sub_max_free_log = LIBYUC_SPACE_MANAGER_BUDDY_TO_EXPONENT_OF_2(FreeDirTableGetMaxFreeCount(free1_table) * page_table_max_count) + 1;
-        if (free0_entry->sub_max_free_log == 0) {
-            // 下级没有可分配的空间，挂到满队列中
-            // FreeDirStaticListSwitch(static_list, kFreeDirEntryListAlloc, free0_entry_prev_id, free0_entry_id, kFreeDirEntryListFull);
-        }
-
-        // 该f1表已是脏页
-        free0_entry->sub_table_dirty = true;
-        FreeManagerMarkDirtyTable(manager, free1_table);
-
-        CacherDereference(&pager->cacher, f1_cache_id);
-
-        *free1_entry_id_out = free1_entry_id;
-        return 0;// free0_entry_id* dir_table_max_count* page_table_max_count + free1_entry_id * page_table_max_count;
-    }
-
-    free1_entry_id = FreeDirTableFindBySubPageCount(free1_table, count);
-    if (free1_entry_id == YUDB_FREE_TABLE_REFERENCER_InvalidId) {
-        return YUDB_FREE_TABLE_REFERENCER_InvalidId;
-    }
-    *free1_entry_id_out = free1_entry_id;
-
-    
-
-    // 从f2分配页面
-    CacheId f2_cache_id;
-    FreePageTable* free_page_table = FreeManagerGetSubTable(manager, free1_table, free1_entry_id, &f2_cache_id);
-    int16_t free2_entry_id = YUDB_FREE_TABLE_REFERENCER_InvalidId;
-    do {
-          assert(free_page_table != NULL);
-        if (LIBYUC_SPACE_MANAGER_BUDDY_TO_POWER_OF_2(f1_static_list->obj_arr[free1_entry_id].sub_max_free_log - 1) == page_table_max_count) {
-            // 初次从f1中分配的f2，前2页提前占用
-            FreePageTableAlloc(free_page_table, kFreePageStaticEntryIdOffset);
-        }
-        free2_entry_id = FreePageTableAlloc(free_page_table, count);
-        if (free2_entry_id == YUDB_FREE_TABLE_REFERENCER_InvalidId) {
-            break;
-        }
-
-        FreeDirEntry* free1_entry = &f1_static_list->obj_arr[free1_entry_id];
-
-        // 更新f1中对应的f2最大连续空位
-        free1_entry->sub_max_free_log = LIBYUC_SPACE_MANAGER_BUDDY_TO_EXPONENT_OF_2(FreePageTableGetMaxFreeCount(free_page_table)) + 1;
-        if (free1_entry->sub_max_free_log == 0) {
-            // 下级没有可分配的空间，挂到满队列中
-            // FreeDirStaticListSwitch(static_list, kFreeDirEntryListAlloc, free0_entry_prev_id, free0_entry_id, kFreeDirEntryListFull);
-        }
-
-        // 该f2表已是脏页
-        free0_entry->sub_table_dirty = true;
-        free1_entry->sub_table_dirty = true;
-        FreeManagerMarkDirtyTable(manager, free1_table);
-        FreeManagerMarkDirtyTable(manager, free_page_table);
-
-    } while (false);
-    
-
-    CacherDereference(&pager->cacher, f1_cache_id);
-    CacherDereference(&pager->cacher, f2_cache_id);
-      assert(free2_entry_id);
-    return free2_entry_id;
 }
 
 /*
