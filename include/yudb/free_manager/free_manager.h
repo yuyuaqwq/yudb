@@ -26,8 +26,8 @@ typedef struct _FreeManager {
 
 
 bool FreeManagerInit(FreeManager* free_manager);
-bool FreeManagerBuildTable(FreeManager* manager, uint32_t level, void* free_table);
-PageId FreeManagerAlloc(FreeManager* free_manager, uint32_t count);
+bool FreeManagerBuildTable(FreeManager* manager, FreeLevel level, void* free_table);
+PageId FreeManagerAlloc(FreeManager* free_manager, PageCount count);
 void FreeManagerPending(FreeManager* free_manager, PageId pgid);
 void FreeManagerFree(FreeManager* free_manager, PageId pgid);
 void FreeManagerCleanPending(FreeManager* free_manager);

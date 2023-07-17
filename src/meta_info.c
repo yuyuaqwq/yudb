@@ -8,63 +8,15 @@
 
 bool MetaInfoRead(YuDb* db, Config* config) {
     if (!DbFileRead(db->db_file, &db->meta_info, sizeof(db->meta_info))) {
-        // 初始化数据库必要的页面，meta、free0_table、free1_table、free2_table
-        uint8_t* empty_page = malloc(config->page_size);
-        memset(empty_page, 0, config->page_size);
-
-        // meta
-        DbFileWrite(db->db_file, empty_page, config->page_size);
-        DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
-        DbFileWrite(db->db_file, empty_page, config->page_size);
-
-        // free0_table
-        FreeDirTable* free0_table = empty_page;
-        FreeManagerBuildTable(&db->pager.free_manager, 0, free0_table);
-        // 再分配2页，因为构建时meta_info的2页没有被计算
-        FreeManagerAlloc(&db->pager.free_manager, 2);
-
-
-        // FreeDirTableInit(free0_table, config->page_size, 0);
-
-        DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
-        DbFileWrite(db->db_file, empty_page, config->page_size);
-        DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
-        DbFileWrite(db->db_file, empty_page, config->page_size);
-
-        //// free1_table
-        //memset(empty_page, 0, config->page_size);
-        //FreeDirTable* free1_table = empty_page;
-        //FreeDirTableInit(free1_table, config->page_size, 1);
-
-        //DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
-        //DbFileWrite(db->db_file, empty_page, config->page_size);
-        //DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
-        //DbFileWrite(db->db_file, empty_page, config->page_size);
-
-        //// free2_table
-        //memset(empty_page, 0, config->page_size);
-        //FreePageTable* free2_table = empty_page;
-        //FreePageTableInit(free2_table, config->page_size);
-
-        // 前8个页面不可分配: meta0, meta1; free0_table0, free0_table1; free1_table0, free1_table1; free2_table0, free2_table1;
-        // FreePageTableAlloc(free2_table, 8);
-
-        //DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
-        //DbFileWrite(db->db_file, empty_page, config->page_size);
-        //DbFileSeek(db->db_file, 0, kDbFilePointerEnd);
-        //DbFileWrite(db->db_file, empty_page, config->page_size);
-
-        free(empty_page);
-
-        // meta
+        // 初始化数据库元信息页面，meta
         db->meta_info.magic = 'yudb';
         db->meta_info.min_version = YUDB_VERSION;
         db->meta_info.page_size = config->page_size;
         db->meta_info.page_count = 8;
         db->meta_info.txid = 0;
 
-        uint32_t crc32 = Crc32Start();
-        crc32 = Crc32Continue(crc32, &db->meta_info, sizeof(db->meta_info) - sizeof(uint32_t));
+        PageCount crc32 = Crc32Start();
+        crc32 = Crc32Continue(crc32, &db->meta_info, sizeof(db->meta_info) - sizeof(PageCount));
         db->meta_info.crc32 = Crc32End(crc32);
 
         DbFileSeek(db->db_file, 0, kDbFilePointerSet);
@@ -72,7 +24,7 @@ bool MetaInfoRead(YuDb* db, Config* config) {
 
         db->meta_info.txid = 1;
         crc32 = Crc32Start();
-        crc32 = Crc32Continue(crc32, &db->meta_info, sizeof(db->meta_info) - sizeof(uint32_t));
+        crc32 = Crc32Continue(crc32, &db->meta_info, sizeof(db->meta_info) - sizeof(PageCount));
         db->meta_info.crc32 = Crc32End(crc32);
 
         DbFileSeek(db->db_file, config->page_size, kDbFilePointerSet);
@@ -102,15 +54,15 @@ bool MetaInfoRead(YuDb* db, Config* config) {
         }
 
         // 校验元信息是否完整，不完整则使用另一个
-        uint32_t crc32 = Crc32Start();
-        crc32 = Crc32Continue(crc32, &meta_list[db->meta_index], sizeof(meta_list[db->meta_index]) - sizeof(uint32_t));
+        PageCount crc32 = Crc32Start();
+        crc32 = Crc32Continue(crc32, &meta_list[db->meta_index], sizeof(meta_list[db->meta_index]) - sizeof(PageCount));
         crc32 = Crc32End(crc32);
         if (crc32 != meta_list[db->meta_index].crc32) {
             if (db->meta_index == 1) { 
                 return false; 
             }
             crc32 = Crc32Start();
-            crc32 = Crc32Continue(crc32, &meta_list[1], sizeof(meta_list[1]) - sizeof(uint32_t));
+            crc32 = Crc32Continue(crc32, &meta_list[1], sizeof(meta_list[1]) - sizeof(PageCount));
             crc32 = Crc32End(crc32);
             if (crc32 != meta_list[1].crc32) {
                 return false;
@@ -129,8 +81,8 @@ bool MetaInfoRead(YuDb* db, Config* config) {
 bool MetaInfoWrite(YuDb* db, int32_t meta_index) {
     int64_t offset = (int64_t)db->pager.page_size * meta_index;
     DbFileSeek(db->db_file, offset, kDbFilePointerSet);
-    uint32_t crc32 = Crc32Start();
-    crc32 = Crc32Continue(crc32, &db->meta_info, sizeof(db->meta_info) - sizeof(uint32_t));
+    PageCount crc32 = Crc32Start();
+    crc32 = Crc32Continue(crc32, &db->meta_info, sizeof(db->meta_info) - sizeof(PageCount));
     db->meta_info.crc32 = Crc32End(crc32);
     DbFileWrite(db->db_file, &db->meta_info, sizeof(db->meta_info));
     if (db->config.sync_mode == kConfigSyncFull) {

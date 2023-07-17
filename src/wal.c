@@ -7,7 +7,7 @@ LIBYUC_CONTAINER_VECTOR_DEFINE(WalBuf, uint8_t, LIBYUC_OBJECT_ALLOCATOR_DEFALUT,
 static bool WalAppendLog(WalManager* wal, LogType type, bool write_buf_size, size_t buf_count, ...) {
     return true;
     LogEntry entry;
-    uint32_t crc32;
+    PageCount crc32;
     entry.head.crc32 = 0;
     entry.head.size = 0;
     entry.head.type = type;

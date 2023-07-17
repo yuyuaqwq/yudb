@@ -19,13 +19,14 @@ bool PagerInit(Pager* pager, int16_t page_size, PageCount page_count, size_t cac
 
     pager->page_size = page_size;
     pager->page_count = page_count;
+
     CacherInit(&pager->cacher, cache_count);
+    
     FreeManagerInit(&pager->free_manager);
+
     PageIdVectorInit(&pager->free_pgid_pool, 4, true);
     pager->free_pgid_pool.count = 0;
-
     pager->temp_page = MemoryAlloc(page_size);
-
     return true;
 }
 
@@ -79,12 +80,10 @@ PageId PagerAlloc(Pager* pager, bool put_cache, PageCount count){
     else {
         YuDb* db = ObjectGetFromField(pager, YuDb, pager);
         do {
-            int16_t free0_entry_pos;
-            int16_t free1_entry_pos = FreeManagerAlloc(&pager->free_manager, count, &free0_entry_pos);
-            if (free1_entry_pos == -1) {
+            disk_free_pgid = FreeManagerAlloc(&pager->free_manager, count);
+            if (disk_free_pgid == kPageInvalidId) {
                 return kPageInvalidId;
             }
-            disk_free_pgid = FreeManagerPosToPageId(&pager->free_manager, free0_entry_pos, free1_entry_pos);
         } while (false);
         if (put_cache) {
             // 申请后可能就会使用，直接挂到缓存中可以避免在PageGet接口发生一次磁盘读取

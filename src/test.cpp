@@ -10,7 +10,7 @@
 extern "C" PageId GetDataBuf(Tx* tx, DataDescriptor* data, void** data_buf, size_t* data_size);
 
 extern "C" YuDbBPlusElement * YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER_Reference(YuDbBPlusEntry * entry, int16_t element_id);
-static inline uint32_t BucketEntryGetHeadSize(BucketEntry* entry) {
+static inline PageCount BucketEntryGetHeadSize(BucketEntry* entry) {
     return sizeof(BucketEntryInfo);
 }
 static inline YuDbBPlusEntry* BucketEntryToBPlusEntry(BucketEntry* entry) {

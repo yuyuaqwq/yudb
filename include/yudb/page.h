@@ -17,6 +17,7 @@ typedef int16_t PageOffset;
 typedef int32_t PageCount;
 
 extern const PageId kPageInvalidId;
+extern const PageOffset kPageInvalidOffset;
 
 LIBYUC_CONTAINER_VECTOR_DECLARATION(PageId, PageId)
 LIBYUC_CONTAINER_HASH_TABLE_DECLARATION(PageId, PageId, PageId)

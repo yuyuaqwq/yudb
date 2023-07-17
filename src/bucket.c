@@ -12,11 +12,11 @@ static forceinline Tx* BPlusTreeToTx(YuDbBPlusTree* tree) {
     return tx;
 }
 
-static forceinline uint32_t BucketEntryGetHeadSize(BucketEntry* entry) {
+static forceinline PageCount BucketEntryGetHeadSize(BucketEntry* entry) {
     return sizeof(BucketEntryInfo);
 }
 
-static forceinline uint32_t BPlusEntryGetHeadSize(BucketEntry* entry) {
+static forceinline PageCount BPlusEntryGetHeadSize(BucketEntry* entry) {
     return sizeof(BucketEntryInfo);
 }
 
@@ -1711,13 +1711,13 @@ key最大只支持1页以内的长度
 */
 void BucketInit(YuDb* db, Bucket* bucket) {
     BucketEntryInfo info;
-    uint32_t bucket_entry_head_size = BPlusEntryGetHeadSize((BucketEntry*)((uintptr_t)&info + sizeof(info)));
-    uint32_t bplus_entry_head_size = sizeof(YuDbBPlusEntry) - max(sizeof(YuDbBPlusLeafEntry), sizeof(YuDbBPlusIndexEntry));
-    uint32_t head_size = (bucket_entry_head_size + bplus_entry_head_size + sizeof(YuDbBPlusIndexEntry));
-    uint32_t index_m = (db->pager.page_size - head_size) / sizeof(YuDbBPlusIndexElement) + 1;
+    PageCount bucket_entry_head_size = BPlusEntryGetHeadSize((BucketEntry*)((uintptr_t)&info + sizeof(info)));
+    PageCount bplus_entry_head_size = sizeof(YuDbBPlusEntry) - max(sizeof(YuDbBPlusLeafEntry), sizeof(YuDbBPlusIndexEntry));
+    PageCount head_size = (bucket_entry_head_size + bplus_entry_head_size + sizeof(YuDbBPlusIndexEntry));
+    PageCount index_m = (db->pager.page_size - head_size) / sizeof(YuDbBPlusIndexElement) + 1;
 
     head_size = head_size - sizeof(YuDbBPlusIndexEntry) + sizeof(YuDbBPlusLeafEntry);
-    uint32_t leaf_m = (db->pager.page_size - head_size) / sizeof(YuDbBPlusLeafElement) + 1;
+    PageCount leaf_m = (db->pager.page_size - head_size) / sizeof(YuDbBPlusLeafElement) + 1;
 
     YuDbBPlusTreeInit(&bucket->bp_tree);
 }
