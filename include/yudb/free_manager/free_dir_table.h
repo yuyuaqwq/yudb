@@ -15,6 +15,7 @@ typedef enum {
     //kFreeDirEntryListFree = 0,
     kFreeDirEntryListSubAlloc = 1,
     //kFreeDirEntryListSubFull = 2,
+    kFreeDirEntryListPending = 3,
 } FreeDirEntryListType;
 
 LIBYUC_CONTAINER_STATIC_LIST_DECLARATION_1(FreeDir, PageOffset)
@@ -27,7 +28,6 @@ typedef struct _FreeDirEntry {
     };
     struct {
         // uint8_t entry_list_type : 2;        // FreeDirEntryListType
-        uint8_t whole_table_alloc : 1;      // 是否整表分配(不展开下级表)
         uint8_t sub_table_pending : 1;        // sub_table 是否存在/是否是 pending
         uint8_t sub_table_dirty : 1;        // sub_table是否为脏表
         uint8_t sub_max_free_log : 5;        // sub最大连续空闲page(不是下一级位)，存储的是指数+1
@@ -45,7 +45,8 @@ PageOffset FreeDirTableGetMaxCount(PageOffset page_size);
 PageOffset FreeDirTableGetMaxFreeCount(FreeDirTable* free_dir_table);
 FreeDirStaticList* FreeDirTableGetStaticList(FreeDirTable* dir_table);
 void FreeDirTableInit(FreeDirTable* dir_table, FreeLevel level, PageOffset page_size);
-PageOffset FreeDirTableAlloc(FreeDirTable* dir_table, PageOffset count, bool whole_table_alloc);
+PageOffset FreeDirTableAlloc(FreeDirTable* dir_table, PageOffset count);
+void FreeDirTablePending(FreeDirTable* dir_table, PageOffset dir_entry_id);
 void FreeDirTableFree(FreeDirTable* dir_table, PageOffset dir_entry_id);
 PageOffset FreeDirTableFindByPageCount(FreeDirTable* dir_table, PageCount page_count);
 

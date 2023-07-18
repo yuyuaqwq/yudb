@@ -26,14 +26,13 @@ LIBYUC_SPACE_MANAGER_BUDDY_DECLARATION(FreeTable, PageOffset)
 #define YUDB_FREE_TABLE_ACCESSOR_SetNext(list, element, new_next) ((element)->entry_list_next = new_next)
 #define YUDB_FREE_TABLE_ACCESSOR YUDB_FREE_TABLE_ACCESSOR
 
-typedef uint32_t FreeLevel;
+typedef int32_t FreeLevel;
 
 extern const PageId kMetaStartId;
 extern const PageId kFreeTableStartId;
 extern const FreeLevel kFreeTableLevel;
 
 PageCount FreeTableGetLevelPageCount(FreeLevel level, PageOffset page_size);
-FreeLevel FreeTableGetLevel(PageId table_pgid, PageOffset page_size);
 
 #ifdef __cplusplus
 }
