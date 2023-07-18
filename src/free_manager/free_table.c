@@ -18,7 +18,7 @@ PageCount FreeTableGetLevelPageCount(FreeLevel level, PageOffset page_size) {
     return page_count;
 }
 
-FreeLevel FreeTableGetLevel(PageId pgid, PageOffset page_size) {
+FreeLevel FreeTableGetLevel(PageId table_pgid, PageOffset page_size) {
     /*
     * 2(0) 4(1) 6(2)
     * 1024(2)
@@ -31,18 +31,18 @@ FreeLevel FreeTableGetLevel(PageId pgid, PageOffset page_size) {
     * 2097152(1) 2097154(2)
     * ...
     */
-    if (pgid < kFreeTableStartId + kFreeTableLevel * 2) {
-        return (pgid - kFreeTableStartId) / 2;
+    if (table_pgid < kFreeTableStartId + kFreeTableLevel * 2) {
+        return (table_pgid - kFreeTableStartId) / 2;
     }
 
-    pgid &= ((PageId)-2);
+    table_pgid &= ((PageId)-2);
 
     int16_t page_table_max_count = FreePageTableGetMaxCount(page_size);
     PageId level_pgid_factor = FreeTableGetLevelPageCount(0, page_size);
 
     // 先对齐到page_count边界
-    PageId offset = pgid % page_table_max_count;
-    PageId base = offset ? (pgid - offset) : pgid;
+    PageId offset = table_pgid % page_table_max_count;
+    PageId base = offset ? (table_pgid - offset) : table_pgid;
 
     // base可能落到1024、1048576、...页面，如果是1024则必定是level2，如果是1048576则可能是level1，也可能是level2
     PageCount level = 1;

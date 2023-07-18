@@ -4,9 +4,6 @@ const PageOffset kFreeDirUnableToManageEntryCount = 3;
 
 LIBYUC_CONTAINER_STATIC_LIST_DEFINE(FreeDir, PageOffset, FreeDirEntry, YUDB_FREE_TABLE_REFERENCER, YUDB_FREE_TABLE_ACCESSOR, 4)
 
-PageOffset FreeDirGetPageSize(FreeDirTable* free_dir_table) {
-    return FreeTableBuddyGetMaxCount(&free_dir_table->buddy) * 4;
-}
 
 PageOffset FreeDirTableGetMaxCount(PageOffset page_size) {
     return (page_size - (page_size / 4)) / sizeof(FreeDirEntry);

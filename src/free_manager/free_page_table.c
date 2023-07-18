@@ -5,10 +5,6 @@ const uint16_t kFreePageStaticEntryIdOffset = 2;
 LIBYUC_CONTAINER_STATIC_LIST_DEFINE(FreePage, PageOffset, FreePageEntry, YUDB_FREE_TABLE_REFERENCER, YUDB_FREE_TABLE_ACCESSOR, 2)
 
 
-PageOffset FreePageGetPageSize(FreePageTable* free_page_table) {
-    return FreeTableBuddyGetMaxCount(&free_page_table->buddy) * 4;
-}
-
 PageOffset FreePageTableGetMaxCount(PageOffset page_size) {
     return (page_size - (page_size / 4)) / sizeof(FreePageEntry);
 }
@@ -33,25 +29,25 @@ PageOffset FreePageTableAlloc(FreePageTable* free_page_table, PageOffset count) 
     return FreeTableBuddyAlloc(&free_page_table->buddy, count);
 }
 
-void FreePageTablePending(FreePageTable* free_page_table, PageOffset free1_entry_id) {
-    assert(free1_entry_id != -1);
+void FreePageTablePending(FreePageTable* free_page_table, PageOffset entry_id) {
+      assert(entry_id != -1);
     FreePageStaticList* static_list = FreePageTableGetStaticList(free_page_table);
-    FreePageEntry* free1_entry = &static_list->obj_arr[free1_entry_id - kFreePageStaticEntryIdOffset];
+    FreePageEntry* free1_entry = &static_list->obj_arr[entry_id - kFreePageStaticEntryIdOffset];
     free1_entry->is_pending = true;
-    FreePageStaticListPush(static_list, kFreePageEntryListPending, free1_entry_id - kFreePageStaticEntryIdOffset);
+    FreePageStaticListPush(static_list, kFreePageEntryListPending, entry_id - kFreePageStaticEntryIdOffset);
 }
 
-void FreePageTableFree(FreePageTable* free_page_table, PageOffset free1_entry_id) {
-    assert(free1_entry_id != -1);
+void FreePageTableFree(FreePageTable* free_page_table, PageOffset entry_id) {
+    assert(entry_id != -1);
     FreePageStaticList* static_list = FreePageTableGetStaticList(free_page_table);
-    FreePageEntry* free1_entry = &static_list->obj_arr[free1_entry_id - kFreePageStaticEntryIdOffset];
+    FreePageEntry* free1_entry = &static_list->obj_arr[entry_id - kFreePageStaticEntryIdOffset];
     if (free1_entry->is_pending) {
         free1_entry->is_pending = false;
         // 将其从Pending链表中摘除
         PageOffset cur_id = FreePageStaticListIteratorFirst(static_list, kFreePageEntryListPending);
         PageOffset prev_id = YUDB_FREE_TABLE_REFERENCER_InvalidId;
         while (cur_id != YUDB_FREE_TABLE_REFERENCER_InvalidId) {
-            if (cur_id == free1_entry_id - kFreePageStaticEntryIdOffset) {
+            if (cur_id == entry_id - kFreePageStaticEntryIdOffset) {
                 FreePageStaticListDelete(static_list, kFreePageEntryListPending, prev_id, cur_id);
                 break;
             }
@@ -59,5 +55,5 @@ void FreePageTableFree(FreePageTable* free_page_table, PageOffset free1_entry_id
             cur_id = FreePageStaticListIteratorNext(static_list, cur_id);
         }
     }
-    FreeTableBuddyFree(&free_page_table->buddy, free1_entry_id);
+    FreeTableBuddyFree(&free_page_table->buddy, entry_id);
 }

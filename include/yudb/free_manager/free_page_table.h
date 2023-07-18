@@ -32,10 +32,14 @@ typedef struct _FreePageTable {
 } FreePageTable;
 
 
-void FreePageTableInit(FreePageTable* page_table, PageOffset page_size);
-PageOffset FreePageTableAlloc(FreePageTable* page_table, PageOffset count);
+PageOffset FreePageTableGetMaxCount(PageOffset page_size);
 PageOffset FreePageTableGetMaxFreeCount(FreePageTable* page_table);
 FreePageStaticList* FreePageTableGetStaticList(FreePageTable* page_table);
+void FreePageTableInit(FreePageTable* page_table, PageOffset page_size);
+PageOffset FreePageTableAlloc(FreePageTable* page_table, PageOffset count);
+void FreePageTablePending(FreePageTable* free_page_table, PageOffset entry_id);
+void FreePageTableFree(FreePageTable* free_page_table, PageOffset entry_id);
+
 
 extern const PageOffset kFreePageStaticEntryIdOffset;
 

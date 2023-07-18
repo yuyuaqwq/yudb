@@ -41,6 +41,8 @@ typedef struct _FreeDirTable {
 } FreeDirTable;
 
 
+PageOffset FreeDirTableGetMaxCount(PageOffset page_size);
+PageOffset FreeDirTableGetMaxFreeCount(FreeDirTable* free_dir_table);
 FreeDirStaticList* FreeDirTableGetStaticList(FreeDirTable* dir_table);
 void FreeDirTableInit(FreeDirTable* dir_table, FreeLevel level, PageOffset page_size);
 PageOffset FreeDirTableAlloc(FreeDirTable* dir_table, PageOffset count, bool whole_table_alloc);

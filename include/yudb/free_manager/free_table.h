@@ -33,7 +33,7 @@ extern const PageId kFreeTableStartId;
 extern const FreeLevel kFreeTableLevel;
 
 PageCount FreeTableGetLevelPageCount(FreeLevel level, PageOffset page_size);
-FreeLevel FreeTableGetLevel(PageId pgid, PageOffset page_size);
+FreeLevel FreeTableGetLevel(PageId table_pgid, PageOffset page_size);
 
 #ifdef __cplusplus
 }
