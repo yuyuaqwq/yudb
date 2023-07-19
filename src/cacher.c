@@ -30,25 +30,29 @@ LIBYUC_CONTAINER_DOUBLY_STATIC_LIST_DEFINE(Cache, int16_t, CacheInfo, LIBYUC_CON
 LIBYUC_CONTAINER_RB_TREE_DEFINE(Cache, struct _CacheRbEntry*, PageId, LIBYUC_OBJECT_REFERENCER_DEFALUT, LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT, LIBYUC_OBJECT_COMPARER_DEFALUT)
 
 
-inline CacheInfo* CacherGetInfo(Cacher* cacher, CacheId id) {
+static forceinline size_t CacherFastMapHash(PageId pgid) {
+    return pgid & kCacherFastMapHashBitMask;
+}
+
+
+forceinline CacheInfo* CacherGetInfo(Cacher* cacher, CacheId id) {
     return &cacher->cache_info_pool->obj_arr[id];
 }
 
-CacheId CacherGetIdByBuf(Cacher* cacher, void* cache) {
+forceinline CacheId CacherGetIdByBuf(Cacher* cacher, void* cache) {
     Pager* pager = ObjectGetFromField(cacher, Pager, cacher);
     uintptr_t offset = (uintptr_t)cache - (uintptr_t)cacher->cache_pool;
     return (CacheId)(offset / pager->page_size);
 }
 
-CacheId CacherGetIdByInfo(Cacher* cacher, CacheInfo* info) {
+forceinline CacheId CacherGetIdByInfo(Cacher* cacher, CacheInfo* info) {
     return info - cacher->cache_info_pool->obj_arr;
 }
 
-PageId CacherGetPageIdById(Cacher* cacher, CacheId id) {
+forceinline PageId CacherGetPageIdById(Cacher* cacher, CacheId id) {
     CacheInfo* info = CacherGetInfo(cacher, id);
     return info->pgid;
 }
-
 
 
 static void CacherWriteLaterThread(Cacher* cacher) {
@@ -111,11 +115,6 @@ static void CacherEvict(Cacher* cacher, CacheId cache_id) {
     RwLockWriteRelease(&cacher->hotspot_queue_lock);
     CacherFree(cacher, cache_id);
     RwLockWriteAcquire(&cacher->hotspot_queue_lock);
-}
-
-
-static inline size_t CacherFastMapHash(PageId pgid) {
-    return  pgid % kCacherFastMapCount;
 }
 
 

@@ -23,6 +23,7 @@ typedef int32_t CacheId;
 
 
 #define kCacherFastMapCount 32
+#define kCacherFastMapHashBitMask 0x1f // 2^5 = 32
 
 
 LIBYUC_CONTAINER_HASH_LIST_DECLARATION(Cache, PageId)
