@@ -251,7 +251,7 @@ static PageId FreeManagerAllocFromTable(FreeManager* manager, FreeLevel level, v
 
         pgid = FreeManagerAllocFromTable(manager, level + 1, sub_table, level_page_count, count);
 
-        // 更新f1中对应的f2最大连续空位
+        // 更新dir中对应的sub_table entry最大连续空位
         PageCount sub_free_page_count;
         if (level == kFreeTableLevel - 2) {
             sub_free_page_count = FreePageTableGetMaxFreeCount(sub_table) * level_page_count / page_max_page_count;
@@ -260,10 +260,10 @@ static PageId FreeManagerAllocFromTable(FreeManager* manager, FreeLevel level, v
             sub_free_page_count = FreeDirTableGetMaxFreeCount(sub_table) * level_page_count / dir_max_page_count;
         }
         dir_entry->sub_max_free_log = LIBYUC_SPACE_MANAGER_BUDDY_TO_EXPONENT_OF_2(sub_free_page_count) + 1;
-        if (dir_entry->sub_max_free_log == 0) {
+        // if (dir_entry->sub_max_free_log == 0) {
             // 下级没有可分配的空间，挂到满队列中
             // FreeDirStaticListSwitch(static_list, kFreeDirEntryListAlloc, free0_entry_prev_id, free0_entry_id, kFreeDirEntryListFull);
-        }
+        // }
 
         // 该sub表已是脏页
         if (dir_entry->sub_table_dirty == false) {
