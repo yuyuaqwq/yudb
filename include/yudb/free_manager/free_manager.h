@@ -21,7 +21,7 @@ extern "C" {
 */
 
 typedef struct _FreeManager {
-    FreeDirTable* free0_table;
+  FreeDirTable* free0_table;
 } FreeManager;
 
 

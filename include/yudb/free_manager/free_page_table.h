@@ -12,23 +12,23 @@ extern "C" {
 #endif //  __cplusplus
 
 typedef enum {
-    //kFreePageEntryListFree = 0,
-    kFreePageEntryListPending = 1,
+  //kFreePageEntryListFree = 0,
+  kFreePageEntryListPending = 1,
 } FreePageEntryListType;
 
 #pragma pack(1)
 typedef struct _FreePageEntry {
-    PageOffset entry_list_next;
-    struct {
-        uint8_t is_pending : 1;
-        uint8_t : 7;
-    };
+  PageOffset entry_list_next;
+  struct {
+    uint8_t is_pending : 1;
+    uint8_t : 7;
+  };
 } FreePageEntry;
 #pragma pack()
 LIBYUC_CONTAINER_STATIC_LIST_DECLARATION(FreePage, PageOffset, FreePageEntry, 2)
 
 typedef struct _FreePageTable {
-    FreeTableBuddy buddy;
+  FreeTableBuddy buddy;
 } FreePageTable;
 
 

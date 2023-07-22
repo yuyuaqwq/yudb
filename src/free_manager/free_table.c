@@ -11,9 +11,9 @@ LIBYUC_SPACE_MANAGER_BUDDY_DEFINE(FreeTable, PageOffset, LIBYUC_SPACE_MANAGER_BU
 * 获取不同层级的空闲表所管理的page_count
 */
 PageCount FreeTableGetLevelPageCount(FreeLevel level, PageOffset page_size) {
-    PageCount page_count = FreePageTableGetMaxCount(page_size);
-    for (PageCount i = 1; i < kFreeTableLevel - level; i++) {
-        page_count *= FreeDirTableGetMaxCount(page_size);
-    }
-    return page_count;
+  PageCount page_count = FreePageTableGetMaxCount(page_size);
+  for (PageCount i = 1; i < kFreeTableLevel - level; i++) {
+    page_count *= FreeDirTableGetMaxCount(page_size);
+  }
+  return page_count;
 }

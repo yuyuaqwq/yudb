@@ -15,12 +15,12 @@ extern "C" {
 
 #ifdef _MSC_VER
 typedef struct {
-    HANDLE file;
+  HANDLE file;
 } DbFile;
 typedef enum {
-    kDbFilePointerSet = FILE_BEGIN,
-    kDbFilePointerCur = FILE_CURRENT,
-    kDbFilePointerEnd = FILE_END,
+  kDbFilePointerSet = FILE_BEGIN,
+  kDbFilePointerCur = FILE_CURRENT,
+  kDbFilePointerEnd = FILE_END,
 } DbFilePointerMode;
 #else
 #endif // _MSC_VER

@@ -16,41 +16,41 @@ extern "C" {
 #endif //  __cplusplus
 
 typedef enum _LogType {
-    kLogBegin,
-    kLogCommit,
-    kLogPut,
-    kLogDelete,
+  kLogBegin,
+  kLogCommit,
+  kLogPut,
+  kLogDelete,
 } LogType;
 
 typedef struct _LogData {
-    int16_t size;
-    uint8_t data[];
+  int16_t size;
+  uint8_t data[];
 } LogData;
 
 typedef struct _LogHeader {
-    uint32_t crc32;
-    uint32_t size;
-    LogType type;
+  uint32_t crc32;
+  uint32_t size;
+  LogType type;
 } LogHeader;
 
 typedef struct _LogEntry {
-    LogHeader head;
-    union {
-        LogData key;
-        LogData value;
-    };
+  LogHeader head;
+  union {
+    LogData key;
+    LogData value;
+  };
 } LogEntry;
 
 
 LIBYUC_CONTAINER_VECTOR_DECLARATION(WalBuf, uint8_t)
 
 typedef struct _WalManager {
-    DbFile* log_file;
-    DbFile* immutable_log_file;
-    WalBufVector log_buf;
-    char* db_wal_path;
+  DbFile* log_file;
+  DbFile* immutable_log_file;
+  WalBufVector log_buf;
+  char* db_wal_path;
 
-    
+  
 } WalManager;
 
 void WalInit(WalManager* wal, const char* db_path);

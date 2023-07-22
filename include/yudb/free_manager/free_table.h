@@ -14,8 +14,8 @@ extern "C" {
 #endif //  __cplusplus
 
 typedef enum {
-    kFreeDirTable = 0,
-    kFreePageTable = 1,
+  kFreeDirTable = 0,
+  kFreePageTable = 1,
 } FreeTableType;
 
 LIBYUC_SPACE_MANAGER_BUDDY_DECLARATION(FreeTable, PageOffset)

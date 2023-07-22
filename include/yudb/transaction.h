@@ -20,33 +20,33 @@ extern "C" {
 extern const TxId kTxInvalidId;
 
 typedef enum {
-    kTxReadOnly,
-    kTxReadWrite,
+  kTxReadOnly,
+  kTxReadWrite,
 } TxType;
 
 typedef struct _Tx {
-    TxType type;
-    struct _YuDb* db;
-    int32_t meta_index;        // 当前若为写事务，提交时落盘的索引
-    MetaInfo meta_info;
+  TxType type;
+  struct _YuDb* db;
+  int32_t meta_index;    // 当前若为写事务，提交时落盘的索引
+  MetaInfo meta_info;
 } Tx;
 
 typedef struct _TxReadRecordEntry {
-    TxId txid;
-    TxRbEntry rb_entry;
-    int32_t count;
+  TxId txid;
+  TxRbEntry rb_entry;
+  int32_t count;
 } TxReadRecordEntry;
 
 typedef struct _TxWriteRecordEntry {
-    TxId txid;
-    TxRbEntry rb_entry;
-    PageIdVector pending_pgid_arr;
+  TxId txid;
+  TxRbEntry rb_entry;
+  PageIdVector pending_pgid_arr;
 } TxWriteRecordEntry;
 
 typedef struct _TxManager {
-    TxRbTree write_tx_record;        // 写事务记录，包括不同事务释放的待决页面，TxId为key
-    TxRbTree read_tx_record;        // 读事务记录，顺序链表，TxId为key
-    TxId last_persistent_txid;        // 最后持久化事务id，wal模式使用
+  TxRbTree write_tx_record;    // 写事务记录，包括不同事务释放的待决页面，TxId为key
+  TxRbTree read_tx_record;    // 读事务记录，顺序链表，TxId为key
+  TxId last_persistent_txid;    // 最后持久化事务id，wal模式使用
 } TxManager;
 
 void TxFreePendingPoolPage(struct _YuDb* db);
