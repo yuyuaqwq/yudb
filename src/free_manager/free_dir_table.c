@@ -43,14 +43,34 @@ PageOffset FreeDirTableAlloc(FreeDirTable* dir_table, PageOffset count) {
 }
 
 void FreeDirTablePending(FreeDirTable* dir_table, PageOffset dir_entry_id) {
-    assert(dir_entry_id != -1);
+   assert(dir_entry_id != -1);
+  // PageOffset count = FreeTableBuddyGetAllocBlockSize(&dir_table->buddy, dir_entry_id);
   FreeDirStaticList* static_list = FreeDirTableGetStaticList(dir_table);
   FreeDirEntry* dir_entry = &static_list->obj_arr[dir_entry_id];
-  dir_entry->sub_table_pending = true;
-  FreeDirStaticListPush(static_list, kFreeDirEntryListPending, dir_entry_id);
+  if (dir_entry->sub_table_pending == false) {
+    dir_entry->sub_table_pending = true;
+    FreeDirStaticListPush(static_list, kFreeDirEntryListPending, dir_entry_id);
+  }
 }
 
 void FreeDirTableFree(FreeDirTable* dir_table, PageOffset dir_entry_id) {
+   assert(dir_entry_id != -1);
+  FreeDirStaticList* static_list = FreeDirTableGetStaticList(dir_table);
+  FreeDirEntry* dir_entry = &static_list->obj_arr[dir_entry_id];
+  if (dir_entry->sub_table_pending) {
+    dir_entry->sub_table_pending = false;
+    // 将其从Pending链表中摘除
+    PageOffset cur_id = FreeDirStaticListIteratorFirst(static_list, kFreeDirEntryListPending);
+    PageOffset prev_id = YUDB_FREE_TABLE_REFERENCER_InvalidId;
+    while (cur_id != YUDB_FREE_TABLE_REFERENCER_InvalidId) {
+      if (cur_id == dir_entry_id) {
+        FreeDirStaticListDelete(static_list, kFreeDirEntryListPending, prev_id, cur_id);
+        break;
+      }
+      prev_id = cur_id;
+      cur_id = FreeDirStaticListIteratorNext(static_list, cur_id);
+    }
+  }
   FreeTableBuddyFree(&dir_table->buddy, dir_entry_id);
 }
 

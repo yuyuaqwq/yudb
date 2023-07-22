@@ -351,10 +351,10 @@ void FreeManagerPending(FreeManager* manager, PageId pgid) {
 }
 
 /*
-* 从空闲表中释放页面
+* 从空闲管理器中释放分配的页面
 */
 void FreeManagerFree(FreeManager* manager, PageId pgid) {
-
+  
 }
 
 /*
@@ -369,7 +369,7 @@ void FreeManagerCleanPending(FreeManager* manager) {
     if (free0_entry->sub_table_pending == true) {
       CacheId cache_id;
       FreePageTable* page_table = FreeManagerGetSubTable(manager, manager->free0_table, i, &cache_id);
-        assert(page_table != NULL);
+       assert(page_table != NULL);
 
       FreePageStaticList* f1_static_list = FreePageTableGetStaticList(page_table);
       PageOffset id = FreePageStaticListIteratorFirst(f1_static_list, kFreePageEntryListPending);
@@ -402,7 +402,7 @@ bool FreeManagerWrite(FreeManager* manager, int32_t meta_index) {
     PageOffset dir_entry_id = FreeDirStaticListIteratorFirst(dir_static_list, list_type[i]);
     while (dir_entry_id != YUDB_FREE_TABLE_REFERENCER_InvalidId) {
       FreeDirEntry* dir_entry = &dir_static_list->obj_arr[dir_entry_id];
-      // 有f1脏页的话，f0需要更新对应的select
+      // 有脏页的话，需要更新对应的select
       if (dir_entry->sub_table_dirty == true) {
         // 落盘时read和write是相同的，write切到另一侧
           assert(dir_entry->write_select == dir_entry->read_select);

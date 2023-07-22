@@ -28,9 +28,9 @@ typedef struct _FreeDirEntry {
   };
   struct {
     // uint8_t entry_list_type : 2;    // FreeDirEntryListType
-    uint8_t sub_table_pending : 1;    // sub_table 是否存在/是否是 pending
-    uint8_t sub_table_dirty : 1;    // sub_table是否为脏表
-    uint8_t sub_max_free_log : 5;    // sub最大连续空闲page(不是下一级位)，存储的是指数+1
+    uint8_t sub_table_pending : 1;    // sub_table 是否存在 pending
+    uint8_t sub_table_dirty : 1;    // sub_table 是否为脏表
+    uint8_t sub_max_free_log : 5;    // sub_table 最大连续空闲page(不是下一级位)，存储的是指数+1
   };
 } FreeDirEntry;
 #pragma pack()

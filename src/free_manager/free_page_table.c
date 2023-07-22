@@ -30,15 +30,17 @@ PageOffset FreePageTableAlloc(FreePageTable* page_table, PageOffset count) {
 }
 
 void FreePageTablePending(FreePageTable* page_table, PageOffset page_entry_id) {
-    assert(page_entry_id != -1);
+   assert(page_entry_id != -1);
   FreePageStaticList* static_list = FreePageTableGetStaticList(page_table);
   FreePageEntry* page_entry = &static_list->obj_arr[page_entry_id - kFreePageStaticEntryIdOffset];
-  page_entry->is_pending = true;
-  FreePageStaticListPush(static_list, kFreePageEntryListPending, page_entry_id - kFreePageStaticEntryIdOffset);
+  if (page_entry->is_pending == false) {
+    page_entry->is_pending = true;
+    FreePageStaticListPush(static_list, kFreePageEntryListPending, page_entry_id - kFreePageStaticEntryIdOffset);
+  }
 }
 
 void FreePageTableFree(FreePageTable* page_table, PageOffset page_entry_id) {
-    assert(page_entry_id != -1);
+   assert(page_entry_id != -1);
   FreePageStaticList* static_list = FreePageTableGetStaticList(page_table);
   FreePageEntry* page_entry = &static_list->obj_arr[page_entry_id - kFreePageStaticEntryIdOffset];
   if (page_entry->is_pending) {
