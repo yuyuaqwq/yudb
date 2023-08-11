@@ -105,16 +105,9 @@ YuDbBPlusEntry* YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_GetTempCopyEntry(YuDbBPlusTree*
   YuDbBPlusEntry* temp_bp_entry = BucketEntryToBPlusEntry(temp_entry);
   BucketEntry* entry = BPlusEntryToBucketEntry(bp_entry);
   memcpy(temp_entry, entry, tx->db->pager.page_size);
-  return temp_bp_entry;
-}
-void YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR_Clean(YuDbBPlusTree* tree, YuDbBPlusEntry* bp_entry) {
   Tx* tx = BPlusTreeToTx(tree);
-  uint16_t old_type = bp_entry->type;
-  BucketEntry* entry = BPlusEntryToBucketEntry(bp_entry);
   BucketEntryInit(entry, bp_entry->type == kBPlusEntryLeaf ? sizeof(YuDbBPlusLeafElement) : sizeof(YuDbBPlusIndexElement), tx->db->pager.page_size);
-  bp_entry->type = old_type;
-  bp_entry->element_count = 0;
-  YuDbBPlusEntryRbTreeInit(&bp_entry->rb_tree);
+  return temp_bp_entry;
 }
 #define YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR
 
@@ -287,7 +280,7 @@ forceinline bool YUDB_BUCKET_BPLUS_COMPARER_Less(YuDbBPlusEntryRbTree* tree, YuD
 #define AAA
 #ifndef AAA
 LIBYUC_CONTAINER_BPLUS_TREE_DEFINE(YuDb, LIBYUC_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, 
-  PageId, int16_t, YuDbKey, YuDbValue, LIBYUC_OBJECT_ALLOCATOR_DEFALUT, YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR,
+  PageId, int16_t, YuDbKey, YuDbValue, LIBYUC_BASIC_ALLOCATOR_DEFALUT, YUDB_BUCKET_BPLUS_ENTRY_ALLOCATOR,
   YUDB_BUCKET_BPLUS_ENTRY_REFERENCER, YUDB_BUCKET_BPLUS_ENTRY_ACCESSOR, YUDB_BUCKET_BPLUS_ELEMENT_ACCESSOR,
   YUDB_BUCKET_BPLUS_ELEMENT_REFERENCER, YUDB_BUCKET_BPLUS_ELEMENT_ALLOCATOR, 
   YUDB_BUCKET_BPLUS_RB_TREE_ACCESSOR, YUDB_BUCKET_BPLUS_COMPARER, 32)

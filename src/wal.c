@@ -1,7 +1,7 @@
 #include <yudb/wal.h>
 #include <yudb/yudb.h>
 
-LIBYUC_CONTAINER_VECTOR_DEFINE(WalBuf, uint8_t, LIBYUC_OBJECT_ALLOCATOR_DEFALUT, LIBYUC_CONTAINER_VECTOR_DEFAULT_CALLBACKER)
+LIBYUC_CONTAINER_VECTOR_DEFINE(WalBuf, uint8_t, LIBYUC_BASIC_ALLOCATOR_DEFALUT, LIBYUC_CONTAINER_VECTOR_DEFAULT_CALLBACKER)
 
 
 static bool WalAppendLog(WalManager* wal, LogType type, bool write_buf_size, size_t buf_count, ...) {
