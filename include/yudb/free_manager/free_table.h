@@ -9,13 +9,13 @@
 
 #include <yudb/page.h>
 
-#ifdef  __cplusplus
+#ifdef    __cplusplus
 extern "C" {
-#endif //  __cplusplus
+#endif //    __cplusplus
 
 typedef enum {
-  kFreeDirTable = 0,
-  kFreePageTable = 1,
+    kFreeDirTable = 0,
+    kFreePageTable = 1,
 } FreeTableType;
 
 LIBYUC_SPACE_MANAGER_BUDDY_DECLARATION(FreeTable, PageOffset)
@@ -36,6 +36,6 @@ PageCount FreeTableGetLevelPageCount(FreeLevel level, PageOffset page_size);
 
 #ifdef __cplusplus
 }
-#endif //  __cplusplus
+#endif //    __cplusplus
 
 #endif // YUDB_FREE_MANAGER_FREE_TABLE_H_

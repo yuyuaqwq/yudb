@@ -4,14 +4,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifdef  __cplusplus
+#ifdef    __cplusplus
 extern "C" {
-#endif //  __cplusplus
+#endif //    __cplusplus
 
 typedef int32_t TxId;
 
 #ifdef __cplusplus
 }
-#endif //  __cplusplus
+#endif //    __cplusplus
 
 #endif // YUDB_TXID_H_

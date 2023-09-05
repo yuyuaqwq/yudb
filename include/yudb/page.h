@@ -8,9 +8,9 @@
 #include <libyuc/container/hash_table.h>
 #include <libyuc/container/rb_tree.h>
 
-#ifdef  __cplusplus
+#ifdef    __cplusplus
 extern "C" {
-#endif //  __cplusplus
+#endif //    __cplusplus
 
 typedef int32_t PageId;
 typedef int16_t PageOffset;
@@ -19,11 +19,23 @@ typedef int32_t PageCount;
 extern const PageId kPageInvalidId;
 extern const PageOffset kPageInvalidOffset;
 
-LIBYUC_CONTAINER_VECTOR_DECLARATION(PageId, PageId)
-LIBYUC_CONTAINER_HASH_TABLE_DECLARATION(PageId, PageId, PageId)
+LIBYUC_CONTAINER_VECTOR_DECLARATION(
+        PageId, 
+        LIBYUC_CONTAINER_VECTOR_MODE_DYNAMIC,
+        PageCount,
+        PageCount,
+        PageId,
+)
+
+LIBYUC_CONTAINER_HASH_TABLE_DECLARATION(
+        PageId,
+        PageCount,
+        PageId,
+        PageId
+)
 
 #ifdef __cplusplus
 }
-#endif //  __cplusplus
+#endif //    __cplusplus
 
 #endif // YUDB_PAGE_H_

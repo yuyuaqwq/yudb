@@ -9,18 +9,18 @@
 #else
 #endif // _MSC_VER
 
-#ifdef  __cplusplus
+#ifdef    __cplusplus
 extern "C" {
-#endif //  __cplusplus
+#endif //    __cplusplus
 
 #ifdef _MSC_VER
 typedef struct {
-  HANDLE file;
+    HANDLE file;
 } DbFile;
 typedef enum {
-  kDbFilePointerSet = FILE_BEGIN,
-  kDbFilePointerCur = FILE_CURRENT,
-  kDbFilePointerEnd = FILE_END,
+    kDbFilePointerSet = FILE_BEGIN,
+    kDbFilePointerCur = FILE_CURRENT,
+    kDbFilePointerEnd = FILE_END,
 } DbFilePointerMode;
 #else
 #endif // _MSC_VER
@@ -35,6 +35,6 @@ bool DbFileSync(DbFile* db);
 
 #ifdef __cplusplus
 }
-#endif //  __cplusplus
+#endif //    __cplusplus
 
 #endif // YUDB_DB_FILE_H_

@@ -11,9 +11,9 @@
 #include <yudb/free_manager/free_dir_table.h>
 #include <yudb/free_manager/free_page_table.h>
 
-#ifdef  __cplusplus
+#ifdef    __cplusplus
 extern "C" {
-#endif //  __cplusplus
+#endif //    __cplusplus
 
 
 /*
@@ -21,7 +21,7 @@ extern "C" {
 */
 
 typedef struct _FreeManager {
-  FreeDirTable* free0_table;
+    FreeDirTable* free0_table;
 } FreeManager;
 
 
@@ -39,7 +39,7 @@ void FreeManagerTest(FreeManager* manager);
 
 #ifdef __cplusplus
 }
-#endif //  __cplusplus
+#endif //    __cplusplus
 
 #endif // YUDB_FREE_MANAGER_H_
 

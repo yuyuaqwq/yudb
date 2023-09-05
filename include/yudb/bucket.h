@@ -10,10 +10,10 @@
 #include <yudb/txid.h>
 #include <yudb/data_pool.h>
 
-#ifdef  __cplusplus
+#ifdef    __cplusplus
 extern "C" {
-#endif //  __cplusplus
-  
+#endif //    __cplusplus
+    
 
 typedef DataDescriptor YuDbKey;
 typedef DataDescriptor YuDbValue;
@@ -22,20 +22,20 @@ LIBYUC_CONTAINER_BPLUS_TREE_DECLARATION(YuDb, LIBYUC_CONTAINER_BPLUS_TREE_LEAF_L
 
 #pragma pack(1)
 typedef struct _BucketEntryInfo {
-  TxId last_write_tx_id;
-  int16_t alloc_size;
-  int16_t page_size;
-  DataPool data_pool;
+    TxId last_write_tx_id;
+    int16_t alloc_size;
+    int16_t page_size;
+    DataPool data_pool;
 } BucketEntryInfo;
 
 typedef struct _BucketEntry {
-  BucketEntryInfo info;
-  // YuDbBPlusEntry bp_entry;
+    BucketEntryInfo info;
+    // YuDbBPlusEntry bp_entry;
 } BucketEntry;
 #pragma pack()
 
 typedef struct _Bucket {
-  YuDbBPlusTree bp_tree;
+    YuDbBPlusTree bp_tree;
 } Bucket;
 
 void BucketInit(struct _YuDb* db, Bucket* bucket);
@@ -44,6 +44,6 @@ bool BucketFind(Bucket* bucket, void* key_buf, int16_t key_size);
 
 #ifdef __cplusplus
 }
-#endif //  __cplusplus
+#endif //    __cplusplus
 
 #endif // YUDB_BUCKET_H_
