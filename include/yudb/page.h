@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <libyuc/container/vector.h>
-#include <libyuc/container/hash_table.h>
-#include <libyuc/container/rb_tree.h>
+
+
+//#include <libyuc/container/rb_tree.h>
 
 #ifdef    __cplusplus
 extern "C" {
@@ -19,20 +19,17 @@ typedef int32_t PageCount;
 extern const PageId kPageInvalidId;
 extern const PageOffset kPageInvalidOffset;
 
-LIBYUC_CONTAINER_VECTOR_DECLARATION(
-        PageId, 
-        LIBYUC_CONTAINER_VECTOR_MODE_DYNAMIC,
-        PageCount,
-        PageCount,
-        PageId,
-)
+#define LIBYUC_CONTAINER_VECTOR_CLASS_NAME PageId
+#define LIBYUC_CONTAINER_VECTOR_INDEXER_Type_Element PageId
+#define LIBYUC_CONTAINER_VECTOR_INDEXER_Type_Id PageId
+#define LIBYUC_CONTAINER_VECTOR_INDEXER_Type_Offset PageCount
+#include <libyuc/container/vector.h>
 
-LIBYUC_CONTAINER_HASH_TABLE_DECLARATION(
-        PageId,
-        PageCount,
-        PageId,
-        PageId
-)
+#define LIBYUC_CONTAINER_HASH_TABLE_CLASS_NAME PageId
+#define LIBYUC_CONTAINER_HASH_TABLE_INDEXER_Type_Element PageId
+#define LIBYUC_CONTAINER_HASH_TABLE_INDEXER_Type_Id PageId
+#define LIBYUC_CONTAINER_HASH_TABLE_INDEXER_Type_Offset PageCount
+#include <libyuc/container/hash_table.h>
 
 #ifdef __cplusplus
 }

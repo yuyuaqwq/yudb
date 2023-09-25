@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include <libyuc/container/bplus_tree.h>
-
 #include <yudb/page.h>
 #include <yudb/txid.h>
 #include <yudb/data_pool.h>
@@ -18,7 +16,9 @@ extern "C" {
 typedef DataDescriptor YuDbKey;
 typedef DataDescriptor YuDbValue;
 
-LIBYUC_CONTAINER_BPLUS_TREE_DECLARATION(YuDb, LIBYUC_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, PageId, int16_t, YuDbKey, YuDbValue, 32)
+
+//#include <libyuc/container/bplus_tree.h>
+//LIBYUC_CONTAINER_BPLUS_TREE_DECLARATION(YuDb, LIBYUC_CONTAINER_BPLUS_TREE_LEAF_LINK_MODE_NOT_LINK, PageId, int16_t, YuDbKey, YuDbValue, 32)
 
 #pragma pack(1)
 typedef struct _BucketEntryInfo {

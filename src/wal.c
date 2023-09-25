@@ -1,13 +1,9 @@
 #include <yudb/wal.h>
 #include <yudb/yudb.h>
 
-LIBYUC_CONTAINER_VECTOR_DEFINE(
-        WalBuf, 
-        uint8_t, 
-        LIBYUC_BASIC_ALLOCATOR_DEFALUT, 
-        LIBYUC_CONTAINER_VECTOR_DEFAULT_CALLBACKER
-)
-
+#define LIBYUC_CONTAINER_VECTOR_CLASS_NAME WalBuf
+#define LIBYUC_CONTAINER_VECTOR_INDEXER_Type_Element uint8_t
+#include <libyuc/container/vector.h>
 
 static bool WalAppendLog(WalManager* wal, LogType type, bool write_buf_size, size_t buf_count, ...) {
     return true;

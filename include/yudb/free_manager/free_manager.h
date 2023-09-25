@@ -4,9 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <libyuc/container/vector.h>
-#include <libyuc/container/static_list.h>
-
 #include <yudb/page.h>
 #include <yudb/free_manager/free_dir_table.h>
 #include <yudb/free_manager/free_page_table.h>

@@ -3,9 +3,10 @@
 #include <yudb/yudb.h>
 #include <yudb/wal.h>
 
-#define LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetKey(TREE, ENTRY) (&ObjectGetFromField(ENTRY, TxWriteRecordEntry, rb_entry)->txid)
-#define YUDB_TX_RB_TREE_ACCESSOR LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT
-LIBYUC_CONTAINER_RB_TREE_DEFINE(Tx, TxRbEntry*, size_t, TxId, LIBYUC_BASIC_REFERENCER_DEFALUT, LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT, LIBYUC_BASIC_COMPARER_DEFALUT)
+
+#define LIBYUC_CONTAINER_RB_TREE_CLASS_NAME Tx
+#define LIBYUC_CONTAINER_RB_TREE_ACCESSOR_GetKey(TREE, ENTRY) (&ObjectGetFromField(ENTRY, TxWriteRecordEntry, rb_entry)->txid)
+#include <libyuc/container/rb_tree.c>
 
 const TxId kTxInvalidId = -1;
 
