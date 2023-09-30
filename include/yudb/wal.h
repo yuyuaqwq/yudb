@@ -5,8 +5,6 @@
 #include <stdint.h>
 
 #include <libyuc/algorithm/crc32.h>
-#include <libyuc/container/rb_tree.h>
-#include <libyuc/container/vector.h>
 
 #include <yudb/db_file.h>
 #include <yudb/page.h>
@@ -41,8 +39,9 @@ typedef struct _LogEntry {
     };
 } LogEntry;
 
-
-LIBYUC_CONTAINER_VECTOR_DECLARATION(WalBuf, uint8_t)
+#define LIBYUC_CONTAINER_VECTOR_CLASS_NAME WalBuf
+#define LIBYUC_CONTAINER_VECTOR_INDEXER_Type_Element uint8_t
+#include <libyuc/container/vector.h>
 
 typedef struct _WalManager {
     DbFile* log_file;
