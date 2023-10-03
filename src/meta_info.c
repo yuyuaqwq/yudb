@@ -14,6 +14,7 @@ bool MetaInfoRead(YuDb* db, Config* config) {
         db->meta_info.page_size = config->page_size;
         db->meta_info.page_count = 8;
         db->meta_info.txid = 0;
+        
 
         PageCount crc32 = Crc32Start();
         crc32 = Crc32Continue(crc32, &db->meta_info, sizeof(db->meta_info) - sizeof(PageCount));
