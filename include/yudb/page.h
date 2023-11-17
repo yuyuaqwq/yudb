@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-
-
 //#include <libyuc/container/rb_tree.h>
 
 #ifdef    __cplusplus

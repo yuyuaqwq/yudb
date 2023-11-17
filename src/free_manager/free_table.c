@@ -4,8 +4,9 @@ const PageId kMetaStartId = 0;
 const PageId kFreeTableStartId = 2;
 const PageCount kFreeTableLevel = 3;
 
-LIBYUC_SPACE_MANAGER_BUDDY_DEFINE(FreeTable, PageOffset, LIBYUC_SPACE_MANAGER_BUDDY_4BIT_INDEXER, LIBYUC_BASIC_ALLOCATOR_DEFALUT)
-
+//LIBYUC_SPACE_MANAGER_BUDDY_DEFINE(FreeTable, PageOffset, LIBYUC_SPACE_MANAGER_BUDDY_4BIT_INDEXER, LIBYUC_BASIC_ALLOCATOR_DEFALUT)
+#define LIBYUC_SPACE_MANAGER_BUDDY_CLASS_NAME FreeTable
+#include <libyuc/space_manager/buddy.c>
 
 /*
 * 获取不同层级的空闲表所管理的page_count

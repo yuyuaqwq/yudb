@@ -16,7 +16,6 @@ extern "C" {
 /*
 * 当前的单向静态链表队列切换较困难，故暂时不分Full队列
 */
-
 typedef struct _FreeManager {
     FreeDirTable* free0_table;
 } FreeManager;

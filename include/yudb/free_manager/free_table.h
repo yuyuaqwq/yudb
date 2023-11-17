@@ -4,9 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <libyuc/space_manager/buddy.h>
-#include <libyuc/container/static_list.h>
-
 #include <yudb/page.h>
 
 #ifdef    __cplusplus
@@ -18,7 +15,14 @@ typedef enum {
     kFreePageTable = 1,
 } FreeTableType;
 
-LIBYUC_SPACE_MANAGER_BUDDY_DECLARATION(FreeTable, PageOffset)
+
+#define LIBYUC_SPACE_MANAGER_BUDDY_CLASS_NAME FreeTable
+#include <libyuc/space_manager/buddy.h>
+
+// LIBYUC_SPACE_MANAGER_BUDDY_DECLARATION(FreeTable, PageOffset)
+
+//#include <libyuc/container/static_list.h>
+
 
 #define YUDB_FREE_TABLE_REFERENCER_InvalidId (kPageInvalidOffset)
 #define YUDB_FREE_TABLE_REFERENCER YUDB_FREE_TABLE_REFERENCER

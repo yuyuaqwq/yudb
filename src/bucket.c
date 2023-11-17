@@ -3,8 +3,6 @@
 #include <yudb/yudb.h>
 #include <yudb/pager.h>
 
-
-
 static forceinline Tx* BPlusTreeToTx(YuDbBPlusTree* tree) {
     Bucket* bucket = ObjectGetFromField(tree, Bucket, bp_tree);
     MetaInfo* meta_info = ObjectGetFromField(bucket, MetaInfo, bucket);

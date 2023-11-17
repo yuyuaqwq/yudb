@@ -4,29 +4,26 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <libyuc/space_manager/object_pool.h>
-#include <libyuc/space_manager/free_list.h>
-
 #include <yudb/page.h>
 
 #ifdef    __cplusplus
 extern "C" {
 #endif //    __cplusplus
 
-#pragma pack(1)
-typedef enum {
+#pragma pack(push, 1)
+typedef enum DataType {
     kDataInline = 0,
     kDataBlock = 1,
     kDataPage = 2,
     kDataMemory = 3,
 } DataType;
 
-typedef struct _MemoryData {
+typedef struct MemoryData {
     uint32_t size;
     uintptr_t mem_ptr;     // addr，8字节
 } MemoryData;
 
-typedef struct _DataDescriptor {
+typedef struct DataDescriptor {
     union {
         uint8_t type : 2;
         struct {
@@ -51,12 +48,15 @@ typedef struct _DataDescriptor {
     };
 } DataDescriptor;
 
-LIBYUC_CONTAINER_SPACE_MANAGER_FREE_LIST_DECLARATION(DataPool, int16_t, uint8_t, 1)
+#define LIBYUC_SPACE_MANAGER_FREE_LIST_CLASS_NAME DataPool
+#include <libyuc/space_manager/free_list.h>
 
-typedef struct _DataPool {
+//LIBYUC_CONTAINER_SPACE_MANAGER_FREE_LIST_DECLARATION(DataPool, int16_t, uint8_t, 1)
+
+typedef struct DataPool {
     DataPoolFreeList free_list;
 } DataPool;
-#pragma pack()
+#pragma pop()
 
 extern MemoryData g_key;
 extern MemoryData g_value;
