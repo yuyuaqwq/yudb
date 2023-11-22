@@ -5,22 +5,37 @@
 
 #include "lru_list.h"
 
-int main()
-{
+void TestLru() {
     yudb::LruList<int, int> aa{ 3 };
 
-    aa.Put(1, 2);
+    auto evict = aa.Put(100, 200);
+    assert(!evict);
 
     auto f = aa.Front();
-    aa.Put(2, 4);
+    assert(f == 200);
+
+    evict = aa.Put(200, 400);
+    assert(!evict);
+    f = aa.Front();
+    assert(f == 400);
+
+    auto get = aa.Get(100);
+    assert(get != nullptr && *get == 200);
 
     f = aa.Front();
-    aa.Get(1);
+    assert(f == 200);
 
-    f = aa.Front();
-    auto evict = aa.Put(4, 123);
+    evict = aa.Put(400, 123);
+    assert(!evict);
 
     evict = aa.Put(666, 123);
+    assert(evict && *evict == 400);
+}
+
+
+int main()
+{
+    TestLru();
 
     std::cout << "Hello World!\n";
 }

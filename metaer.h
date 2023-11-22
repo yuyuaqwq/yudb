@@ -20,9 +20,9 @@ struct MetaInfo {
 };
 #pragma pack(pop)
 
-class MetaInfor {
+class Metaer {
 public:
-    MetaInfor() = default;
+    Metaer(Db* db) : db_{ db } {};
 
     bool Load();
 private:

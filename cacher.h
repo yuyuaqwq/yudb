@@ -5,23 +5,29 @@
 
 namespace yudb {
 
+using CacheId = uint32_t;
+
 struct CacheInfo {
-    int32_t reference_count;
-    int32_t pool_index;
+    uint32_t reference_count;
 };
 
-struct CachePage {
-    CachePage* next;
-};
-
-class Db;
+class Pager;
 
 class Cacher {
 public:
-    
+    Cacher(Pager* pager);
+    ~Cacher();
+
+    CacheId Alloc(PageId pgid) {
+
+    }
+
+    void Free(CacheId cache_id) {
+
+    }
 
 private:
-    Db* db_;
+    Pager* pager_;
     LruList<PageId, CacheInfo> lru_list_;
     uint8_t* page_pool_;
 };

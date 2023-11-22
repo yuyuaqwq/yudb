@@ -1,4 +1,4 @@
-#include "meta_info.h"
+#include "metaer.h"
 
 #include "version.h"
 #include "db.h"
@@ -6,7 +6,7 @@
 
 namespace yudb {
 
-bool MetaInfor::Load() {
+bool Metaer::Load() {
     auto success = db_->file_.Read(&meta_info_, sizeof(meta_info_));
     if (!success) {
         // Initialize Meta Information

@@ -4,7 +4,8 @@
 #include <optional>
 
 #include "file.h"
-#include "meta_info.h"
+#include "metaer.h"
+#include "pager.h"
 
 namespace yudb {
 
@@ -20,7 +21,7 @@ public:
             return {};
         }
 
-        if (!db.mate_infor_.Load()) {
+        if (!db.metaer_.Load()) {
             return {};
         }
 
@@ -28,11 +29,11 @@ public:
     }
 
 private:
-    friend class MetaInfor;
+    friend class Metaer;
 
     File file_;
-    MetaInfor mate_infor_;
-    
+    Metaer metaer_{ this };
+    Pager pager_{ this };
 };
 
 }

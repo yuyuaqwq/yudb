@@ -1,0 +1,5 @@
+# Windows:
+Debug
+*.vcxproj
+*.filters
+*.user
