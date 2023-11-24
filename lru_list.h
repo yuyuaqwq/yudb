@@ -24,7 +24,7 @@ private:
         CacheId tail{ kCacheInvalidId };
     };
 
-    using GetListNodeFunc = std::function<List::Node&(CacheId)>;
+    using GetListNodeFunc = std::function<typename List::Node&(CacheId)>; // List::Node& (CacheId)
 
     struct Node {
         K key;

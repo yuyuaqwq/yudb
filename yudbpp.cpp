@@ -20,7 +20,7 @@ void TestLru() {
     assert(f == 400);
 
     auto get = aa.Get(100);
-    assert(get != nullptr && *get == 200);
+    assert(get.first != nullptr && *(get.first) == 200);
 
     f = aa.Front();
     assert(f == 200);
