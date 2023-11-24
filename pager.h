@@ -18,6 +18,16 @@ public:
 
     }
 
+    uint8_t* Reference(PageId pgid) {
+        return cacher_.Reference(pgid);
+    }
+
+    void Dereference(uint8_t* page_cache) {
+        cacher_.Dereference(page_cache);
+    }
+
+
+
 private:
     Db* db_;
 
