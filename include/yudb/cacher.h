@@ -4,13 +4,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <libyuc/container/lru_list.h>
-#include <libyuc/container/rb_tree.h>
-#include <libyuc/container/static_list.h>
-#include <libyuc/container/doubly_static_list.h>
-#include <libyuc/concurrency/rw_lock.h>
+//#include <libyuc/container/lru_list.h>
+//#include <libyuc/container/rb_tree.h>
+//#include <libyuc/container/static_list.h>
+//#include <libyuc/container/doubly_static_list.h>
+//#include <libyuc/concurrency/rw_lock.h>
 
-#include <libyuc/algorithm/array.h>
+//#include <libyuc/algorithm/array.h>
 
 #include <yudb/page.h>
 
@@ -26,10 +26,10 @@ typedef int32_t CacheId;
 #define kCacherFastMapHashBitMask 0x1f // 2^5 = 32
 
 
-LIBYUC_CONTAINER_LRU_LIST_DECLARATION(
-        Cache, 
-        PageId
-)
+//LIBYUC_CONTAINER_LRU_LIST_DECLARATION(
+//        Cache, 
+//        PageId
+//)
 
 
 typedef enum {
@@ -41,13 +41,13 @@ typedef enum {
     kCacheTypeImmutableWriteLater = 4,
 } CacheType;
 
-LIBYUC_CONTAINER_RB_TREE_DECLARATION(
-        Cache, 
-        struct _CacheRbEntry*,
-        size_t,
-        PageId
-)
-LIBYUC_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_1(Cache, int16_t)
+//LIBYUC_CONTAINER_RB_TREE_DECLARATION(
+//        Cache, 
+//        struct _CacheRbEntry*,
+//        size_t,
+//        PageId
+//)
+//LIBYUC_CONTAINER_DOUBLY_STATIC_LIST_DECLARATION_1(Cache, int16_t)
 
 typedef enum _CacheWriteThreadStatus {
     kCacheWriteThreadReady,

@@ -1,6 +1,6 @@
 #include <yudb/cacher.h>
 
-#include <libyuc/algorithm/hash_code.h>
+//#include <libyuc/algorithm/hash_code.h>
 #include <libyuc/concurrency/thread.h>
 #include <libyuc/concurrency/atomic.h>
 
@@ -10,24 +10,24 @@
 const CacheId kCacheInvalidId = -1;
 
 
-#define YUDB_CACHER_LRU_LIST_ACCESSOR_GetKey(LIST, ENTRY) (&ObjectGetFromField(ENTRY, CacheInfo, lru_entry)->pgid)
-#define YUDB_CACHER_LRU_LIST_ACCESSOR_SetKey(LIST, ENTRY, PGID) (ObjectGetFromField(ENTRY, CacheInfo, lru_entry)->pgid = *(PGID))
-#define YUDB_CACHER_LRU_LIST_ACCESSOR YUDB_CACHER_LRU_LIST_ACCESSOR
-#define YUDB_CAHCER_LRU_LIST_HASHER(TABLE, KEY) HashCode_hashint(*KEY)
-LIBYUC_CONTAINER_LRU_LIST_DEFINE(Cache, PageId, YUDB_CACHER_LRU_LIST_ACCESSOR, LIBYUC_BASIC_ALLOCATOR_DEFALUT, YUDB_CAHCER_LRU_LIST_HASHER, LIBYUC_BASIC_COMPARER_DEFALUT)
-
-
-#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_GetNext(list, cache_info) ((cache_info)->free_entry.next)
-#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_GetPrev(list, cache_info) ((cache_info)->free_entry.prev)
-#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_SetNext(list, cache_info, new_next) ((cache_info)->free_entry.next = (new_next))
-#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_SetPrev(list, cache_info, new_prev) ((cache_info)->free_entry.prev = (new_prev))
-#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR
-LIBYUC_CONTAINER_DOUBLY_STATIC_LIST_DEFINE(Cache, int16_t, CacheInfo, LIBYUC_CONTAINER_DOUBLY_STATIC_LIST_DEFAULT_REFERENCER, YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR, 2)
-
-
-#define LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetKey(TREE, ENTRY) (&ObjectGetFromField((ENTRY), CacheInfo, dirty_entry)->pgid)
-#define YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT
-LIBYUC_CONTAINER_RB_TREE_DEFINE(Cache, struct _CacheRbEntry*, PageId, LIBYUC_BASIC_REFERENCER_DEFALUT, LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT, LIBYUC_BASIC_COMPARER_DEFALUT)
+//#define YUDB_CACHER_LRU_LIST_ACCESSOR_GetKey(LIST, ENTRY) (&ObjectGetFromField(ENTRY, CacheInfo, lru_entry)->pgid)
+//#define YUDB_CACHER_LRU_LIST_ACCESSOR_SetKey(LIST, ENTRY, PGID) (ObjectGetFromField(ENTRY, CacheInfo, lru_entry)->pgid = *(PGID))
+//#define YUDB_CACHER_LRU_LIST_ACCESSOR YUDB_CACHER_LRU_LIST_ACCESSOR
+//#define YUDB_CAHCER_LRU_LIST_HASHER(TABLE, KEY) HashCode_hashint(*KEY)
+//LIBYUC_CONTAINER_LRU_LIST_DEFINE(Cache, PageId, YUDB_CACHER_LRU_LIST_ACCESSOR, LIBYUC_BASIC_ALLOCATOR_DEFALUT, YUDB_CAHCER_LRU_LIST_HASHER, LIBYUC_BASIC_COMPARER_DEFALUT)
+//
+//
+//#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_GetNext(list, cache_info) ((cache_info)->free_entry.next)
+//#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_GetPrev(list, cache_info) ((cache_info)->free_entry.prev)
+//#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_SetNext(list, cache_info, new_next) ((cache_info)->free_entry.next = (new_next))
+//#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR_SetPrev(list, cache_info, new_prev) ((cache_info)->free_entry.prev = (new_prev))
+//#define YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR
+//LIBYUC_CONTAINER_DOUBLY_STATIC_LIST_DEFINE(Cache, int16_t, CacheInfo, LIBYUC_CONTAINER_DOUBLY_STATIC_LIST_DEFAULT_REFERENCER, YUDB_CACHER_DOUBLY_STATIC_LIST_ACCESSOR, 2)
+//
+//
+//#define LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT_GetKey(TREE, ENTRY) (&ObjectGetFromField((ENTRY), CacheInfo, dirty_entry)->pgid)
+//#define YUDB_WRITE_QUEUE_RB_TREE_ACCESSOR LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT
+//LIBYUC_CONTAINER_RB_TREE_DEFINE(Cache, struct _CacheRbEntry*, PageId, LIBYUC_BASIC_REFERENCER_DEFALUT, LIBYUC_CONTINUE_RB_TREE_ACCESSOR_DEFALUT, LIBYUC_BASIC_COMPARER_DEFALUT)
 
 
 static forceinline size_t CacherFastMapHash(PageId pgid) {
@@ -124,7 +124,7 @@ void CacherInit(Cacher* cacher, size_t count) {
     cacher->cache_pool = malloc(pager->page_size * count);
     cacher->cache_info_pool = malloc(sizeof(CacheDoublyStaticList) + sizeof(CacheInfo) * count);
     CacheDoublyStaticListInit(cacher->cache_info_pool, count);
-    CacheHashListInit(&cacher->lru_list, count, &kPageInvalidId);
+    CacheLruListInit(&cacher->lru_list, count, &kPageInvalidId);
     CacheRbTreeInit(&cacher->dirty_tree);
     for (int i = 0; i < sizeof(cacher->fast_map) / sizeof(*cacher->fast_map); i++) {
         cacher->fast_map[i].pgid = kPageInvalidId;
@@ -154,7 +154,7 @@ CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
     size_t max_count = cacher->lru_list.max_count;
     if (cur_count + 1 >= max_count * db->config.hotspot_queue_full_percentage / 100) {
         // 需要从热点队列驱逐缓存
-        CacheHashListEntry* lru_entry = CacheHashListPop(&cacher->lru_list);
+        CacheLruListEntry* lru_entry = CacheLruListPop(&cacher->lru_list);
             assert(lru_entry != NULL);
         evict_cache_info = ObjectGetFromField(lru_entry, CacheInfo, lru_entry);
         CacherEvict(cacher, CacherGetIdByInfo(cacher, evict_cache_info));
@@ -180,7 +180,7 @@ CacheId CacherAlloc(Cacher* cacher, PageId pgid) {
     cache_info->pgid = pgid;
     cache_info->reference_count = 0;
     cache_info->type = kCacheTypeClean;
-    CacheHashListEntry* lru_entry = CacheHashListPut(&cacher->lru_list, &cache_info->lru_entry);
+    CacheLruListEntry* lru_entry = CacheLruListPut(&cacher->lru_list, &cache_info->lru_entry);
         assert(lru_entry == NULL);        // 不应该会推入已在链表的缓存
     RwLockWriteRelease(&cacher->hotspot_queue_lock);
     
@@ -208,7 +208,7 @@ void CacherFree(Cacher* cacher, CacheId cache_id) {
     }
 
     RwLockWriteAcquire(&cacher->hotspot_queue_lock);
-    CacheHashListEntry* del_entry = CacheHashListDelete(&cacher->lru_list, &cache_info->pgid);
+    CacheLruListEntry* del_entry = CacheLruListDelete(&cacher->lru_list, &cache_info->pgid);
     //    assert(del_entry);
     if (cache_info->type == kCacheTypeClean) {
         CacheDoublyStaticListDelete(cacher->cache_info_pool, cache_info->type, cache_id);
@@ -241,7 +241,7 @@ CacheId CacherFind(Cacher* cacher, PageId pgid, bool put_first) {
     }
 
     RwLockReadAcquire(&cacher->hotspot_queue_lock);
-    CacheHashListEntry* lru_entry = CacheHashListGet(&cacher->lru_list, &pgid, put_first);
+    CacheLruListEntry* lru_entry = CacheLruListGet(&cacher->lru_list, &pgid, put_first);
     CacheInfo* cache_info;
     if (!lru_entry) {
         if (db->config.update_mode != kConfigUpdateWal) {
