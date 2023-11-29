@@ -1,4 +1,5 @@
-# Windows:
+# Vs:
+Release
 Debug
 *.vcxproj
 *.filters
