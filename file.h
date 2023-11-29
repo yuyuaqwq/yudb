@@ -56,7 +56,7 @@ public:
     bool Read(void* buf, size_t size) {
         DWORD ret_len;
         BOOL success = ReadFile(handle_, buf, size, &ret_len, NULL);
-        return !success || size != ret_len;
+        return success && size == ret_len;
     }
 
     void Write(void* buf, size_t size) {

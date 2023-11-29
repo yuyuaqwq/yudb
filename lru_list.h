@@ -24,7 +24,7 @@ private:
         CacheId tail{ kCacheInvalidId };
     };
 
-    using GetListNodeFunc = std::function<typename List::Node&(CacheId)>; // List::Node& (CacheId)
+    using GetListNodeFunc = List::Node&(LruList::*)(CacheId);
 
     struct Node {
         K key;
@@ -38,11 +38,12 @@ private:
 
 public:
     LruList(size_t max_count) : pool_(max_count) {
-        for (CacheId i = 0; i < max_count; i++) {
+        for (CacheId i = max_count - 1; i > 0; i--) {
             auto& node = PoolNode(i);
             std::construct_at<V>(&node.value);
-            ListPushFront(free_list_, free_list_get_node_, i);
+            ListPushFront(free_list_, &LruList::FreeListGetNode, i);
         }
+        ListPushFront(free_list_, &LruList::FreeListGetNode, 0);
     }
 
     std::optional<V> Put(const K& key, V&& value) {
@@ -55,17 +56,17 @@ public:
             ret = tail_node.value;
             free = tail;
             map_.erase(tail_node.key);
-            ListPopTail(lru_list_, lru_list_get_node_);
+            ListPopTail(lru_list_, &LruList::LruListGetNode);
         }
         else {
-            ListPopFront(free_list_, free_list_get_node_);
+            ListPopFront(free_list_, &LruList::FreeListGetNode);
         }
 
         auto& node = PoolNode(free);
         node.key = key;
         node.value = std::move(value);
 
-        ListPushFront(lru_list_, lru_list_get_node_, free);
+        ListPushFront(lru_list_, &LruList::LruListGetNode, free);
         map_.insert(std::pair{ key, free });
         return ret;
     }
@@ -76,8 +77,8 @@ public:
             return { nullptr, kCacheInvalidId };
         }
         if (put_front) {
-            ListDelete(lru_list_, lru_list_get_node_, iter->second);
-            ListPushFront(lru_list_, lru_list_get_node_, iter->second);
+            ListDelete(lru_list_, &LruList::LruListGetNode, iter->second);
+            ListPushFront(lru_list_, &LruList::LruListGetNode, iter->second);
         }
         return { &PoolNode(iter->second).value, iter->second };
     }
@@ -87,8 +88,8 @@ public:
         if (iter == map_.end()) {
             return false;
         }
-        ListDelete(lru_list_, lru_list_get_node_, iter->second);
-        ListPushFront(free_list_, free_list_get_node_, iter->second);
+        ListDelete(lru_list_, &LruList::LruListGetNode, iter->second);
+        ListPushFront(free_list_, &LruList::FreeListGetNode, iter->second);
         map_.erase(iter);
         return true;
     }
@@ -102,22 +103,30 @@ public:
     }
 
 private:
+    List::Node& FreeListGetNode(CacheId i) {
+        return PoolNode(i).free_node;
+    }
+
+    List::Node& LruListGetNode(CacheId i) {
+        return PoolNode(i).lru_node;
+    }
+
     Node& PoolNode(CacheId i) {
         return pool_[i];
     }
 
     void ListPushFront(List& list, GetListNodeFunc get_node, CacheId i) {
-        auto& node = get_node(i);
+        auto& node = (this->*get_node)(i);
         if (list.front == kCacheInvalidId) {
             node.prev = i;
             node.next = i;
             list.tail = i;
         }
         else {
-            auto& old_front_node = get_node(list.front);
+            auto& old_front_node = (this->*get_node)(list.front);
             node.prev = old_front_node.prev;
             node.next = list.front;
-            auto& tail_node = get_node(old_front_node.prev);
+            auto& tail_node = (this->*get_node)(old_front_node.prev);
             old_front_node.prev = i;
             tail_node.next = i;
         }
@@ -134,11 +143,11 @@ private:
             return;
         }
 
-        auto& pop_node = get_node(i);
+        auto& pop_node = (this->*get_node)(i);
         auto prev = pop_node.prev;
         auto next = pop_node.next;
-        auto& prev_node = get_node(prev);
-        auto& next_node = get_node(next);
+        auto& prev_node = (this->*get_node)(prev);
+        auto& next_node = (this->*get_node)(next);
         next_node.prev = next;
         prev_node.next = prev;
 
@@ -169,13 +178,7 @@ private:
 
 private:
     List free_list_;
-    GetListNodeFunc free_list_get_node_ = [this](CacheId i) -> List::Node& {
-        return PoolNode(i).free_node;
-    };
     List lru_list_;
-    GetListNodeFunc lru_list_get_node_ = [this](CacheId i) -> List::Node& {
-        return PoolNode(i).lru_node;
-    };
 
     std::vector<Node> pool_;
     std::unordered_map<K, CacheId> map_;

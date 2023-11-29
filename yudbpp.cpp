@@ -2,8 +2,14 @@
 //
 
 #include <iostream>
+#include <thread>
+#include <chrono>
+#include <algorithm>
+
+#include <span>
 
 #include "lru_list.h"
+#include "freer.h"
 
 void TestLru() {
     yudb::LruList<int, int> aa{ 3 };
@@ -32,10 +38,52 @@ void TestLru() {
     assert(evict && *evict == 400);
 }
 
+void TestFreer() {
+    //yudb::Pager pager{ nullptr, 4096 };
+    //yudb::Freer freer{ &pager };
+    //auto test = freer.Alloc(100);
+}
 
-int main()
-{
-    TestLru();
+int main() {
+
+
+    //std::vector<int> vec = { -5, -3, -1, 2, 4, 6 };
+
+    //// 在使用 std::lower_bound 之前，确保容器已经排序
+    //std::sort(vec.begin(), vec.end());
+
+    //// 使用自定义比较函数进行查找
+    //auto it = std::lower_bound(vec.begin(), vec.end(), "abc", [](int a, const char* b) -> bool {
+    //    return true;
+    //});
+
+    //if (it != vec.end()) {
+    //    std::cout << "Found at index: " << std::distance(vec.begin(), it) << '\n';
+    //}
+    //else {
+    //    std::cout << "Not found!\n";
+    //}
+
+    std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>("aa"), 2 };
+
+    auto db = yudb::Db::Open("Z:/test.ydb");
+    if (!db) {
+        std::cout << "yudb::Db::Open failed!\n";
+        return -1;
+    }
+
+
+    printf("%p ", &db->pager_);
+
+    auto tx = db->Begin();
+    tx.Put("hello", "emm");
+
+    
+
+    //TestFreer();
+    printf("emm");
+    //std::this_thread::sleep_for(std::chrono::seconds(10));
+    //TestLru();
 
     std::cout << "Hello World!\n";
 }

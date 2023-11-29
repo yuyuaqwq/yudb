@@ -7,23 +7,34 @@
 namespace yudb {
 
 bool Metaer::Load() {
-    auto success = db_->file_.Read(&meta_info_, sizeof(meta_info_));
+    db_->file_.Seek(0, File::PointerMode::kDbFilePointerSet);
+    auto success = db_->file_.Read(&meta_, sizeof(meta_));
     if (!success) {
         // Initialize Meta Information
-        meta_info_.sign = YUDB_SIGN;
-        meta_info_.min_version = YUDB_VERSION;
-        meta_info_.page_size = kPageSize;
-        meta_info_.txid = 0;
+        meta_.sign = YUDB_SIGN;
+        meta_.min_version = YUDB_VERSION;
+        meta_.page_size = kPageSize;
+        meta_.page_count = 2;
+        meta_.txid = 1;
+        meta_.root = kPageInvalidId;
+        Crc32 crc32;
+        crc32.Append(&meta_, sizeof(meta_) - sizeof(uint32_t));
+        auto crc32_value = crc32.End();
+        meta_.crc32 = crc32_value;
 
         db_->file_.Seek(0, File::PointerMode::kDbFilePointerSet);
-        db_->file_.Write(&meta_info_, sizeof(meta_info_));
+        db_->file_.Write(&meta_, sizeof(meta_));
+
+        meta_.txid = 0;
+        db_->file_.Seek(kPageSize, File::PointerMode::kDbFilePointerSet);
+        db_->file_.Write(&meta_, sizeof(meta_));
 
         return true;
     }
 
     // Check Meta information
-    MetaInfo meta_list[2];
-    memcpy(&meta_list[0], &meta_info_, sizeof(meta_list[0]));
+    Meta meta_list[2];
+    memcpy(&meta_list[0], &meta_, sizeof(meta_list[0]));
 
     db_->file_.Seek(kPageSize, File::PointerMode::kDbFilePointerSet);
     if (!db_->file_.Read(&meta_list[1], sizeof(meta_list[1]))) {
@@ -62,7 +73,7 @@ bool Metaer::Load() {
     if (meta_list[meta_index_].page_size != kPageSize) {
         return false;
     }
-    memcpy(&meta_info_, &meta_list[meta_index_], sizeof(meta_info_));
+    memcpy(&meta_, &meta_list[meta_index_], sizeof(meta_));
     return true;
 }
 

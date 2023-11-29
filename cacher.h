@@ -1,25 +1,20 @@
 #pragma once
 
+#include "noncopyable.h"
 #include "cache.h"
 #include "page.h"
 #include "lru_list.h"
 
 namespace yudb {
 
+constexpr size_t kCacherPoolSize = 0x1000;
+
 class Pager;
 
-class Cacher {
+class Cacher : noncopyable {
 public:
     Cacher(Pager* pager);
     ~Cacher();
-
-    CacheId Alloc(PageId pgid) {
-
-    }
-
-    void Free(CacheId cache_id) {
-
-    }
 
     uint8_t* Reference(PageId pgid);
 

@@ -6,7 +6,7 @@ namespace yudb {
 
 Cacher::Cacher(Pager* pager) :
     pager_ { pager },
-    lru_list_{ pager->page_count() }
+    lru_list_{ kCacherPoolSize }
 {
     page_pool_ = reinterpret_cast<uint8_t*>(operator new(pager->page_count() * pager->page_size()));
 }
@@ -17,6 +17,17 @@ Cacher::~Cacher() {
 
 uint8_t* Cacher::Reference(PageId pgid) {
     auto [cache_info, cache_id] = lru_list_.Get(pgid);
+    if (!cache_info) {
+        lru_list_.Put(pgid, CacheInfo{0});
+        auto pair = lru_list_.Get(pgid);
+        cache_info = pair.first;
+        cache_id = pair.second;
+        auto cache = &page_pool_[cache_id * pager_->page_size()];
+
+        pager_->Read(pgid, cache, 1);
+
+        memset(cache, 0, pager_->page_size());
+    }
     ++cache_info->reference_count;
     return &page_pool_[cache_id * pager_->page_size()];
 }

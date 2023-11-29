@@ -1,6 +1,7 @@
 #pragma once
 
 #include "page.h"
+#include "span.h"
 #include "overflow.h"
 
 namespace yudb {
@@ -8,48 +9,19 @@ namespace yudb {
 #pragma pack(push, 1)
 struct Node {
     enum class Type : uint16_t {
-        kBranch = 0,
+        kInvalid = 0,
+        kBranch,
         kLeaf,
     };
 
-    struct Cell {
-        enum class Type : uint16_t {
-            kEmbed = 0,
-            kBlock,
-            kPageTable,
-        };
-
-        union {
-            Type type : 2;
-            struct {
-                uint8_t type : 2;
-                uint8_t invalid : 2;
-                uint8_t size : 4;
-                uint8_t data[5];
-            } embed;
-            struct {
-                Type type : 2;
-                uint16_t size : 14;
-                uint16_t overflow_index;
-                PageOffset offset;
-            } block;
-            struct {
-                Type type : 2;
-                uint16_t size : 14;
-                uint16_t overflow_index;
-                PageOffset offset;
-            } page_table;
-        };
-    };
-
     struct BranchElement {
-        Cell key;
-        PageId min_child;
+        Span key;
+        PageId little_child;
     };
 
     struct LeafElement {
-        Cell key;
-        Cell value;
+        Span key;
+        Span value;
     };
 
     // 当分配第二页时，同时在第二页前部分创建一个最大溢出页面大小的空间管理(最大溢出)，负责分配空闲空间
