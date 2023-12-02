@@ -20,6 +20,8 @@ public:
 
     void Dereference(uint8_t* page_cache);
 
+    PageId CacheToPageId(uint8_t* page_cache);
+
 private:
     Pager* pager_;
     LruList<PageId, CacheInfo> lru_list_;

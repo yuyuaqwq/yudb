@@ -98,8 +98,8 @@ public:
         return PoolNode(ListFront(lru_list_)).value;
     }
 
-    V* GetByCacheId(CacheId cache_id) {
-        return &PoolNode(cache_id).value;
+    Node& GetNodeByCacheId(CacheId cache_id) {
+        return PoolNode(cache_id);
     }
 
 private:

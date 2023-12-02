@@ -16,7 +16,7 @@ struct Node {
 
     struct BranchElement {
         Span key;
-        PageId little_child;
+        PageId left_child;
     };
 
     struct LeafElement {
@@ -37,9 +37,12 @@ struct Node {
 
             //TxId last_write_txid;
             union {
-                BranchElement branch[];
-                LeafElement leaf[];
-            };
+                struct {
+                    PageId tail_child;
+                    BranchElement branch[1];
+                };
+                LeafElement leaf[1];
+            } body;
         };
         uint8_t full[];
     };

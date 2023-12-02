@@ -35,6 +35,8 @@ public:
     public:
         uint8_t* page_cache() { return page_cache_; }
 
+        PageId page_id();
+
     private:
         Pager* pager_;
         uint8_t* page_cache_;
@@ -73,6 +75,10 @@ public:
 
     void Dereference(uint8_t* page_cache) {
         cacher_.Dereference(page_cache);
+    }
+
+    PageId CacheToPageId(uint8_t* page_cache) {
+        return cacher_.CacheToPageId(page_cache);
     }
 
 private:
