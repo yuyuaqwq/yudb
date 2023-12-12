@@ -26,8 +26,8 @@ public:
             return {};
         }
 
-        db->pager_.set_page_size(db->metaer_.meta().page_size);
-        db->pager_.set_page_count(db->metaer_.meta().page_count);
+        db->pager_ = std::make_unique<Pager>(db.get(), db->metaer_.meta().page_size);
+        db->pager_->set_page_count(db->metaer_.meta().page_count);
 
         return db;
     }
@@ -44,7 +44,7 @@ public:
 
     File file_;
     Metaer metaer_{ this };
-    Pager pager_{ this };
+    std::unique_ptr<Pager> pager_;
     Txer txer_{ this };
 };
 

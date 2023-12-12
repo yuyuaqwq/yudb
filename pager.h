@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "noncopyable.h"
 #include "page.h"
 #include "cacher.h"
@@ -43,14 +45,15 @@ public:
     };
 
 public:
-    Pager(Db* db) : db_{ db } {}
+    Pager(Db* db, PageSize page_size) : db_{ db }, 
+        page_size_{ page_size }, 
+        cacher_{ this } {}
 
     Pager(const Pager&) = delete;
     void operator=(const Pager&) = delete;
 
 public:
     PageSize page_size() { return page_size_; }
-    void set_page_size(PageSize page_size) { page_size_ = page_size; }
     PageCount page_count() { return page_count_; }
     void set_page_count(PageCount page_count) { page_count_ = page_count; }
 
@@ -84,10 +87,10 @@ public:
 private:
     Db* db_;
 
-    PageSize page_size_{ 0 };
+    PageSize page_size_;
     PageCount page_count_{ 0 };
 
-    Cacher cacher_{ this };
+    Cacher cacher_;
 };
 
 } // namespace yudb

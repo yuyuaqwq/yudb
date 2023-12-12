@@ -143,7 +143,7 @@ public:
     }
 
     void LeafInsert(uint16_t pos, Span&& key, Span&& value) {
-        std::memmove(&node_->body.leaf[pos + 1], &node_->body.leaf[pos], node_->element_count - pos);
+        std::memmove(&node_->body.leaf[pos + 1], &node_->body.leaf[pos], (node_->element_count - pos) * sizeof(node_->body.leaf[pos]));
         node_->body.leaf[pos].key = std::move(key);
         node_->body.leaf[pos].value = std::move(value);
         ++node_->element_count;
@@ -153,7 +153,7 @@ public:
         auto key = std::move(node_->body.leaf[pos].key);
         auto value = std::move(node_->body.leaf[pos].value);
 
-        std::memmove(&node_->body.leaf[pos], &node_->body.leaf[pos + 1], node_->element_count - pos - 1);
+        std::memmove(&node_->body.leaf[pos], &node_->body.leaf[pos + 1], (node_->element_count - pos - 1) * sizeof(node_->body.leaf[pos]));
         --node_->element_count;
     }
 
@@ -163,16 +163,17 @@ public:
         node_->element_count = 0;
     }
 
-    void BranchInsert(uint16_t pos, Span&& key, PageId left_child) {
-        node_->body.branch[pos].key = std::move(key);
+    void BranchInsert(uint16_t pos, Span&& key, PageId right_child) {
         if (pos == node_->element_count) {
             node_->body.branch[pos].left_child = node_->body.tail_child;
-            node_->body.tail_child = left_child;
+            node_->body.tail_child = right_child;
         }
         else {
-            std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos], node_->element_count - pos);
-            node_->body.branch[pos].left_child = left_child;
+            std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos], (node_->element_count - pos) * sizeof(node_->body.branch[pos]));
+            node_->body.branch[pos].left_child = node_->body.branch[pos + 1].left_child;
+            node_->body.branch[pos + 1].left_child = right_child;
         }
+        node_->body.branch[pos].key = std::move(key);
         ++node_->element_count;
     }
 
@@ -205,8 +206,8 @@ private:
 private:
     friend class Overflower;
 
-    Pager* pager_;
     BTree* btree_;
+    Pager* pager_;
     Node* node_;
 
     Overflower overflower_;

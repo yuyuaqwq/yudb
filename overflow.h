@@ -4,6 +4,7 @@
 
 namespace yudb {
 
+#pragma pack(push, 1)
 struct Overflow {
     struct Element {
         PageId pgid;
@@ -21,5 +22,6 @@ struct Overflow {
     PageOffset offset;
     uint16_t element_count;
 };
+#pragma pack(pop)
 
 } // namespace yudb

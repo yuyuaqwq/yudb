@@ -6,10 +6,11 @@ namespace yudb {
 
 using CacheId = uint32_t;
 
-constexpr CacheId  kCacheInvalidId = 0xffffffff;
+constexpr CacheId kCacheInvalidId = 0xffffffff;
 
 struct CacheInfo {
     uint32_t reference_count;
+    bool dirty;
 };
 
 } // namespace yudb

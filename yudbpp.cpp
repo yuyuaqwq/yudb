@@ -25,17 +25,25 @@ void TestLru() {
     f = aa.Front();
     assert(f == 400);
 
+    aa.Print();
+
     auto get = aa.Get(100);
     assert(get.first != nullptr && *(get.first) == 200);
 
     f = aa.Front();
     assert(f == 200);
 
+    aa.Print();
+
+
     evict = aa.Put(400, 123);
     assert(!evict);
 
     evict = aa.Put(666, 123);
-    assert(evict && *evict == 400);
+    assert(evict);
+    auto [cache_id, k, v] = *evict;
+    assert(k = 400);
+
 }
 
 void TestFreer() {
@@ -45,8 +53,6 @@ void TestFreer() {
 }
 
 int main() {
-
-
     //std::vector<int> vec = { -5, -3, -1, 2, 4, 6 };
 
     //// 在使用 std::lower_bound 之前，确保容器已经排序
@@ -64,7 +70,7 @@ int main() {
     //    std::cout << "Not found!\n";
     //}
 
-    std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>("aa"), 2 };
+
 
     auto db = yudb::Db::Open("Z:/test.ydb");
     if (!db) {
@@ -72,15 +78,40 @@ int main() {
         return -1;
     }
 
-
-    printf("%p ", &db->pager_);
-
-    auto tx = db->Begin();
-    tx.Put("hello", "emm");
-
     
+    auto tx = db->Begin();
 
+    srand(10);
+
+    auto count = 1000000;
+    std::vector<int> arr(count);
+
+    for (auto i = 0; i < count; i++) {
+        arr[i] = i;
+    }
+    for (auto i = 0; i < count; i++) {
+        std::swap(arr[rand() % count], arr[rand() % count]);
+    }
+    for (auto i = 0; i < count; i++) {
+        tx.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+        //printf("%d %d\n\n", i, arr[i]);
+    }
+    
+    //tx.Print();
+    //printf("\n\n\n\n\n");
+
+    for (auto i = 0; i < count; i++) {
+        auto res = tx.Find(&arr[i], sizeof(arr[i]));
+        assert(res);
+        //printf("%d %d\n\n", i, arr[i]);
+    }
+    //tx.Put("world", "qvq");
+
+    //tx.Put("hello", "emm");
+    //tx.Put("world", "qvq");
+    
     //TestFreer();
+
     printf("emm");
     //std::this_thread::sleep_for(std::chrono::seconds(10));
     //TestLru();

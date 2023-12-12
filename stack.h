@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+
 #include <array>
 
 namespace yudb {
@@ -14,10 +16,12 @@ public:
     }
 
     constexpr void push_back(const T& value) {
+        assert(cur_pos_ < kSize);
         array_[cur_pos_++] = value;
     }
 
     void pop_back() {
+        assert(cur_pos_ > 0);
         --cur_pos_;
     }
 
@@ -31,7 +35,7 @@ public:
 
 private:
     std::array<T, kSize> array_;
-    uint32_t cur_pos_{ 0 };
+    int32_t cur_pos_{ 0 };
 };
 
 } // namespace detail

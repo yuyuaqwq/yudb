@@ -38,7 +38,7 @@ public:
         return true;
     }
 
-    void Seek(int64_t offset, PointerMode fromwhere) {
+    void Seek(int64_t offset, PointerMode fromwhere = PointerMode::kDbFilePointerSet) {
         if (!SetFilePointerEx(handle_, *reinterpret_cast<LARGE_INTEGER*>(&offset), NULL, static_cast<DWORD>(fromwhere))) {
             throw std::ios_base::failure{"set file pointer failed!"};
         }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #include "noncopyable.h"
 #include "cache.h"
 #include "page.h"
@@ -7,7 +9,7 @@
 
 namespace yudb {
 
-constexpr size_t kCacherPoolSize = 0x1000;
+constexpr size_t kCacherPoolPageCount = 0x1000;
 
 class Pager;
 

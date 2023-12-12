@@ -35,6 +35,59 @@ private:
         List::Node lru_node;
     };
 
+private:
+    class Iterator {
+    public:
+        using iterator_category = std::bidirectional_iterator_tag;
+
+        using value_type = typename Node;
+        using difference_type = typename std::ptrdiff_t;
+        using pointer = typename Node*;
+        using reference = const value_type&;
+
+        Iterator(LruList* list, CacheId id) : list_{ list }, id_{ id } {}
+
+        reference operator*() const noexcept {
+            return list_->PoolNode(id_);
+        }
+
+        pointer operator->() const noexcept {
+            return &list_->PoolNode(id_);
+        }
+
+        Iterator& operator++() noexcept {
+            auto node = list_->LruListGetNode(id_);
+            id_ = node.next;
+            return *this;
+        }
+
+        Iterator operator++(int) noexcept {
+            auto node = list_->LruListGetNode(id_);
+            Iterator tmp = *this;
+            id_ = node.next;
+            return tmp;
+        }
+
+        Iterator& operator--() noexcept {
+            auto node = list_->LruListGetNode(id_);
+            id_ = node.prev;
+            return *this;
+        }
+
+        Iterator operator--(int) noexcept {
+            auto node = list_->LruListGetNode(id_);
+            Iterator tmp = *this;
+            id_ = node.prev;
+            return tmp;
+        }
+
+        bool operator==(const Iterator& right) const noexcept {
+            return id_ == right.id_;
+        }
+
+        LruList* list_;
+        CacheId id_;
+    };
 
 public:
     LruList(size_t max_count) : pool_(max_count) {
@@ -46,16 +99,21 @@ public:
         ListPushFront(free_list_, &LruList::FreeListGetNode, 0);
     }
 
-    std::optional<V> Put(const K& key, V&& value) {
+
+    /*
+    * 返回被淘汰的对象
+    */
+    std::optional<std::tuple<CacheId, K, V>> Put(const K& key, V&& value) {
         auto free = ListFront(free_list_);
-        std::optional<V> ret{};
+        std::optional<std::tuple<CacheId, K, V>> evict{};
         if (free == kCacheInvalidId) {
             auto tail = ListTail(lru_list_);
             assert(tail != kCacheInvalidId);
             auto& tail_node = PoolNode(tail);
-            ret = tail_node.value;
+            auto iter = map_.find(tail_node.key);
+            evict = { iter->second, tail_node.key, tail_node.value };
             free = tail;
-            map_.erase(tail_node.key);
+            map_.erase(iter);
             ListPopTail(lru_list_, &LruList::LruListGetNode);
         }
         else {
@@ -68,7 +126,7 @@ public:
 
         ListPushFront(lru_list_, &LruList::LruListGetNode, free);
         map_.insert(std::pair{ key, free });
-        return ret;
+        return evict;
     }
 
     std::pair<V*, CacheId> Get(const K& key, bool put_front = true) {
@@ -102,6 +160,22 @@ public:
         return PoolNode(cache_id);
     }
 
+    Iterator begin() noexcept {
+        return Iterator{ this, ListFront(lru_list_) };
+    }
+
+    Iterator end() noexcept {
+        return Iterator{ this, kCacheInvalidId };
+    }
+
+    void Print() {
+        std::cout << "LruList:";
+        for (auto& node : *this) {
+            std::cout << node.key << " ";
+        }
+        std::cout << std::endl;
+    }
+
 private:
     List::Node& FreeListGetNode(CacheId i) {
         return PoolNode(i).free_node;
@@ -118,43 +192,43 @@ private:
     void ListPushFront(List& list, GetListNodeFunc get_node, CacheId i) {
         auto& node = (this->*get_node)(i);
         if (list.front == kCacheInvalidId) {
-            node.prev = i;
-            node.next = i;
+            node.prev = kCacheInvalidId;
+            node.next = kCacheInvalidId;
             list.tail = i;
         }
         else {
             auto& old_front_node = (this->*get_node)(list.front);
-            node.prev = old_front_node.prev;
+            node.prev = kCacheInvalidId;
             node.next = list.front;
-            auto& tail_node = (this->*get_node)(old_front_node.prev);
             old_front_node.prev = i;
-            tail_node.next = i;
         }
         list.front = i;
     }
 
     void ListDelete(List& list, GetListNodeFunc get_node, CacheId i) {
-        if (list.front == list.tail) {
-            if (list.front == kCacheInvalidId) {
-                return;
-            }
+        assert(i != kCacheInvalidId);
+        if (list.front == i && list.tail == i) {
             list.front = kCacheInvalidId;
             list.tail = kCacheInvalidId;
             return;
         }
-
-        auto& pop_node = (this->*get_node)(i);
-        auto prev = pop_node.prev;
-        auto next = pop_node.next;
-        auto& prev_node = (this->*get_node)(prev);
-        auto& next_node = (this->*get_node)(next);
-        next_node.prev = next;
-        prev_node.next = prev;
-
-        if (i == list.front) {
+        auto& del_node = (this->*get_node)(i);
+        auto prev = del_node.prev;
+        auto next = del_node.next;
+        
+        if (prev != kCacheInvalidId) {
+            auto& prev_node = (this->*get_node)(prev);
+            prev_node.next = next;
+        }
+        else {
             list.front = next;
         }
-        else if (i == list.tail) {
+
+        if (next != kCacheInvalidId) {
+            auto& next_node = (this->*get_node)(next);
+            next_node.prev = prev;
+        }
+        else {
             list.tail = prev;
         }
     }
@@ -174,6 +248,7 @@ private:
     CacheId ListTail(List& list) {
         return list.tail;
     }
+
 
 
 private:
