@@ -4,10 +4,6 @@
 
 namespace yudb {
 
-PageId Pager::PageReference::page_id() {
-    return pager_->CacheToPageId(page_cache_);
-}
-
 void Pager::Read(PageId pgid, void* cache, PageCount count) {
     db_->file_.Seek(pgid * page_size());
     if (!db_->file_.Read(cache, count * page_size())) {

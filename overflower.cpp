@@ -9,13 +9,13 @@ using Element = Overflow::Element;
 
 std::optional<std::pair<PageId, PageOffset>> Overflower::Alloc(PageSize size, bool alloc_new_page) {
     auto pager = noder_->pager_;
-    auto [ref, cache] = pager->Reference(overflow_->pgid);
+    auto ref = pager->Reference(overflow_->pgid);
 
-    auto overflow_arr = reinterpret_cast<Element*>(cache[overflow_->offset]);
+    auto overflow_arr = reinterpret_cast<Element*>(ref.page_cache()[overflow_->offset]);
     for (uint16_t i = 0; i < overflow_->element_count; i++) {
         if (overflow_arr[i].max_free_size >= size) {
-            auto [ref, cache] = pager->Reference(overflow_arr[i].pgid);
-            cache[overflow_arr[i].free_list];
+            auto ref = pager->Reference(overflow_arr[i].pgid);
+            ref.page_cache()[overflow_arr[i].free_list];
 
             return std::pair{ overflow_arr[i].pgid, 0 };
         }
@@ -26,7 +26,7 @@ std::optional<std::pair<PageId, PageOffset>> Overflower::Alloc(PageSize size, bo
 
     // 当前的overflow数组中没有足够分配的空间，分配新页
     auto new_pgid = pager->Alloc(1);
-    auto [new_ref, new_cache] = pager->Reference(new_pgid);
+    auto new_ref = pager->Reference(new_pgid);
 
     // 先扩展overflow数组
     auto new_overflow_arr_block_size = sizeof(Element) * ++overflow_->element_count;
@@ -37,8 +37,8 @@ std::optional<std::pair<PageId, PageOffset>> Overflower::Alloc(PageSize size, bo
         overflow_->pgid = new_pgid;
         overflow_->offset = 0;
 
-        memcpy(new_cache, overflow_arr, new_overflow_arr_block_size - sizeof(Element));
-        overflow_arr = reinterpret_cast<Element*>(new_cache);
+        memcpy(new_ref.page_cache(), overflow_arr, new_overflow_arr_block_size - sizeof(Element));
+        overflow_arr = reinterpret_cast<Element*>(new_ref.page_cache());
         auto& tail_overflow_ele = overflow_arr[overflow_->element_count];
         tail_overflow_ele.Init(
             new_pgid,
@@ -52,7 +52,7 @@ std::optional<std::pair<PageId, PageOffset>> Overflower::Alloc(PageSize size, bo
             tail_overflow_ele.free_list += sizeof(Element);
 
             new_pgid = pager->Alloc(1);
-            auto [new_ref, new_cache] = pager->Reference(new_pgid);
+            auto new_ref = pager->Reference(new_pgid);
 
             // 可以原地扩展
             overflow_arr[++overflow_->element_count].Init(
@@ -67,7 +67,6 @@ std::optional<std::pair<PageId, PageOffset>> Overflower::Alloc(PageSize size, bo
         }
     }
     return std::pair{ new_pgid, ret_offset };
-
 }
 
 } // namespace yudb

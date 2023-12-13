@@ -26,9 +26,9 @@ public:
         Put(key.data(), key.size(), value.data(), value.size());
     }
 
-    bool Find(const void* key_buf, size_t key_size) {
+    bool Get(const void* key_buf, size_t key_size) {
         std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
-        return btree_->Find(key_span);
+        return btree_->Get(key_span);
     }
 
     void Print() {

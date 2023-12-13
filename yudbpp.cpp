@@ -89,19 +89,22 @@ int main() {
     for (auto i = 0; i < count; i++) {
         arr[i] = i;
     }
-    for (auto i = 0; i < count; i++) {
-        std::swap(arr[rand() % count], arr[rand() % count]);
-    }
+    //for (auto i = 0; i < count; i++) {
+    //    std::swap(arr[rand() % count], arr[rand() % count]);
+    //}
     for (auto i = 0; i < count; i++) {
         tx.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+
         //printf("%d %d\n\n", i, arr[i]);
+        //tx.Print();
+        //printf("\n\n\n\n\n");
     }
     
     //tx.Print();
     //printf("\n\n\n\n\n");
 
     for (auto i = 0; i < count; i++) {
-        auto res = tx.Find(&arr[i], sizeof(arr[i]));
+        auto res = tx.Get(&arr[i], sizeof(arr[i]));
         assert(res);
         //printf("%d %d\n\n", i, arr[i]);
     }

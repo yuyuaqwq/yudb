@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "noncopyable.h"
 #include "page.h"
 
 namespace yudb {
@@ -38,5 +39,6 @@ struct Span {
     };
 };
 #pragma pack(pop)
+
 
 } // namespace yudb 

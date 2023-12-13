@@ -7,6 +7,7 @@
 #include "noncopyable.h"
 #include "node.h"
 #include "overflower.h"
+#include "pager.h"
 
 namespace yudb {
 
@@ -78,8 +79,14 @@ private:
     };
 
 public:
-    Noder(BTree* btree, uint8_t* page);
+    Noder(BTree* btree, PageId page_id);
 
+    Noder(Noder&& right) noexcept : 
+        page_ref_{ std::move(right.page_ref_) },
+        btree_{ right.btree_ },
+        pager_{ right.pager_ },
+        node_{ right.node_ },
+        overflower_{ std::move(right.overflower_) } {}
 
     /*
     * 将数据保存到Node中
@@ -150,6 +157,7 @@ public:
     }
 
     void LeafDelete(uint16_t pos) {
+        assert(pos < node_->element_count);
         auto key = std::move(node_->body.leaf[pos].key);
         auto value = std::move(node_->body.leaf[pos].value);
 
@@ -178,11 +186,36 @@ public:
     }
 
     /*
+    * 删除的是right_child
+    */
+    void BranchDelete(uint16_t pos) {
+        assert(pos < node_->element_count);
+        if (pos + 1 < node_->element_count) {
+            node_->body.branch[pos].key = node_->body.branch[pos + 1].key;
+        }
+        else {
+            node_->body.tail_child = node_->body.branch[node_->element_count - 1].left_child;
+        }
+        auto copy_count = node_->element_count - pos - 1;
+        if (copy_count > 0) {
+            std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos + 2], (copy_count - 1) * sizeof(node_->body.branch[pos]));
+        }
+        --node_->element_count;
+    }
+
+    /*
     * 不处理tail_child的关系，需要自己保证tail_child的正确性
     */
     void BranchSet(uint16_t pos, Span&& key, PageId left_child) {
         node_->body.branch[pos].key = std::move(key);
         node_->body.branch[pos].left_child = left_child;
+    }
+
+    PageId BranchGetLeftChild(uint16_t pos) {
+        if (pos == node_->element_count) {
+            return node_->body.tail_child;
+        }
+        return node_->body.branch[pos].left_child;
     }
 
 
@@ -197,6 +230,8 @@ public:
 
     Node* node() { return node_; }
 
+    PageId page_id() { return page_ref_.page_id(); }
+
     Iterator begin() { return Iterator{ node_, 0 }; }
     Iterator end() { return Iterator{ node_, node_->element_count }; }
 
@@ -208,6 +243,8 @@ private:
 
     BTree* btree_;
     Pager* pager_;
+
+    PageReferencer page_ref_;
     Node* node_;
 
     Overflower overflower_;

@@ -2,14 +2,13 @@
 
 #include <optional>
 
-#include "noncopyable.h"
 #include "overflow.h"
 
 namespace yudb {
 
 class Noder;
 
-class Overflower : noncopyable {
+class Overflower {
 public:
     Overflower(Noder* noder, Overflow* overflow) : noder_{ noder }, overflow_{ overflow } {}
 
