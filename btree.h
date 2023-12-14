@@ -338,29 +338,23 @@ public:
     }
 
 
-    std::tuple<Noder, uint16_t, Noder, bool> GetSibling(Iterator* iter) {
-        auto [parent_pgid, parent_pos] = iter->Cur();
-        Noder parent{ this, parent_pgid };
-        auto parent_node = parent.node();
-        assert(parent_node->element_count > 2);
-
-        bool left_sibling = false;
-        PageId sibling_pgid;
-        if (parent_pos == parent_node->element_count) {
-            // 是父节点中最大的元素，只能选择左兄弟节点
-            left_sibling = true;
-            sibling_pgid = parent.BranchGetLeftChild(parent_pos - 1);
+    /*
+    * 分支节点的合并
+    */
+    void BranchMerge(Noder&& left, Noder&& right, Span&& down_key) {
+        auto left_node = left.node();
+        auto right_node = right.node();
+        left_node->body.branch[left_node->element_count].key = std::move(down_key);
+        left_node->body.branch[left_node->element_count].left_child = left_node->body.tail_child;
+        ++left_node->element_count;
+        for (uint16_t i = 0; i < right_node->element_count; i++) {
+            auto key = right.SpanMove(&left, std::move(right_node->body.branch[i].key));
+            left.BranchSet(i + left_node->element_count, std::move(key), right_node->body.branch[i].left_child);
         }
-        else {
-            sibling_pgid = parent.BranchGetRightChild(parent_pos);
-        }
-
-        Noder sibling{ this, sibling_pgid };
-
-        iter->Pop();
-        return { std::move(parent), parent_pos, std::move(sibling), left_sibling };
+        left_node->body.tail_child = right_node->body.tail_child;
+        left_node->element_count += right_node->element_count;
+        pager_->Free(right.page_id(), 1);
     }
-
 
     /*
     * 分支节点的删除
@@ -405,7 +399,7 @@ public:
                 //      12                                    27            37
                 // 1 5      10 15                    20 25         30 35         40 45
                 auto parent_key = parent.SpanMove(&noder, std::move(parent_node->body.branch[parent_pos].key));
-                auto sibling_key = sibling.SpanMove(&parent, std::move(sibling_node->body.branch[sibling_node->element_count].key));
+                auto sibling_key = sibling.SpanMove(&parent, std::move(sibling_node->body.branch[sibling_node->element_count - 1].key));
                 
                 noder.BranchInsert(0, std::move(parent_key), sibling_node->body.tail_child, false);
                 sibling.BranchDelete(sibling_node->element_count - 1, true);
@@ -436,13 +430,26 @@ public:
             }
             return;
         }
+
+        // 合并
+        if (left_sibling) {
+            auto down_key = parent.SpanMove(&sibling, std::move(parent_node->body.branch[parent_pos].key));
+            BranchMerge(std::move(sibling), std::move(noder), std::move(down_key));
+        }
+        else {
+            auto down_key = parent.SpanMove(&noder, std::move(parent_node->body.branch[parent_pos].key));
+            BranchMerge(std::move(noder), std::move(sibling), std::move(down_key));
+        }
+
+        // 向上删除父元素
+        Delete(iter, std::move(parent), parent_pos);
     }
 
 
     /*
     * 叶子节点的合并
     */
-    void Merge(Noder&& left, Noder&& right) {
+    void LeafMerge(Noder&& left, Noder&& right) {
         auto left_node = left.node();
         auto right_node = right.node();
         for (uint16_t i = 0; i < right_node->element_count; i++) {
@@ -513,10 +520,10 @@ public:
 
         // 合并
         if (left_sibling) {
-            Merge(std::move(sibling), std::move(noder));
+            LeafMerge(std::move(sibling), std::move(noder));
         }
         else {
-            Merge(std::move(noder), std::move(sibling));
+            LeafMerge(std::move(noder), std::move(sibling));
         }
 
         // 向上删除父元素
@@ -569,6 +576,28 @@ public:
         Print(root_pgid_, 0);
     }
 
+private:
+    std::tuple<Noder, uint16_t, Noder, bool> GetSibling(Iterator* iter) {
+        auto [parent_pgid, parent_pos] = iter->Cur();
+        Noder parent{ this, parent_pgid };
+        auto parent_node = parent.node();
+        
+        bool left_sibling = false;
+        PageId sibling_pgid;
+        if (parent_pos == parent_node->element_count) {
+            // 是父节点中最大的元素，只能选择左兄弟节点
+            left_sibling = true;
+            sibling_pgid = parent.BranchGetLeftChild(parent_pos - 1);
+        }
+        else {
+            sibling_pgid = parent.BranchGetRightChild(parent_pos);
+        }
+
+        Noder sibling{ this, sibling_pgid };
+
+        iter->Pop();
+        return { std::move(parent), parent_pos, std::move(sibling), left_sibling };
+    }
 
 private:
     friend class Noder;
