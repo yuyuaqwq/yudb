@@ -171,34 +171,42 @@ public:
         node_->element_count = 0;
     }
 
-    void BranchInsert(uint16_t pos, Span&& key, PageId right_child) {
-        if (pos == node_->element_count) {
-            node_->body.branch[pos].left_child = node_->body.tail_child;
-            node_->body.tail_child = right_child;
+    void BranchInsert(uint16_t pos, Span&& key, PageId child, bool right_child) {
+        if (right_child) {
+            if (pos == node_->element_count) {
+                node_->body.branch[pos].left_child = node_->body.tail_child;
+                node_->body.tail_child = child;
+            }
+            else {
+                std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos], (node_->element_count - pos) * sizeof(node_->body.branch[pos]));
+                node_->body.branch[pos].left_child = node_->body.branch[pos + 1].left_child;
+                node_->body.branch[pos + 1].left_child = child;
+            }
         }
         else {
             std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos], (node_->element_count - pos) * sizeof(node_->body.branch[pos]));
-            node_->body.branch[pos].left_child = node_->body.branch[pos + 1].left_child;
-            node_->body.branch[pos + 1].left_child = right_child;
+            node_->body.branch[pos].left_child = child;
         }
         node_->body.branch[pos].key = std::move(key);
         ++node_->element_count;
     }
 
-    /*
-    * É¾³ýµÄÊÇright_child
-    */
-    void BranchDelete(uint16_t pos) {
+    void BranchDelete(uint16_t pos, bool right_child) {
         assert(pos < node_->element_count);
-        if (pos + 1 < node_->element_count) {
-            node_->body.branch[pos].key = node_->body.branch[pos + 1].key;
+        auto copy_count = node_->element_count - pos - 1;
+        if (right_child) {
+            if (pos + 1 < node_->element_count) {
+                node_->body.branch[pos].key = node_->body.branch[pos + 1].key;
+            }
+            else {
+                node_->body.tail_child = node_->body.branch[node_->element_count - 1].left_child;
+            }
+            if (copy_count > 0) {
+                std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos + 2], (copy_count - 1) * sizeof(node_->body.branch[pos]));
+            }
         }
         else {
-            node_->body.tail_child = node_->body.branch[node_->element_count - 1].left_child;
-        }
-        auto copy_count = node_->element_count - pos - 1;
-        if (copy_count > 0) {
-            std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos + 2], (copy_count - 1) * sizeof(node_->body.branch[pos]));
+            std::memmove(&node_->body.branch[pos], &node_->body.branch[pos + 1], copy_count * sizeof(node_->body.branch[pos]));
         }
         --node_->element_count;
     }
@@ -212,10 +220,19 @@ public:
     }
 
     PageId BranchGetLeftChild(uint16_t pos) {
+        assert(pos <= node_->element_count);
         if (pos == node_->element_count) {
             return node_->body.tail_child;
         }
         return node_->body.branch[pos].left_child;
+    }
+
+    PageId BranchGetRightChild(uint16_t pos) {
+        assert(pos < node_->element_count);
+        if (pos == node_->element_count - 1) {
+            return node_->body.tail_child;
+        }
+        return node_->body.branch[pos + 1].left_child;
     }
 
 

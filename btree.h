@@ -255,7 +255,7 @@ public:
                 right_node->body.tail_child = insert_right_child;
             }
             else {
-                left->BranchInsert(insert_pos, std::move(insert_key), insert_right_child);
+                left->BranchInsert(insert_pos, std::move(insert_key), insert_right_child, true);
             }
         }
 
@@ -286,7 +286,7 @@ public:
             else {
                 noder_key_span = right.SpanCopy(&noder, *key);
             }
-            noder.BranchInsert(0, std::move(noder_key_span), right.page_id());
+            noder.BranchInsert(0, std::move(noder_key_span), right.page_id(), true);
             return;
         }
         
@@ -307,7 +307,7 @@ public:
         //      3       5    7 
         // 1 2     3 4     5    7 8
         if (noder.node()->element_count < max_leaf_element_count_) {
-            noder.BranchInsert(pos, std::move(noder_key_span), right.page_id());
+            noder.BranchInsert(pos, std::move(noder_key_span), right.page_id(), true);
             return;
         }
 
@@ -346,13 +346,13 @@ public:
 
         bool left_sibling = false;
         PageId sibling_pgid;
-        if (parent_pgid == parent_node->body.tail_child) {
+        if (parent_pos == parent_node->element_count) {
             // 是父节点中最大的元素，只能选择左兄弟节点
             left_sibling = true;
-            sibling_pgid = parent_node->body.branch[parent_pos - 1].left_child;
+            sibling_pgid = parent.BranchGetLeftChild(parent_pos - 1);
         }
         else {
-            sibling_pgid = parent.BranchGetLeftChild(parent_pos + 1);
+            sibling_pgid = parent.BranchGetRightChild(parent_pos);
         }
 
         Noder sibling{ this, sibling_pgid };
@@ -365,31 +365,73 @@ public:
     /*
     * 分支节点的删除
     */
-    void Delete(Iterator* iter, Noder&& noder, uint16_t del_pos) {
+    void Delete(Iterator* iter, Noder&& noder, uint16_t left_del_pos) {
         auto node = noder.node();
 
-        noder.BranchDelete(del_pos);
+        noder.BranchDelete(left_del_pos, true);
         if (node->element_count >= (max_branch_element_count_ >> 1)) {
             return;
         }
-        assert(node->element_count > 2);
-
-        if (!iter->Empty()) {
+        
+        if (iter->Empty()) {
             // 如果没有父节点
-            // 是分支节点则判断是否没有任何子节点了，是则变更余下最后一个子节点为根节点，否则直接结束
+            // 判断是否没有任何子节点了，是则变更余下最后一个子节点为根节点
+            if (node->element_count == 0) {
+                auto old_root = root_pgid_;
+                root_pgid_ = node->body.tail_child;
+                pager_->Free(old_root, 1);
+            }
             return;
         }
 
+        assert(node->element_count > 1);
+
         auto [parent, parent_pos, sibling, left_sibling] = GetSibling(iter);
+        if (left_sibling) --parent_pos;
         auto sibling_node = sibling.node();
+        auto parent_node = parent.node();
         if (sibling_node->element_count > (max_leaf_element_count_ >> 1)) {
             // 若兄弟节点内元素数充足
             if (left_sibling) {
-                // 左兄弟节点的末尾元素上升到父节点的头部
+                // 左兄弟节点的末尾元素上升到父节点指定位置
                 // 父节点的对应元素下降到当前节点的头部
                 // 上升元素其右子节点挂在下降的父节点元素的左侧
+
+                //                                27
+                //      12          17                               37
+                // 1 5      10 15       20 25                30 35         40 45
+
+                //                       17
+                //      12                                    27            37
+                // 1 5      10 15                    20 25         30 35         40 45
+                auto parent_key = parent.SpanMove(&noder, std::move(parent_node->body.branch[parent_pos].key));
+                auto sibling_key = sibling.SpanMove(&parent, std::move(sibling_node->body.branch[sibling_node->element_count].key));
+                
+                noder.BranchInsert(0, std::move(parent_key), sibling_node->body.tail_child, false);
+                sibling.BranchDelete(sibling_node->element_count - 1, true);
+                
+                parent_node->body.branch[parent_pos].key = std::move(sibling_key);
             }
             else {
+                // 右兄弟节点的头元素上升到父节点的指定位置
+                // 父节点的对应元素下降到当前节点的尾部
+                // 上升元素其左子节点挂在下降的父节点元素的右侧
+
+                //                       17
+                //      12                                    27            37
+                // 1 5      10 15                    20 25         30 35         40 45
+
+                //                                27
+                //      12          17                               37
+                // 1 5      10 15       20 25                30 35         40 45
+
+                auto parent_key = parent.SpanMove(&noder, std::move(parent_node->body.branch[parent_pos].key));
+                auto sibling_key = sibling.SpanMove(&parent, std::move(sibling_node->body.branch[0].key));
+
+                noder.BranchInsert(node->element_count, std::move(parent_key), sibling_node->body.branch[0].left_child, true);
+                sibling.BranchDelete(0, false);
+
+                parent_node->body.branch[parent_pos].key = std::move(sibling_key);
 
             }
             return;
@@ -427,16 +469,16 @@ public:
         if (node->element_count >= (max_leaf_element_count_ >> 1)) {
             return;
         }
-        assert(node->element_count > 2);
-
+        
         iter->Pop();
-        if (!iter->Empty()) {
+        if (iter->Empty()) {
             // 如果没有父节点
             // 是叶子节点就跳过
             return;
         }
         
         auto [parent, parent_pos, sibling, left_sibling] = GetSibling(iter);
+        if (left_sibling) --parent_pos;
         auto parent_node = parent.node();
         auto sibling_node = sibling.node();
 
@@ -446,11 +488,13 @@ public:
             if (left_sibling) {
                 // 左兄弟节点的末尾的元素插入到当前节点的头部
                 // 更新父元素key为当前节点的新首元素key
-                auto key = sibling.SpanMove(&noder, std::move(sibling_node->body.leaf[--sibling_node->element_count].key));
-                auto value = sibling.SpanMove(&noder, std::move(sibling_node->body.leaf[sibling_node->element_count].value));
+                auto key = sibling.SpanMove(&noder, std::move(sibling_node->body.leaf[sibling_node->element_count - 1].key));
+                auto value = sibling.SpanMove(&noder, std::move(sibling_node->body.leaf[sibling_node->element_count - 1].value));
+                sibling.LeafDelete(sibling_node->element_count - 1);
 
                 new_key = noder.SpanCopy(&parent, key);
                 noder.LeafInsert(0, std::move(key), std::move(value));
+                
             }
             else {
                 // 右兄弟节点的头部的元素插入到当前节点的尾部
@@ -469,13 +513,11 @@ public:
 
         // 合并
         if (left_sibling) {
-            Merge(std::move(noder), std::move(sibling));
-        }
-        else {
             Merge(std::move(sibling), std::move(noder));
         }
-
-        // 处理父节点的指向右节点的指针
+        else {
+            Merge(std::move(noder), std::move(sibling));
+        }
 
         // 向上删除父元素
         Delete(iter, std::move(parent), parent_pos);

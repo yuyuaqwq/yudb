@@ -83,15 +83,15 @@ int main() {
 
     srand(10);
 
-    auto count = 1000000;
+    auto count = 20;
     std::vector<int> arr(count);
 
     for (auto i = 0; i < count; i++) {
         arr[i] = i;
     }
-    //for (auto i = 0; i < count; i++) {
-    //    std::swap(arr[rand() % count], arr[rand() % count]);
-    //}
+    for (auto i = 0; i < count; i++) {
+        std::swap(arr[rand() % count], arr[rand() % count]);
+    }
     for (auto i = 0; i < count; i++) {
         tx.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
 
@@ -100,13 +100,40 @@ int main() {
         //printf("\n\n\n\n\n");
     }
     
-    //tx.Print();
-    //printf("\n\n\n\n\n");
-
+    if (count <= 100) {
+        tx.Print();
+        printf("\n\n\n\n\n");
+    }
     for (auto i = 0; i < count; i++) {
         auto res = tx.Get(&arr[i], sizeof(arr[i]));
         assert(res);
         //printf("%d %d\n\n", i, arr[i]);
+    }
+    auto k = 0x0f;
+    tx.Delete(&k, sizeof(k));
+    k = 0x11;
+    tx.Delete(&k, sizeof(k));
+    if (count <= 100) {
+        tx.Print();
+        printf("\n\n\n\n\n");
+    }
+    k = 0x12;
+    tx.Delete(&k, sizeof(k));
+    if (count <= 100) {
+        tx.Print();
+        printf("\n\n\n\n\n");
+    }
+    k = 0x13;
+    tx.Delete(&k, sizeof(k));
+    if (count <= 100) {
+        tx.Print();
+        printf("\n\n\n\n\n");
+    }
+    k = 0x10;
+    tx.Delete(&k, sizeof(k));
+    if (count <= 100) {
+        tx.Print();
+        printf("\n\n\n\n\n");
     }
     //tx.Put("world", "qvq");
 

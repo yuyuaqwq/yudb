@@ -31,6 +31,11 @@ public:
         return btree_->Get(key_span);
     }
 
+    bool Delete(const void* key_buf, size_t key_size) {
+        std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
+        return btree_->Delete(key_span);
+    }
+
     void Print() {
         btree_->Print();
     }
