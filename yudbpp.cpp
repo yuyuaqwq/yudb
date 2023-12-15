@@ -83,39 +83,60 @@ int main() {
 
     srand(10);
 
-    auto count = 40;
+    auto count = 100000;
     std::vector<int> arr(count);
+
+    //if (count <= 100) {
+    //    tx.Print();
+    //    printf("\n\n\n\n\n");
+    //}
 
     for (auto i = 0; i < count; i++) {
         arr[i] = i;
     }
     for (auto i = 0; i < count; i++) {
-        std::swap(arr[rand() % count], arr[rand() % count]);
-    }
-    for (auto i = 0; i < count; i++) {
         tx.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-
-        //printf("%d %d\n\n", i, arr[i]);
-        //tx.Print();
-        //printf("\n\n\n\n\n");
-    }
-    
-    if (count <= 100) {
-        tx.Print();
-        printf("\n\n\n\n\n");
     }
     for (auto i = 0; i < count; i++) {
         auto res = tx.Get(&arr[i], sizeof(arr[i]));
         assert(res);
-        //printf("%d %d\n\n", i, arr[i]);
+    }
+    for (auto i = 0; i < count; i++) {
+        auto res = tx.Delete(&arr[i], sizeof(arr[i]));
+        assert(res);
     }
 
-    for (auto i = count-1; i >= 0; i--) {
-        auto k = i;
-        tx.Delete(&k, sizeof(k));
-        tx.Print();
-        printf("\n\n\n\n\n");
+    for (auto i = count - 1; i >= 0; i--) {
+        tx.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
     }
+    for (auto i = count - 1; i >= 0; i--) {
+        auto res = tx.Get(&arr[i], sizeof(arr[i]));
+        assert(res);
+    }
+    for (auto i = count - 1; i >= 0; i--) {
+        auto res = tx.Delete(&arr[i], sizeof(arr[i]));
+        assert(res);
+    }
+
+
+    for (auto i = 0; i < count; i++) {
+        std::swap(arr[rand() % count], arr[rand() % count]);
+    }
+
+    for (auto i = 0; i < count; i++) {
+        tx.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+    }
+    for (auto i = 0; i < count; i++) {
+        auto res = tx.Get(&arr[i], sizeof(arr[i]));
+        assert(res);
+    }
+    for (auto i = 0; i < count; i++) {
+        auto res = tx.Delete(&arr[i], sizeof(arr[i]));
+        assert(res);
+    }
+
+    tx.Print();
+    printf("\n\n\n\n\n");
     auto k = 0;
     tx.Delete(&k, sizeof(k));
     //auto k = 0x0f;

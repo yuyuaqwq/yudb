@@ -378,7 +378,7 @@ public:
             return;
         }
 
-        assert(node->element_count > 1);
+        assert(node->element_count > 0);
 
         auto [parent, parent_pos, sibling, left_sibling] = GetSibling(iter);
         if (left_sibling) --parent_pos;
@@ -484,6 +484,8 @@ public:
             return;
         }
         
+        assert(node->element_count > 1);
+
         auto [parent, parent_pos, sibling, left_sibling] = GetSibling(iter);
         if (left_sibling) --parent_pos;
         auto parent_node = parent.node();
@@ -511,7 +513,7 @@ public:
                 sibling.LeafDelete(0);
 
                 new_key = sibling.SpanCopy(&parent, sibling_node->body.leaf[0].key);
-                noder.LeafInsert(node->element_count - 1, std::move(key), std::move(value));
+                noder.LeafInsert(node->element_count, std::move(key), std::move(value));
             }
             parent.SpanFree(std::move(parent_node->body.branch[parent_pos].key));
             parent_node->body.branch[parent_pos].key = new_key;

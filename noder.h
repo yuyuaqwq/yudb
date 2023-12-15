@@ -150,6 +150,7 @@ public:
     }
 
     void LeafInsert(uint16_t pos, Span&& key, Span&& value) {
+        assert(pos <= node_->element_count);
         std::memmove(&node_->body.leaf[pos + 1], &node_->body.leaf[pos], (node_->element_count - pos) * sizeof(node_->body.leaf[pos]));
         node_->body.leaf[pos].key = std::move(key);
         node_->body.leaf[pos].value = std::move(value);
@@ -172,6 +173,7 @@ public:
     }
 
     void BranchInsert(uint16_t pos, Span&& key, PageId child, bool right_child) {
+        assert(pos <= node_->element_count);
         if (right_child) {
             if (pos == node_->element_count) {
                 node_->body.branch[pos].left_child = node_->body.tail_child;
@@ -252,8 +254,6 @@ public:
     Iterator begin() { return Iterator{ node_, 0 }; }
     Iterator end() { return Iterator{ node_, node_->element_count }; }
 
-private:
-    
 
 private:
     friend class Overflower;
