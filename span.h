@@ -27,13 +27,13 @@ struct Span {
         struct {
             Type type : 2;
             uint16_t size : 14;
-            uint16_t overflow_index;
+            uint16_t record_index;
             PageOffset offset;
         } block;
         struct {
             Type type : 2;
             uint16_t size : 14;
-            uint16_t overflow_index;
+            uint16_t record_index;
             PageOffset offset;
         } page_record;
     };

@@ -4,23 +4,28 @@
 
 namespace yudb {
 
-#pragma pack(push, 1)
-struct Overflow {
-    struct Element {
-        PageId pgid;
-        PageOffset free_list;
-        uint16_t max_free_size;
+constexpr PageOffset kFreeInvalidPos = 0xffff;
 
-        void Init(PageId new_pgid, PageOffset new_free_list, uint16_t new_max_free_size) {
-            pgid = new_pgid;
-            free_list = new_free_list;
-            max_free_size = new_max_free_size;
-        }
+#pragma pack(push, 1)
+struct FreeList{
+    struct Block {
+        PageOffset next;
+        uint16_t size;
     };
 
-    PageId pgid;
-    PageOffset offset;
-    uint16_t element_count;
+    PageOffset first;
+    uint16_t max_free_size;
+};
+
+struct Overflow {
+    struct Record {
+        PageId pgid;
+        FreeList free_list;
+    };
+
+    PageId record_pgid;
+    PageOffset record_offset;
+    uint16_t record_count;
 };
 #pragma pack(pop)
 

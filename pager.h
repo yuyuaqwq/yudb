@@ -25,6 +25,9 @@ public:
     PageCount page_count() { return page_count_; }
     void set_page_count(PageCount page_count) { page_count_ = page_count; }
 
+    /*
+    * 非线程安全，仅写事务使用
+    */
     void Read(PageId pgid, void* cache, PageCount count);
 
     void Write(PageId pgid, void* cache, PageCount count);
@@ -39,6 +42,7 @@ public:
 
     }
 
+    // 线程安全
     PageReferencer Reference(PageId pgid) {
         auto page_cache = cacher_.Reference(pgid);
         return PageReferencer{ this, page_cache };

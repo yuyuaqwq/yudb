@@ -26,9 +26,13 @@ public:
         Put(key.data(), key.size(), value.data(), value.size());
     }
 
-    bool Get(const void* key_buf, size_t key_size) {
+    BTree::Iterator Get(const void* key_buf, size_t key_size) {
         std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
         return btree_->Get(key_span);
+    }
+
+    BTree::Iterator Get(std::string_view key) {
+        return Get(key.data(), key.size());
     }
 
     bool Delete(const void* key_buf, size_t key_size) {
@@ -39,6 +43,16 @@ public:
     void Print() {
         btree_->Print();
     }
+
+
+    BTree::Iterator begin() noexcept {
+        return btree_->begin();
+    }
+
+    BTree::Iterator end() noexcept {
+        return btree_->end();
+    }
+
 
 private:
     Txer* txer_;

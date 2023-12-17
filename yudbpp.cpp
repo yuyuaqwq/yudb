@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <thread>
+#include <map>
 #include <chrono>
 #include <algorithm>
 
@@ -46,39 +47,7 @@ void TestLru() {
 
 }
 
-void TestFreer() {
-    //yudb::Pager pager{ nullptr, 4096 };
-    //yudb::Freer freer{ &pager };
-    //auto test = freer.Alloc(100);
-}
-
-int main() {
-    //std::vector<int> vec = { -5, -3, -1, 2, 4, 6 };
-
-    //// 在使用 std::lower_bound 之前，确保容器已经排序
-    //std::sort(vec.begin(), vec.end());
-
-    //// 使用自定义比较函数进行查找
-    //auto it = std::lower_bound(vec.begin(), vec.end(), "abc", [](int a, const char* b) -> bool {
-    //    return true;
-    //});
-
-    //if (it != vec.end()) {
-    //    std::cout << "Found at index: " << std::distance(vec.begin(), it) << '\n';
-    //}
-    //else {
-    //    std::cout << "Not found!\n";
-    //}
-
-
-
-    auto db = yudb::Db::Open("Z:/test.ydb");
-    if (!db) {
-        std::cout << "yudb::Db::Open failed!\n";
-        return -1;
-    }
-
-    
+void TestBTree(yudb::Db* db) {
     auto tx = db->Begin();
 
     srand(10);
@@ -139,36 +108,58 @@ int main() {
     printf("\n\n\n\n\n");
     auto k = 0;
     tx.Delete(&k, sizeof(k));
-    //auto k = 0x0f;
-    //tx.Delete(&k, sizeof(k));
-    //k = 0x11;
-    //tx.Delete(&k, sizeof(k));
-    //tx.Print();
-    //printf("\n\n\n\n\n");
-    //k = 0x12;
-    //tx.Delete(&k, sizeof(k));
-    //tx.Print();
-    //printf("\n\n\n\n\n");
-    //k = 0x13;
-    //tx.Delete(&k, sizeof(k));
-    //tx.Print();
-    //printf("\n\n\n\n\n");
-    //k = 0x10;
-    //tx.Delete(&k, sizeof(k));
-    //tx.Print();
-    //printf("\n\n\n\n\n");
-    //tx.Put("world", "qvq");
+}
 
-    //tx.Put("hello", "emm");
-    //tx.Put("world", "qvq");
+void TestOverflower(yudb::Db* db) {
+    auto tx = db->Begin();
+
+    tx.Put("hello world!", "Cpp yyds!");
+    tx.Put("This is yudb", "value!");
+    tx.Put("123", "123");
+    tx.Put("456", "456");
+    tx.Put("789", "789");
+    tx.Put("abc", "abc");
+    auto res = tx.Get("hello world!");
+
+    for (auto& iter : tx) {
+        auto key = iter.key();
+        auto value = iter.value();
+        std::cout << std::string_view{ reinterpret_cast<char*>(key.data()), key.size() } << ":";
+        std::cout << std::string_view{ reinterpret_cast<char*>(value.data()), value.size() } << std::endl;
+    }
+    
+}
+
+void TestFreer() {
+    //yudb::Pager pager{ nullptr, 4096 };
+    //yudb::Freer freer{ &pager };
+    //auto test = freer.Alloc(100);
+}
+
+int main() {
+
+    std::list<int> aa;
+    aa.begin();
+    
+
+    auto db = yudb::Db::Open("Z:/test.ydb");
+    if (!db) {
+        std::cout << "yudb::Db::Open failed!\n";
+        return -1;
+    }
+
+    TestOverflower(db.get());
+
+    //TestBTree(db.get());
+
     
     //TestFreer();
 
-    printf("emm");
+    //printf("emm");
     //std::this_thread::sleep_for(std::chrono::seconds(10));
     //TestLru();
 
-    std::cout << "Hello World!\n";
+    //std::cout << "Hello World!\n";
 }
 
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单

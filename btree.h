@@ -22,22 +22,31 @@ class BTree {
 public:
     class Iterator {
     public:
+        using iterator_category = std::bidirectional_iterator_tag;
+
+        using value_type = typename Iterator;
+        using difference_type = typename std::ptrdiff_t;
+        using pointer = typename Iterator*;
+        using reference = const value_type&;
+
+
         typedef enum class Status {
             kDown,
             kNext,
             kEnd,
         };
 
-        typedef enum class CompResults {
+        typedef enum class CompResult {
+            kInvalid,
             kEq,
-            kNe,
+            kGt,
+            kLt,
         };
 
     public:
         Iterator(BTree* btree) : btree_{ btree } {}
 
         Status Top(std::span<const uint8_t> key) {
-            comp_results_ = CompResults::kNe;
             return Down(key);
         }
 
@@ -64,23 +73,24 @@ public:
             // 在节点中进行二分查找
             uint16_t index;
             if (node->element_count > 0) {
-                comp_results_ = CompResults::kNe;
                 auto iter = std::lower_bound(noder.begin(), noder.end(), key, [&](const Span& span, std::span<const uint8_t> search_key) -> bool {
-                    auto [buf, size] = noder.SpanLoad(span);
+                    auto [buf, size, ref] = noder.SpanLoad(span);
                     auto res = memcmp(buf, search_key.data(), std::min(size, search_key.size()));
                     if (res == 0 && size != search_key.size()) {
-                        return size < search_key.size();
+                        comp_result_ = size < search_key.size() ? CompResult::kLt : CompResult::kGt;
+                        return comp_result_ == CompResult::kLt;
                     }
                     if (res != 0) {
-                        return res < 0;
+                        comp_result_ = res < 0 ? CompResult::kLt : CompResult::kGt;
+                        return comp_result_ == CompResult::kLt;
                     }
                     else {
-                        comp_results_ = CompResults::kEq;
+                        comp_result_ = CompResult::kEq;
                         return false;
                     }
                 });
                 index = iter.index();
-                if (comp_results_ == CompResults::kEq && noder.IsBranch()) {
+                if (comp_result_ == CompResult::kEq && noder.IsBranch()) {
                     ++index;
                 }
             }
@@ -91,24 +101,179 @@ public:
             return Status::kDown;
         }
 
-        std::pair<PageId, uint16_t> Cur() {
+        std::pair<PageId, uint16_t>& Cur() {
             return stack_.front();
         }
+
+        const std::pair<PageId, uint16_t>& Cur() const {
+            return stack_.front();
+        }
+
+
+        //decltype(auto) Cur() {
+        //    return stack_.front();
+        //}
+
 
         void Pop() {
             stack_.pop_back();
         }
 
-        bool Empty() {
+        bool Empty() const {
             return stack_.empty();
         }
 
-        CompResults comp_results() { return comp_results_; }
+
+        reference operator*() const noexcept {
+            return *this;
+        }
+
+        pointer operator->() noexcept {
+            return this;
+        }
+
+        const Iterator* operator->() const noexcept {
+            return this;
+        }
+
+        Iterator& operator++() noexcept {
+            Next();
+            return *this;
+        }
+
+        Iterator operator++(int) noexcept {
+            Iterator tmp = *this;
+            tmp.Next();
+            return tmp;
+        }
+
+        Iterator& operator--() noexcept {
+            Prev();
+            return *this;
+        }
+
+        Iterator operator--(int) noexcept {
+            Iterator tmp = *this;
+            tmp.Prev();
+            return tmp;
+        }
+
+        bool operator==(const Iterator& right) const noexcept {
+            if (Empty() || right.Empty()) {
+                return Empty() && right.Empty();
+            }
+            auto& [pgid, index] = Cur();
+            auto& [pgid2, index2] = right.Cur();
+            return btree_ == right.btree_ && pgid == pgid2 && index == index2;
+        }
+
+
+        CompResult comp_result() { return comp_result_; }
+
+
+
+        std::vector<uint8_t> key() const {
+            auto [pgid, index] = Cur();
+            Noder noder{ btree_, pgid };
+            if (!noder.IsLeaf()) {
+                throw std::runtime_error("not pointing to valid data");
+            }
+            auto [buf, size, ref] = noder.SpanLoad(noder.node()->body.leaf[index].key);
+            std::vector<uint8_t> res(size);
+            memcpy(&res[0], buf, size);
+            return res;
+        }
+
+        std::vector<uint8_t> value() const {
+            auto [pgid, index] = Cur();
+            Noder noder{ btree_, pgid };
+            if (!noder.IsLeaf()) {
+                throw std::runtime_error("not pointing to valid data");
+            }
+            auto [buf, size, ref] = noder.SpanLoad(noder.node()->body.leaf[index].value);
+            std::vector<uint8_t> res(size);
+            memcpy(&res[0], buf, size);
+            return res;
+        }
 
     private:
+        void First(PageId pgid) {
+            do {
+                Noder noder{ btree_, pgid };
+                auto node = noder.node();
+                if (noder.IsLeaf()) {
+                    break;
+                }
+                assert(node->element_count > 0);
+                pgid = node->body.branch[0].left_child;
+                stack_.push_back({ pgid, 0 });
+            } while (true);
+            Noder noder{ btree_, pgid };
+            auto node = noder.node();
+            stack_.push_back({ pgid, 0 });
+        }
+
+        void Last(PageId pgid) {
+            do {
+                Noder noder{ btree_, pgid };
+                auto node = noder.node();
+                if (noder.IsLeaf()) {
+                    break;
+                }
+                assert(node->element_count > 0);
+                pgid = node->body.branch[node->element_count - 1].left_child;
+                stack_.push_back({ pgid, node->element_count - 1 });
+            } while (true);
+            Noder noder{ btree_, pgid };
+            auto node = noder.node();
+            stack_.push_back({ pgid, node->element_count - 1 });
+        }
+
+        void Next() {
+            do {
+                auto& [pgid, index] = Cur();
+                Noder noder{ btree_, pgid };
+                auto node = noder.node();
+
+                if (++index < node->element_count) {
+                    if (noder.IsLeaf()) {
+                        return;
+                    }
+                    First(node->body.branch[index].left_child);
+                    return;
+                }
+                if (noder.IsBranch() && index == node->element_count) {
+                    First(node->body.tail_child);
+                    return;
+                }
+                Pop();
+            } while (!Empty());
+        }
+
+        void Prev() {
+            do {
+                auto& [pgid, index] = Cur();
+                Noder noder{ btree_, pgid };
+                auto node = noder.node();
+
+                if (index > 0) {
+                    --index;
+                    if (noder.IsLeaf()) {
+                        return;
+                    }
+                    Last(node->body.branch[index].left_child);
+                    return;
+                }
+                Pop();
+            } while (!Empty());
+        }
+
+    private:
+        friend class BTree;
+
         BTree* btree_;
         detail::Stack<std::pair<PageId, uint16_t>, 8> stack_;       // 索引必定是小于等于搜索时key的节点
-        CompResults comp_results_{ CompResults::kNe };
+        CompResult comp_result_{ CompResult::kInvalid };
     };
 
 public:
@@ -187,7 +352,7 @@ public:
         Noder noder{ this, pgid };
         auto key_span = noder.SpanAlloc(key);
         auto value_span = noder.SpanAlloc(value);
-        if (iter->comp_results() == Iterator::CompResults::kEq) {
+        if (iter->comp_result() == Iterator::CompResult::kEq) {
             noder.LeafSet(pos, std::move(key_span), std::move(value_span));
             return;
         }
@@ -328,13 +493,16 @@ public:
 
 
 
-    bool Get(std::span<const uint8_t> key) {
+    Iterator Get(std::span<const uint8_t> key) {
         Iterator iter{ this };
         auto status = iter.Top(key);
         while (status == Iterator::Status::kDown) {
             status = iter.Down(key);
         }
-        return iter.comp_results() == Iterator::CompResults::kEq;
+        if (iter.comp_result() != Iterator::CompResult::kEq) {
+            return Iterator{ this };
+        }
+        return iter;
     }
 
 
@@ -538,11 +706,22 @@ public:
         while (status == Iterator::Status::kDown) {
             status = iter.Down(key);
         }
-        if (iter.comp_results() != Iterator::CompResults::kEq) {
+        if (iter.comp_result() != Iterator::CompResult::kEq) {
             return false;
         }
         Delete(&iter, key);
         return true;
+    }
+
+
+    Iterator begin() noexcept {
+        Iterator iter { this };
+        iter.First(root_pgid_);
+        return iter;
+    }
+
+    Iterator end() noexcept {
+        return Iterator{ this };
     }
 
 
@@ -599,6 +778,22 @@ private:
 
         iter->Pop();
         return { std::move(parent), parent_pos, std::move(sibling), left_sibling };
+    }
+
+    void PathPageCopy(Iterator* iter) {
+        auto new_pgid = kPageInvalidId;
+        while (!iter->Empty()) {
+            auto [pgid, index] = iter->Cur();
+            
+            new_pgid = pager_->Alloc(1);
+            auto new_page = pager_->Reference(new_pgid);
+            auto new_cache = new_page.page_cache();
+
+            auto page = pager_->Reference(pgid);
+            auto cache = page.page_cache();
+
+            memcpy(new_cache, cache, pager_->page_size());
+        }
     }
 
 private:

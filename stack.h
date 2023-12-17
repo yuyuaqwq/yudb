@@ -15,6 +15,10 @@ public:
         return array_[cur_pos_ - 1];
     }
 
+    const T& front() const noexcept {
+        return array_[cur_pos_ - 1];
+    }
+
     constexpr void push_back(const T& value) {
         assert(cur_pos_ < kSize);
         array_[cur_pos_++] = value;
@@ -29,7 +33,7 @@ public:
         cur_pos_ = 0;
     }
 
-    bool empty() {
+    bool empty() const {
         return cur_pos_ == 0;
     }
 

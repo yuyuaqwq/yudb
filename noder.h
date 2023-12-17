@@ -1,8 +1,12 @@
 #pragma once
 
 #include <cassert>
+
 #include <span>
 #include <stdexcept>
+#include <optional>
+#include <variant>
+#include <vector>
 
 #include "noncopyable.h"
 #include "node.h"
@@ -95,8 +99,22 @@ public:
         Span span;
         if (data.size() <= sizeof(Span::embed.data)) {
             span.type = Span::Type::kEmbed;
-            memcpy(span.embed.data, data.data(), data.size());
             span.embed.size = data.size();
+            memcpy(span.embed.data, data.data(), data.size());
+        }
+        else if (data.size() < kPageSize) {
+            auto res = overflower_.Alloc(data.size());
+            if (!res) {
+                throw std::runtime_error("overflower alloc error.");
+            }
+            auto [index, offset] = *res;
+            span.type = Span::Type::kBlock;
+            span.block.record_index = index;
+            span.block.offset = offset;
+            span.block.size = data.size();
+
+            auto [buf, page] = overflower_.Load(span.block.record_index, span.block.offset);
+            memcpy(buf, data.data(), data.size());
         }
         else {
             throw std::runtime_error("unrealized types.");
@@ -105,16 +123,21 @@ public:
     }
 
     void SpanFree(Span&& span) {
-        if (span.type == Span::Type::kEmbed) {
-
+        if (span.type == Span::Type::kEmbed) { }
+        else if (span.type == Span::Type::kBlock) {
+            overflower_.Free({ span.block.record_index, span.block.offset, span.block.size });
         }
+        else {
+            throw std::runtime_error("unrealized types.");
+        }
+        span.type = Span::Type::kInvalid;
     }
 
     /*
     * 将span移动到新节点
     */
     Span SpanMove(Noder* new_noder, Span&& span) {
-        auto [buf, size] = SpanLoad(span);
+        auto [buf, size, ref] = SpanLoad(span);
         auto new_span =  new_noder->SpanAlloc({ buf, size });
         SpanFree(std::move(span));
         return new_span;
@@ -124,19 +147,34 @@ public:
     * 将span拷贝到新节点
     */
     Span SpanCopy(Noder* new_noder, const Span& span) {
-        auto [buf, size] = SpanLoad(span);
+        auto [buf, size, ref] = SpanLoad(span);
         auto new_span = new_noder->SpanAlloc({ buf, size });
         return new_span;
     }
 
-    std::pair<const uint8_t*, size_t> SpanLoad(const Span& span) {
+    std::tuple<const uint8_t*, size_t, std::optional<std::variant<PageReferencer, std::vector<uint8_t>>>>
+    SpanLoad(const Span& span) {
         if (span.type == Span::Type::kEmbed) {
-            return { span.embed.data, span.embed.size };
+            return { span.embed.data, span.embed.size, std::nullopt };
+        }
+        else if (span.type == Span::Type::kBlock) {
+            auto [buf, page] = overflower_.Load(span.block.record_index, span.block.offset);
+            return { buf, span.block.size, std::move(page) };
+        }
+        else {
+            throw std::runtime_error("unrealized types.");
         }
     }
 
 
+    void OverflowInit() {
+        node_->overflow.record_pgid = kPageInvalidId;
+        node_->overflow.record_count = 0;
+    }
+
+
     void LeafBuild() {
+        OverflowInit();
         node_->type = Node::Type::kLeaf;
         node_->element_count = 0;
     }
@@ -168,6 +206,7 @@ public:
 
 
     void BranchBuild() {
+        OverflowInit();
         node_->type = Node::Type::kBranch;
         node_->element_count = 0;
     }
@@ -238,11 +277,11 @@ public:
     }
 
 
-    bool IsLeaf() {
+    bool IsLeaf() const {
         return node_->type == Node::Type::kLeaf;
     }
 
-    bool IsBranch() {
+    bool IsBranch() const {
         return node_->type == Node::Type::kBranch;
     }
 
