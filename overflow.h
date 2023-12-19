@@ -4,6 +4,7 @@
 
 namespace yudb {
 
+constexpr uint16_t kRecordInvalidIndex = 0xffff;
 constexpr PageOffset kFreeInvalidPos = 0xffff;
 
 #pragma pack(push, 1)
@@ -25,6 +26,7 @@ struct Overflow {
 
     PageId record_pgid;
     PageOffset record_offset;
+    uint16_t record_index;
     uint16_t record_count;
 };
 #pragma pack(pop)

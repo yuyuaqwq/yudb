@@ -35,6 +35,9 @@ public:
     PageId Alloc(PageCount count) {
         PageId pgid = page_count_;
         page_count_ += count;
+        auto [cache_info, page_cache] = cacher_.Reference(pgid);
+        cache_info->dirty = true;
+        cacher_.Dereference(page_cache);
         return pgid;
     }
 
@@ -44,7 +47,7 @@ public:
 
     // 线程安全
     PageReferencer Reference(PageId pgid) {
-        auto page_cache = cacher_.Reference(pgid);
+        auto [cache_info, page_cache] = cacher_.Reference(pgid);
         return PageReferencer{ this, page_cache };
     }
 

@@ -17,38 +17,40 @@ static PageSize Alignment(PageSize size) {
 }
 
 
-void Overflower::RecordBuild(Overflow::Record* record,
+void Overflower::RecordBuild(Record* record_element,
     PageReferencer* page,
     uint16_t header_block_size
 ) {
     header_block_size = Alignment(header_block_size);
 
-    record->pgid = page->page_id();
+    record_element->pgid = page->page_id();
     if (header_block_size < noder_->pager_->page_size()) {
         assert(header_block_size + sizeof(Overflow::Record) <= noder_->pager_->page_size());
 
-        record->free_list.first = header_block_size;
-        record->free_list.max_free_size = noder_->pager_->page_size() - header_block_size;
+        record_element->free_list.first = header_block_size;
+        record_element->free_list.max_free_size = noder_->pager_->page_size() - header_block_size;
 
         auto cache = page->page_cache();
 
         auto block = reinterpret_cast<Block*>(&cache[header_block_size]);
         block->next = kFreeInvalidPos;
-        block->size = record->free_list.max_free_size;
+        block->size = record_element->free_list.max_free_size;
     }
     else {
         assert(header_block_size == noder_->pager_->page_size());
 
-        record->free_list.first = kFreeInvalidPos;
-        record->free_list.max_free_size = 0;
+        record_element->free_list.first = kFreeInvalidPos;
+        record_element->free_list.max_free_size = 0;
     }
 }
 
 
 void Overflower::OverflowBuild() {
     overflow_->record_pgid = noder_->pager_->Alloc(1);
+    overflow_->record_index = 0;
     overflow_->record_offset = 0;
     overflow_->record_count = 1;
+
     auto page = noder_->pager_->Reference(overflow_->record_pgid);
     auto cache = page.page_cache();
 
@@ -59,44 +61,67 @@ void Overflower::OverflowBuild() {
 void Overflower::OverflowAppend(PageReferencer* record_page) {
     auto pager = noder_->pager_;
 
-    // 保存原始overflow_record数组
-    std::vector<Record> record_arr;
+    auto new_pgid = pager->Alloc(1);
+    auto new_page = pager->Reference(new_pgid);
+
     auto block_arr_size = sizeof(Record) * overflow_->record_count;
-    memcpy(record_arr.data(), 
+    // 即将被释放，保存overflow_record数组
+    std::vector<Record> temp_record_arr{ overflow_->record_count };
+    memcpy(temp_record_arr.data(), 
         &record_page->page_cache()[overflow_->record_offset], 
         block_arr_size
     );
-    Free({ overflow_->record_pgid, overflow_->record_offset, block_arr_size });
-
+    // 自此开始先使用保存的overflow_record数组
+    Free({ overflow_->record_index, overflow_->record_offset, block_arr_size }, &temp_record_arr[overflow_->record_index]);
     block_arr_size += sizeof(Record);
     assert(block_arr_size <= pager->page_size());
-    auto record_alloc = Alloc(block_arr_size, false);
-    if (!record_alloc) {
-        // 当前的空闲overflow空间不足以扩展overflow数组了，新分配新页存放
-        auto new_pgid = pager->Alloc(1);
-        auto new_page = pager->Reference(new_pgid);
+    auto record_alloc = Alloc(block_arr_size, temp_record_arr.data());
 
+    Record* record_arr;
+    uint16_t header_block_size;
+    if (!record_alloc) {
+        // 分配失败则使用新页面
         overflow_->record_pgid = new_pgid;
+        overflow_->record_index = overflow_->record_count;
         overflow_->record_offset = 0;
 
-        memcpy(new_page.page_cache(), record_arr.data(), block_arr_size - sizeof(Record));
-        auto record_arr = reinterpret_cast<Record*>(new_page.page_cache());
-        auto& tail_overflow_record = record_arr[overflow_->record_count - 1];
-        RecordBuild(&tail_overflow_record,
-            &new_page,
-            block_arr_size
-        );
+        record_arr = reinterpret_cast<Record*>(new_page.page_cache());
+        header_block_size = block_arr_size;
     }
     else {
-        overflow_->record_pgid = record_alloc->first;
+        overflow_->record_index = record_alloc->first;
         overflow_->record_offset = record_alloc->second;
+        overflow_->record_pgid = temp_record_arr[overflow_->record_index].pgid;
+        auto page = pager->Reference(overflow_->record_pgid);
+
+        record_arr = reinterpret_cast<Record*>(&page.page_cache()[overflow_->record_offset]);
+        header_block_size = 0;
     }
+    memcpy(record_arr, temp_record_arr.data(), block_arr_size - sizeof(Record));
+
+    auto& tail_overflow_record = record_arr[overflow_->record_count];
+    RecordBuild(&tail_overflow_record,
+        &new_page,
+        header_block_size
+    );
     ++overflow_->record_count;
-    
+}
+
+void Overflower::RecordUpdateMaxFreeSize(Overflow::Record* record, uint8_t* cache) {
+    auto max_free_size = 0;
+    auto cur_pos = record->free_list.first;
+    while (cur_pos != kFreeInvalidPos) {
+        auto free_block = reinterpret_cast<Block*>(&cache[cur_pos]);
+        if (free_block->size > max_free_size) {
+            max_free_size = free_block->size;
+        }
+        cur_pos = free_block->next;
+    }
+    record->free_list.max_free_size = max_free_size;
 }
 
 
-std::optional<std::pair<uint16_t, PageOffset>> Overflower::Alloc(PageSize size, bool alloc_new_page) {
+std::optional<std::pair<uint16_t, PageOffset>> Overflower::Alloc(PageSize size, Record* record_arr) {
     auto pager = noder_->pager_;
     
     size = Alignment(size);
@@ -109,7 +134,11 @@ std::optional<std::pair<uint16_t, PageOffset>> Overflower::Alloc(PageSize size, 
     auto cache = page.page_cache();
 
     PageOffset ret_offset = 0;
-    auto record_arr = reinterpret_cast<Record*>(&cache[overflow_->record_offset]);
+    bool alloc_new_page = false;
+    if (!record_arr) {
+        alloc_new_page = true;
+        record_arr = reinterpret_cast<Record*>(&cache[overflow_->record_offset]);
+    }
     for (uint16_t i = 0; i < overflow_->record_count; i++) {
         if (record_arr[i].free_list.max_free_size >= size) {
             assert(record_arr[i].free_list.first != kFreeInvalidPos);
@@ -151,21 +180,9 @@ std::optional<std::pair<uint16_t, PageOffset>> Overflower::Alloc(PageSize size, 
                 prev_block->next = new_pos;
             }
 
-            auto ret_offset = cur_pos;
+            RecordUpdateMaxFreeSize(&record_arr[i], alloc_cache);
 
-            // 更新最大块
-            auto max_free_size = 0;
-            cur_pos = record_arr[i].free_list.first;
-            while (cur_pos != kFreeInvalidPos) {
-                free_block = reinterpret_cast<Block*>(&alloc_cache[cur_pos]);
-                if (free_block->size > max_free_size) {
-                    max_free_size = free_block->size;
-                }
-                cur_pos = free_block->next;
-            }
-            record_arr[i].free_list.max_free_size = max_free_size;
-
-            return std::pair{ i, ret_offset };
+            return std::pair{ i, cur_pos };
         }
     }
     if (!alloc_new_page) return {};
@@ -176,7 +193,7 @@ std::optional<std::pair<uint16_t, PageOffset>> Overflower::Alloc(PageSize size, 
     return Alloc(size);
 }
 
-void Overflower::Free(const std::tuple<uint16_t, PageOffset, PageSize>& block) {
+void Overflower::Free(const std::tuple<uint16_t, PageOffset, PageSize>& block, Record* temp_record_element) {
     auto pager = noder_->pager_;
 
     auto page = pager->Reference(overflow_->record_pgid);
@@ -237,10 +254,13 @@ void Overflower::Free(const std::tuple<uint16_t, PageOffset, PageSize>& block) {
     free_block->next = record_arr[record_index].free_list.first;
     free_block->size = free_size;
 
-    if (free_size > record_arr[record_index].free_list.max_free_size) {
-        record_arr[record_index].free_list.max_free_size = free_size;
+    if (!temp_record_element) {
+        temp_record_element = &record_arr[record_index];
     }
-    record_arr[record_index].free_list.first = free_pos;
+    temp_record_element->free_list.first = free_pos;
+    if (free_size > temp_record_element->free_list.max_free_size) {
+        temp_record_element->free_list.max_free_size = free_size;
+    }
 }
 
 std::pair<uint8_t*, PageReferencer> Overflower::Load(uint16_t record_index, PageOffset offset) {

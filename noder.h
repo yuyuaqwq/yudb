@@ -169,6 +169,7 @@ public:
 
     void OverflowInit() {
         node_->overflow.record_pgid = kPageInvalidId;
+        node_->overflow.record_index = kRecordInvalidIndex;
         node_->overflow.record_count = 0;
     }
 

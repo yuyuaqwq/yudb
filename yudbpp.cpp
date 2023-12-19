@@ -68,7 +68,7 @@ void TestBTree(yudb::Db* db) {
     }
     for (auto i = 0; i < count; i++) {
         auto res = tx.Get(&arr[i], sizeof(arr[i]));
-        assert(res);
+        assert(res != tx.end());
     }
     for (auto i = 0; i < count; i++) {
         auto res = tx.Delete(&arr[i], sizeof(arr[i]));
@@ -80,7 +80,7 @@ void TestBTree(yudb::Db* db) {
     }
     for (auto i = count - 1; i >= 0; i--) {
         auto res = tx.Get(&arr[i], sizeof(arr[i]));
-        assert(res);
+        assert(res != tx.end());
     }
     for (auto i = count - 1; i >= 0; i--) {
         auto res = tx.Delete(&arr[i], sizeof(arr[i]));
@@ -97,7 +97,7 @@ void TestBTree(yudb::Db* db) {
     }
     for (auto i = 0; i < count; i++) {
         auto res = tx.Get(&arr[i], sizeof(arr[i]));
-        assert(res);
+        assert(res != tx.end());
     }
     for (auto i = 0; i < count; i++) {
         auto res = tx.Delete(&arr[i], sizeof(arr[i]));
@@ -115,10 +115,10 @@ void TestOverflower(yudb::Db* db) {
 
     tx.Put("hello world!", "Cpp yyds!");
     tx.Put("This is yudb", "value!");
-    tx.Put("123", "123");
-    tx.Put("456", "456");
-    tx.Put("789", "789");
-    tx.Put("abc", "abc");
+    tx.Put("123123", "123123");
+    tx.Put("456456", "456456");
+    tx.Put("789789", "789789");
+    tx.Put("abcabc", "abcabc");
     auto res = tx.Get("hello world!");
 
     for (auto& iter : tx) {
@@ -138,9 +138,6 @@ void TestFreer() {
 
 int main() {
 
-    std::list<int> aa;
-    aa.begin();
-    
 
     auto db = yudb::Db::Open("Z:/test.ydb");
     if (!db) {

@@ -18,7 +18,7 @@ public:
     Cacher(Pager* pager);
     ~Cacher();
 
-    uint8_t* Reference(PageId pgid);
+    std::pair<CacheInfo*, uint8_t*>  Reference(PageId pgid);
 
     void Dereference(uint8_t* page_cache);
 

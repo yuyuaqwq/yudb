@@ -29,7 +29,7 @@ public:
         using pointer = typename Iterator*;
         using reference = const value_type&;
 
-
+    private:
         typedef enum class Status {
             kDown,
             kNext,
@@ -44,93 +44,13 @@ public:
         };
 
     public:
-        Iterator(BTree* btree) : btree_{ btree } {}
-
-        Status Top(std::span<const uint8_t> key) {
-            return Down(key);
-        }
-
-        Status Down(std::span<const uint8_t> key) {
-            PageId pgid;
-            if (stack_.empty()) {
-                pgid = btree_->root_pgid_;
-                if (pgid == kPageInvalidId) {
-                    return Status::kEnd;
-                }
-            }
-            else {
-                auto [parent_pgid, pos] = stack_.front();
-                Noder parent{ btree_, parent_pgid };
-                auto parent_node = parent.node();
-                if (parent.IsLeaf()) {
-                    return Status::kEnd;
-                }
-                pgid = parent.BranchGetLeftChild(pos);
-            }
-            Noder noder{ btree_, pgid };
-            auto node = noder.node();
-
-            // 在节点中进行二分查找
-            uint16_t index;
-            if (node->element_count > 0) {
-                auto iter = std::lower_bound(noder.begin(), noder.end(), key, [&](const Span& span, std::span<const uint8_t> search_key) -> bool {
-                    auto [buf, size, ref] = noder.SpanLoad(span);
-                    auto res = memcmp(buf, search_key.data(), std::min(size, search_key.size()));
-                    if (res == 0 && size != search_key.size()) {
-                        comp_result_ = size < search_key.size() ? CompResult::kLt : CompResult::kGt;
-                        return comp_result_ == CompResult::kLt;
-                    }
-                    if (res != 0) {
-                        comp_result_ = res < 0 ? CompResult::kLt : CompResult::kGt;
-                        return comp_result_ == CompResult::kLt;
-                    }
-                    else {
-                        comp_result_ = CompResult::kEq;
-                        return false;
-                    }
-                });
-                index = iter.index();
-                if (comp_result_ == CompResult::kEq && noder.IsBranch()) {
-                    ++index;
-                }
-            }
-            else {
-                index = 0;
-            }
-            stack_.push_back(std::pair{ pgid, index });
-            return Status::kDown;
-        }
-
-        std::pair<PageId, uint16_t>& Cur() {
-            return stack_.front();
-        }
-
-        const std::pair<PageId, uint16_t>& Cur() const {
-            return stack_.front();
-        }
-
-
-        //decltype(auto) Cur() {
-        //    return stack_.front();
-        //}
-
-
-        void Pop() {
-            stack_.pop_back();
-        }
-
-        bool Empty() const {
-            return stack_.empty();
-        }
-
-
         reference operator*() const noexcept {
             return *this;
         }
 
-        pointer operator->() noexcept {
-            return this;
-        }
+        //pointer operator->() noexcept {
+        //    return this;
+        //}
 
         const Iterator* operator->() const noexcept {
             return this;
@@ -166,10 +86,6 @@ public:
             auto& [pgid2, index2] = right.Cur();
             return btree_ == right.btree_ && pgid == pgid2 && index == index2;
         }
-
-
-        CompResult comp_result() { return comp_result_; }
-
 
 
         std::vector<uint8_t> key() const {
@@ -266,6 +182,84 @@ public:
                 }
                 Pop();
             } while (!Empty());
+        }
+
+
+    private:
+        Iterator(BTree* btree) : btree_{ btree } {}
+
+        Status Top(std::span<const uint8_t> key) {
+            return Down(key);
+        }
+
+        Status Down(std::span<const uint8_t> key) {
+            PageId pgid;
+            if (stack_.empty()) {
+                pgid = btree_->root_pgid_;
+                if (pgid == kPageInvalidId) {
+                    return Status::kEnd;
+                }
+            }
+            else {
+                auto [parent_pgid, pos] = stack_.front();
+                Noder parent{ btree_, parent_pgid };
+                auto parent_node = parent.node();
+                if (parent.IsLeaf()) {
+                    return Status::kEnd;
+                }
+                pgid = parent.BranchGetLeftChild(pos);
+            }
+            Noder noder{ btree_, pgid };
+            auto node = noder.node();
+
+            // 在节点中进行二分查找
+            uint16_t index;
+            if (node->element_count > 0) {
+                auto iter = std::lower_bound(noder.begin(), noder.end(), key, [&](const Span& span, std::span<const uint8_t> search_key) -> bool {
+                    auto [buf, size, ref] = noder.SpanLoad(span);
+                    auto res = memcmp(buf, search_key.data(), std::min(size, search_key.size()));
+                    if (res == 0 && size != search_key.size()) {
+                        comp_result_ = size < search_key.size() ? CompResult::kLt : CompResult::kGt;
+                        return comp_result_ == CompResult::kLt;
+                    }
+                    if (res != 0) {
+                        comp_result_ = res < 0 ? CompResult::kLt : CompResult::kGt;
+                        return comp_result_ == CompResult::kLt;
+                    }
+                    else {
+                        comp_result_ = CompResult::kEq;
+                        return false;
+                    }
+                    });
+                index = iter.index();
+                if (comp_result_ == CompResult::kEq && noder.IsBranch()) {
+                    ++index;
+                }
+            }
+            else {
+                index = 0;
+            }
+            stack_.push_back(std::pair{ pgid, index });
+            return Status::kDown;
+        }
+
+        std::pair<PageId, uint16_t>& Cur() {
+            return stack_.front();
+        }
+
+        const std::pair<PageId, uint16_t>& Cur() const {
+            return stack_.front();
+        }
+
+
+        CompResult comp_result() { return comp_result_; }
+
+        void Pop() {
+            stack_.pop_back();
+        }
+
+        bool Empty() const {
+            return stack_.empty();
         }
 
     private:

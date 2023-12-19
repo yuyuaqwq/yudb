@@ -15,7 +15,7 @@ Cacher::~Cacher() {
     operator delete(page_pool_);
 }
 
-uint8_t* Cacher::Reference(PageId pgid) {
+std::pair<CacheInfo*, uint8_t*> Cacher::Reference(PageId pgid) {
     auto [cache_info, cache_id] = lru_list_.Get(pgid);
     if (!cache_info) {
         auto evict = lru_list_.Put(pgid, CacheInfo{0});
@@ -30,7 +30,7 @@ uint8_t* Cacher::Reference(PageId pgid) {
 
         auto pair = lru_list_.Get(pgid);
         cache_info = pair.first;
-        cache_info->dirty = true; // false
+        cache_info->dirty = false;
         cache_id = pair.second;
         auto cache = &page_pool_[cache_id * pager_->page_size()];
 
@@ -38,13 +38,13 @@ uint8_t* Cacher::Reference(PageId pgid) {
     }
     ++cache_info->reference_count;
     //lru_list_.Print();
-    return &page_pool_[cache_id * pager_->page_size()];
+    return { cache_info, &page_pool_[cache_id * pager_->page_size()] };
 }
 
 PageId Cacher::CacheToPageId(uint8_t* page_cache) {
     auto diff = page_cache - page_pool_;
     CacheId cache_id = diff / pager_->page_size();
-    auto cache_info = lru_list_.GetNodeByCacheId(cache_id);
+    auto& cache_info = lru_list_.GetNodeByCacheId(cache_id);
     return cache_info.key;
 }
 
