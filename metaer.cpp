@@ -15,7 +15,7 @@ bool Metaer::Load() {
         meta_.min_version = YUDB_VERSION;
         meta_.page_size = kPageSize;
         meta_.page_count = 2;
-        meta_.txid = 1;
+        meta_.tx_id = 1;
         meta_.root = kPageInvalidId;
         Crc32 crc32;
         crc32.Append(&meta_, sizeof(meta_) - sizeof(uint32_t));
@@ -25,7 +25,7 @@ bool Metaer::Load() {
         db_->file_.Seek(0, File::PointerMode::kDbFilePointerSet);
         db_->file_.Write(&meta_, sizeof(meta_));
 
-        meta_.txid = 0;
+        meta_.tx_id = 0;
         db_->file_.Seek(kPageSize, File::PointerMode::kDbFilePointerSet);
         db_->file_.Write(&meta_, sizeof(meta_));
 
@@ -49,7 +49,7 @@ bool Metaer::Load() {
 
     // 选择最新的持久化版本元信息
     meta_index_ = 0;
-    if (meta_list[0].txid < meta_list[1].txid) {
+    if (meta_list[0].tx_id < meta_list[1].tx_id) {
         meta_index_ = 1;
     }
 

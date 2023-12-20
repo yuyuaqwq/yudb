@@ -3,24 +3,11 @@
 #include <cstdint>
 
 #include "noncopyable.h"
-#include "page.h"
-#include "tx.h"
+#include "meta.h"
 
 namespace yudb {
 
 class Db;
-
-#pragma pack(push, 1)
-struct Meta {
-    uint32_t sign;
-    uint32_t min_version;
-    PageSize page_size;
-    PageCount page_count;
-    PageId root;
-    TxId txid;
-    uint32_t crc32;
-};
-#pragma pack(pop)
 
 class Metaer : noncopyable {
 public:

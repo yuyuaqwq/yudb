@@ -180,7 +180,9 @@ std::optional<std::pair<uint16_t, PageOffset>> Overflower::Alloc(PageSize size, 
                 prev_block->next = new_pos;
             }
 
-            RecordUpdateMaxFreeSize(&record_arr[i], alloc_cache);
+            if (free_block->size == record_arr[i].free_list.max_free_size) {
+                RecordUpdateMaxFreeSize(&record_arr[i], alloc_cache);
+            }
 
             return std::pair{ i, cur_pos };
         }

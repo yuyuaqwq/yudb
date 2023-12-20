@@ -37,9 +37,13 @@ public:
         return cur_pos_ == 0;
     }
 
+    T& index(ptrdiff_t i) { return array_[i]; }
+
+    ptrdiff_t cur_pos() { return cur_pos_; }
+
 private:
     std::array<T, kSize> array_;
-    int32_t cur_pos_{ 0 };
+    ptrdiff_t cur_pos_{ 0 };
 };
 
 } // namespace detail

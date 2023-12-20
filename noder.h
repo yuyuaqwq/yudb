@@ -277,6 +277,22 @@ public:
         return node_->body.branch[pos + 1].left_child;
     }
 
+    void BranchSetLeftChild(uint16_t pos, PageId left_child) {
+        assert(pos <= node_->element_count);
+        if (pos == node_->element_count) {
+            node_->body.tail_child = left_child;
+        }
+        node_->body.branch[pos].left_child = left_child;
+    }
+
+    void BranchSetRightChild(uint16_t pos, PageId right_child) {
+        assert(pos < node_->element_count);
+        if (pos == node_->element_count - 1) {
+            node_->body.tail_child = right_child;
+        }
+        node_->body.branch[pos + 1].left_child = right_child;
+    }
+
 
     bool IsLeaf() const {
         return node_->type == Node::Type::kLeaf;
@@ -290,6 +306,7 @@ public:
     Node* node() { return node_; }
 
     PageId page_id() { return page_ref_.page_id(); }
+    uint8_t* page_cache() { return page_ref_.page_cache(); }
 
     Iterator begin() { return Iterator{ node_, 0 }; }
     Iterator end() { return Iterator{ node_, node_->element_count }; }

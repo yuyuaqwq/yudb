@@ -33,7 +33,7 @@ public:
     }
 
     Tx Begin() {
-        return Tx{ &txer_, metaer_.meta().root };
+        return txer_.Begin();
     }
 
 public:

@@ -49,7 +49,7 @@ void TestLru() {
 
 void TestBTree(yudb::Db* db) {
     auto tx = db->Begin();
-
+    auto bucket = tx.CreateBucket("");
     srand(10);
 
     auto count = 100000;
@@ -64,26 +64,26 @@ void TestBTree(yudb::Db* db) {
         arr[i] = i;
     }
     for (auto i = 0; i < count; i++) {
-        tx.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+        bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
     }
     for (auto i = 0; i < count; i++) {
-        auto res = tx.Get(&arr[i], sizeof(arr[i]));
-        assert(res != tx.end());
+        auto res = bucket.Get(&arr[i], sizeof(arr[i]));
+        assert(res != bucket.end());
     }
     for (auto i = 0; i < count; i++) {
-        auto res = tx.Delete(&arr[i], sizeof(arr[i]));
+        auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
         assert(res);
     }
 
     for (auto i = count - 1; i >= 0; i--) {
-        tx.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+        bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
     }
     for (auto i = count - 1; i >= 0; i--) {
-        auto res = tx.Get(&arr[i], sizeof(arr[i]));
-        assert(res != tx.end());
+        auto res = bucket.Get(&arr[i], sizeof(arr[i]));
+        assert(res != bucket.end());
     }
     for (auto i = count - 1; i >= 0; i--) {
-        auto res = tx.Delete(&arr[i], sizeof(arr[i]));
+        auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
         assert(res);
     }
 
@@ -93,39 +93,41 @@ void TestBTree(yudb::Db* db) {
     }
 
     for (auto i = 0; i < count; i++) {
-        tx.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+        bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
     }
     for (auto i = 0; i < count; i++) {
-        auto res = tx.Get(&arr[i], sizeof(arr[i]));
-        assert(res != tx.end());
+        auto res = bucket.Get(&arr[i], sizeof(arr[i]));
+        assert(res != bucket.end());
     }
     for (auto i = 0; i < count; i++) {
-        auto res = tx.Delete(&arr[i], sizeof(arr[i]));
+        auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
         assert(res);
     }
 
-    tx.Print();
+    bucket.Print();
     printf("\n\n\n\n\n");
     auto k = 0;
-    tx.Delete(&k, sizeof(k));
+    bucket.Delete(&k, sizeof(k));
 }
 
 void TestOverflower(yudb::Db* db) {
     auto tx = db->Begin();
 
-    tx.Put("hello world!", "Cpp yyds!");
-    tx.Put("This is yudb", "value!");
-    tx.Put("123123", "123123");
-    tx.Put("456456", "456456");
-    tx.Put("789789", "789789");
-    tx.Put("abcabc", "abcabc");
-    auto res = tx.Get("hello world!");
+    auto bucket = tx.Bucket("test");
 
-    for (auto& iter : tx) {
+    bucket.Put("hello world!", "Cpp yyds!");
+    bucket.Put("This is yudb", "value!");
+    bucket.Put("123123", "123123");
+    bucket.Put("456456", "456456");
+    bucket.Put("789789", "789789");
+    bucket.Put("abcabc", "abcabc");
+    auto res = bucket.Get("hello world!");
+
+    for (auto& iter : bucket) {
         auto key = iter.key();
         auto value = iter.value();
-        std::cout << std::string_view{ reinterpret_cast<char*>(key.data()), key.size() } << ":";
-        std::cout << std::string_view{ reinterpret_cast<char*>(value.data()), value.size() } << std::endl;
+        std::cout << key << ":";
+        std::cout << value << std::endl;
     }
     
 }
@@ -137,8 +139,6 @@ void TestFreer() {
 }
 
 int main() {
-
-
     auto db = yudb::Db::Open("Z:/test.ydb");
     if (!db) {
         std::cout << "yudb::Db::Open failed!\n";

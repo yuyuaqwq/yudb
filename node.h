@@ -1,5 +1,6 @@
 #pragma once
 
+#include "tx_id.h"
 #include "page.h"
 #include "span.h"
 #include "overflow.h"
@@ -35,7 +36,7 @@ struct Node {
 
             Overflow overflow;
 
-            //TxId last_write_txid;
+            TxId last_write_txid;
             union {
                 struct {
                     PageId tail_child;

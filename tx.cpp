@@ -5,8 +5,12 @@
 
 namespace yudb {
 
-Tx::Tx(Txer* txer, PageId& btree_root_pgid) :
+Tx::Tx(Txer* txer, const Meta& meta) :
     txer_{ txer }, 
-    btree_{ std::make_unique<BTree>(txer->db_->pager_.get() , btree_root_pgid) } {}
+    meta_{ meta } {}
+
+Bucket Tx::Bucket(std::string_view bucket_name) {
+    return Bucket{ txer_->db_->pager_.get(), this, meta_.root };
+}
 
 } // yudb
