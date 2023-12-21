@@ -4,9 +4,9 @@
 
 namespace yudb {
 
-Noder::Noder(BTree* btree, PageId page_id) :
+Noder::Noder(const BTree* btree, PageId page_id) :
     btree_{ btree },
-    pager_{ btree_->pager_ },
+    pager_{ btree_->pager() },
     page_ref_{ pager_->Reference(page_id) },
     node_{ reinterpret_cast<Node*>(page_ref_.page_cache()) },
     overflower_{ this, &node_->overflow } {}

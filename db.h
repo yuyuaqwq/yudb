@@ -32,15 +32,19 @@ public:
         return db;
     }
 
-    Tx Begin() {
-        return txer_.Begin();
+    UpdateTx Update() {
+        return txer_.Update();
+    }
+
+    ViewTx View() {
+        return txer_.View();
     }
 
 public:
     friend class Metaer;
     friend class Pager;
     friend class Txer;
-    friend class Tx;
+
 
     File file_;
     Metaer metaer_{ this };

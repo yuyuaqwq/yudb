@@ -11,7 +11,9 @@ class Txer : noncopyable {
 public:
     Txer(Db* db) : db_{ db } {}
 
-    Tx Begin();
+    UpdateTx Update();
+
+    ViewTx View();
 
 private:
     friend class Tx;

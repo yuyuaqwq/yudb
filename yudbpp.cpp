@@ -48,9 +48,13 @@ void TestLru() {
 }
 
 void TestBTree(yudb::Db* db) {
-    auto tx = db->Begin();
-    auto bucket = tx.CreateBucket("");
+    auto tx = db->Update();
+    
+    auto& bucket = tx.RootBucket();
+    
+
     srand(10);
+
 
     auto count = 100000;
     std::vector<int> arr(count);
@@ -111,9 +115,9 @@ void TestBTree(yudb::Db* db) {
 }
 
 void TestOverflower(yudb::Db* db) {
-    auto tx = db->Begin();
+    auto tx = db->Update();
 
-    auto bucket = tx.Bucket("test");
+    auto& bucket = tx.RootBucket();
 
     bucket.Put("hello world!", "Cpp yyds!");
     bucket.Put("This is yudb", "value!");
@@ -138,7 +142,13 @@ void TestFreer() {
     //auto test = freer.Alloc(100);
 }
 
+
 int main() {
+
+
+    std::list<int> daaa;
+    daaa.begin();
+
     auto db = yudb::Db::Open("Z:/test.ydb");
     if (!db) {
         std::cout << "yudb::Db::Open failed!\n";

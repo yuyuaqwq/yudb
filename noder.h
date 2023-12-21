@@ -83,7 +83,7 @@ private:
     };
 
 public:
-    Noder(BTree* btree, PageId page_id);
+    Noder(const BTree* btree, PageId page_id);
 
     Noder(Noder&& right) noexcept : 
         page_ref_{ std::move(right.page_ref_) },
@@ -315,7 +315,7 @@ public:
 private:
     friend class Overflower;
 
-    BTree* btree_;
+    const BTree* btree_;
     Pager* pager_;
 
     PageReferencer page_ref_;

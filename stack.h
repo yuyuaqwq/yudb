@@ -39,7 +39,7 @@ public:
 
     T& index(ptrdiff_t i) { return array_[i]; }
 
-    ptrdiff_t cur_pos() { return cur_pos_; }
+    ptrdiff_t cur_pos() const { return cur_pos_; }
 
 private:
     std::array<T, kSize> array_;

@@ -2,15 +2,21 @@
 
 #include "txer.h"
 #include "db.h"
+#include "bucket.h"
 
 namespace yudb {
 
-Tx::Tx(Txer* txer, const Meta& meta) :
-    txer_{ txer }, 
-    meta_{ meta } {}
+Pager* Tx::pager() { return txer_->db_->pager_.get(); }
 
-Bucket Tx::Bucket(std::string_view bucket_name) {
-    return Bucket{ txer_->db_->pager_.get(), this, meta_.root };
+
+ViewBucket& ViewTx::RootBucket() {
+    return bucket_;
 }
+
+
+UpdateBucket& UpdateTx::RootBucket() {
+    return bucket_;
+}
+
 
 } // yudb
