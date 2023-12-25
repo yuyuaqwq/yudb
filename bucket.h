@@ -6,23 +6,24 @@ namespace yudb {
 
 class Tx;
 class Pager;
+class ViewBucket;
 
-class ViewBucket {
+class Bucket {
 public:
     using Iterator = BTreeIterator;
 
 public:
-    ViewBucket(Pager* pager, Tx* tx, PageId& btree_root);
+    Bucket(Pager* pager, Tx* tx, PageId& btree_root);
 
-    ViewBucket SubViewBucket(std::string_view key) const {
+    ViewBucket& SubViewBucket(std::string_view key) const {
         auto iter = Get(key);
         auto root_pgid = iter->value<PageId>();
-        return ViewBucket{ pager_, tx_, root_pgid };
+        //return ViewBucket{ pager_, tx_, root_pgid };
     }
 
     Iterator Get(const void* key_buf, size_t key_size) const {
         std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
-        return btree_->Get(key_span);
+        return btree_.Get(key_span);
     }
 
     Iterator Get(std::string_view key) const {
@@ -30,37 +31,42 @@ public:
     }
 
     Iterator begin() const noexcept {
-        return btree_->begin();
+        return btree_.begin();
     }
 
     Iterator end() const noexcept {
-        return btree_->end();
+        return btree_.end();
     }
 
+    Pager* pager() { return pager_; }
+
+    Tx* tx() { return tx_; }
 
 protected:
-    friend class BTree;
-
     Pager* pager_;
     Tx* tx_;
-    std::unique_ptr<BTree> btree_;
+    BTree btree_;
 };
 
-class UpdateBucket : public ViewBucket {
+class ViewBucket : public Bucket {
 public:
-    using ViewBucket::ViewBucket;
+    using Bucket::Bucket;
+};
 
+class UpdateBucket : public Bucket {
 public:
-    UpdateBucket SubUpdateBucket(std::string_view key) {
+    using Bucket::Bucket;
+
+    UpdateBucket& SubUpdateBucket(std::string_view key) {
         auto iter = Get(key);
         auto root_pgid = iter->value<PageId>();
-        return UpdateBucket{ pager_, tx_, root_pgid};
+        //return UpdateBucket{ pager_, tx_, root_pgid};
     }
 
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
         std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
         std::span<const uint8_t> value_span{ reinterpret_cast<const uint8_t*>(value_buf), value_size };
-        btree_->Put(key_span, value_span);
+        btree_.Put(key_span, value_span);
     }
 
     void Put(std::string_view key, std::string_view value) {
@@ -69,17 +75,16 @@ public:
 
     bool Delete(const void* key_buf, size_t key_size) {
         std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
-        return btree_->Delete(key_span);
+        return btree_.Delete(key_span);
     }
 
     void Print() {
-        btree_->Print();
+        btree_.Print();
     }
 
 
 private:
-    void PathCopy(Iterator* iter);
-
+    friend class Pager;
 };
 
 } // namespace yudb

@@ -6,10 +6,12 @@
 #include <map>
 #include <chrono>
 #include <algorithm>
-
+#include <unordered_set>
 #include <span>
 
 #include "lru_list.h"
+#include "log_reader.h"
+#include "log_writer.h"
 #include "freer.h"
 
 void TestLru() {
@@ -47,75 +49,134 @@ void TestLru() {
 
 }
 
-void TestBTree(yudb::Db* db) {
-    auto tx = db->Update();
-    
-    auto& bucket = tx.RootBucket();
-    
 
+void TestPager(yudb::Db* db) {
+    std::unordered_set<yudb::PageId> set;
+
+    for (auto i = 0; i < 100000; i++) {
+        auto pgid = db->pager_->Alloc(1);
+        set.insert(pgid);
+        auto page_ref = db->pager_->Reference(pgid);
+        for (auto i = 0; i < db->pager_->page_size(); i+=4) {
+            std::memcpy(&page_ref.page_cache()[i], &pgid, sizeof(pgid));
+        }
+        
+    }
+    for (auto pgid : set) {
+        auto page_ref = db->pager_->Reference(pgid);
+        for (auto i = 0; i < db->pager_->page_size(); i += 4) {
+            assert(std::memcmp(&page_ref.page_cache()[i], &pgid, sizeof(pgid)) == 0);
+        }
+    }
+}
+
+void TestBTree(yudb::Db* db) {
     srand(10);
 
-
-    auto count = 100000;
+    auto count = 10;
     std::vector<int> arr(count);
 
-    //if (count <= 100) {
-    //    tx.Print();
-    //    printf("\n\n\n\n\n");
-    //}
 
     for (auto i = 0; i < count; i++) {
-        arr[i] = i;
-    }
-    for (auto i = 0; i < count; i++) {
-        bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-    }
-    for (auto i = 0; i < count; i++) {
-        auto res = bucket.Get(&arr[i], sizeof(arr[i]));
-        assert(res != bucket.end());
-    }
-    for (auto i = 0; i < count; i++) {
-        auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
-        assert(res);
+        arr[i] = i; // (rand() << 16) | rand();//
     }
 
-    for (auto i = count - 1; i >= 0; i--) {
-        bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-    }
-    for (auto i = count - 1; i >= 0; i--) {
-        auto res = bucket.Get(&arr[i], sizeof(arr[i]));
-        assert(res != bucket.end());
-    }
-    for (auto i = count - 1; i >= 0; i--) {
-        auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
-        assert(res);
+    {
+        auto& tx = db->Update();
+        auto& bucket = tx.RootBucket();
+
+        for (auto i = 0; i < count; i++) {
+            bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+
+            bucket.Print();
+            printf("\n\n\n\n\n");
+        }
+
+        tx.Commit();
     }
 
+    {
+        auto view_tx = db->View();
+        auto& view_bucket = view_tx.RootBucket();
 
-    for (auto i = 0; i < count; i++) {
-        std::swap(arr[rand() % count], arr[rand() % count]);
-    }
+        //if (count <= 100000) {
+        //    bucket.Print();
+        //    printf("\n\n\n\n\n");
+        //}
 
-    for (auto i = 0; i < count; i++) {
-        bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-    }
-    for (auto i = 0; i < count; i++) {
-        auto res = bucket.Get(&arr[i], sizeof(arr[i]));
-        assert(res != bucket.end());
-    }
-    for (auto i = 0; i < count; i++) {
-        auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
-        assert(res);
+        for (auto i = 0; i < count; i++) {
+            auto res = view_bucket.Get(&arr[i], sizeof(arr[i]));
+            assert(res != view_bucket.end());
+        }
     }
 
-    bucket.Print();
-    printf("\n\n\n\n\n");
-    auto k = 0;
-    bucket.Delete(&k, sizeof(k));
+    {
+        auto& tx = db->Update();
+        auto& bucket = tx.RootBucket();
+
+        bucket.Print();
+        printf("\n\n\n\n\n");
+        for (auto i = 0; i < count; i++) {
+            auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
+            bucket.Print();
+            printf("\n\n\n\n\n");
+            assert(res);
+        }
+
+        for (auto i = count - 1; i >= 0; i--) {
+            bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+        }
+
+        //auto i = 0;
+        //for (auto& iter : bucket) {
+        //    std::cout << std::hex << i++ << " " << std::hex << iter.key<uint32_t>() << "    ";
+        //    //assert(iter.key<uint32_t>() == i++);
+        //}
+
+        for (auto i = count - 1; i >= 0; i--) {
+            auto res = bucket.Get(&arr[i], sizeof(arr[i]));
+            assert(res != bucket.end());
+        }
+        for (auto i = count - 1; i >= 0; i--) {
+            auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
+            assert(res);
+        }
+
+
+        std::unordered_set<int> set;
+        for (auto i = 0; i < count; i++) {
+            //std::swap(arr[rand() % count], arr[rand() % count]);
+            arr[i] = (rand() << 16) | rand();
+            set.insert(arr[i]);
+        }
+
+        for (auto i = 0; i < count; i++) {
+            bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+        }
+        for (auto i = 0; i < count; i++) {
+            auto res = bucket.Get(&arr[i], sizeof(arr[i]));
+            assert(res != bucket.end());
+        }
+        for (auto val : set) {
+            auto res = bucket.Delete(&val, sizeof(val));
+            assert(res);
+        }
+
+        bucket.Print();
+        printf("\n\n\n\n\n");
+        auto k = 0;
+        bucket.Delete(&k, sizeof(k));
+    }
+
+    
+
+
+    
+
 }
 
 void TestOverflower(yudb::Db* db) {
-    auto tx = db->Update();
+    auto& tx = db->Update();
 
     auto& bucket = tx.RootBucket();
 
@@ -126,7 +187,7 @@ void TestOverflower(yudb::Db* db) {
     bucket.Put("789789", "789789");
     bucket.Put("abcabc", "abcabc");
     auto res = bucket.Get("hello world!");
-
+    assert(res != bucket.end());
     for (auto& iter : bucket) {
         auto key = iter.key();
         auto value = iter.value();
@@ -142,9 +203,29 @@ void TestFreer() {
     //auto test = freer.Alloc(100);
 }
 
+void TestLog() {
+    yudb::File file;
+    file.Open("Z:/test.ydb-wal", true);
+    yudb::log::Writer writer{ &file };
+    writer.AppendRecord("abc");
+    writer.AppendRecord("aedaed");
+    writer.AppendRecord("awdwaaa");
+    writer.AppendRecord("123213123321");
+    writer.AppendRecord(std::string(100000, 'a'));
+
+    yudb::log::Reader reader{ &file };
+    auto res = reader.ReadRecord();
+    res = reader.ReadRecord();
+    res = reader.ReadRecord();
+    res = reader.ReadRecord();
+    res = reader.ReadRecord();
+    assert(res->size() == 100000);
+    assert(std::string(100000, 'a') == *res);
+}
 
 int main() {
-
+    TestLru();
+    //TestLog();
 
     std::list<int> daaa;
     daaa.begin();
@@ -155,16 +236,18 @@ int main() {
         return -1;
     }
 
-    TestOverflower(db.get());
+    //TestPager(db.get());
 
-    //TestBTree(db.get());
+    //TestOverflower(db.get());
+
+    TestBTree(db.get());
 
     
     //TestFreer();
 
     //printf("emm");
     //std::this_thread::sleep_for(std::chrono::seconds(10));
-    //TestLru();
+    //
 
     //std::cout << "Hello World!\n";
 }

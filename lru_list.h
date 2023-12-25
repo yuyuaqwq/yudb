@@ -156,6 +156,10 @@ public:
         return PoolNode(ListFront(lru_list_)).value;
     }
 
+    const Node& GetNodeByCacheId(CacheId cache_id) const {
+        return PoolNode(cache_id);
+    }
+
     Node& GetNodeByCacheId(CacheId cache_id) {
         return PoolNode(cache_id);
     }
@@ -186,6 +190,10 @@ private:
     }
 
     Node& PoolNode(CacheId i) {
+        return pool_[i];
+    }
+
+    const Node& PoolNode(CacheId i) const {
         return pool_[i];
     }
 
@@ -248,8 +256,6 @@ private:
     CacheId ListTail(List& list) {
         return list.tail;
     }
-
-
 
 private:
     List free_list_;

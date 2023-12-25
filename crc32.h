@@ -8,7 +8,7 @@ namespace yudb {
 https://blog.csdn.net/gongmin856/article/details/77101397
 */
 
-static const uint32_t s_crc32_table[] = {
+static const uint32_t crc32_table[] = {
     0x00000000L, 0x77073096L, 0xee0e612cL, 0x990951baL,
     0x076dc419L, 0x706af48fL, 0xe963a535L, 0x9e6495a3L,
     0x0edb8832L, 0x79dcb8a4L, 0xe0d5e91eL, 0x97d2d988L,
@@ -80,7 +80,7 @@ public:
     void Append(const void* buf, size_t size) {
         auto buf_ = reinterpret_cast<const uint8_t*>(buf);
         for (ptrdiff_t i = 0; i < size; i++) {
-            value_ = s_crc32_table[(value_ ^ buf_[i]) & 0xff] ^ (value_ >> 8);
+            value_ = crc32_table[(value_ ^ buf_[i]) & 0xff] ^ (value_ >> 8);
         }
     }
 

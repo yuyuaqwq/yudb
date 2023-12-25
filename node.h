@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tx_id.h"
+#include "txid.h"
 #include "page.h"
 #include "span.h"
 #include "overflow.h"

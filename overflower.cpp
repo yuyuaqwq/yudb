@@ -21,14 +21,16 @@ void Overflower::RecordBuild(Record* record_element,
     PageReferencer* page,
     uint16_t header_block_size
 ) {
+    auto pager = noder_->pager();
+
     header_block_size = Alignment(header_block_size);
 
     record_element->pgid = page->page_id();
-    if (header_block_size < noder_->pager_->page_size()) {
-        assert(header_block_size + sizeof(Overflow::Record) <= noder_->pager_->page_size());
+    if (header_block_size < pager->page_size()) {
+        assert(header_block_size + sizeof(Overflow::Record) <= pager->page_size());
 
         record_element->free_list.first = header_block_size;
-        record_element->free_list.max_free_size = noder_->pager_->page_size() - header_block_size;
+        record_element->free_list.max_free_size = pager->page_size() - header_block_size;
 
         auto cache = page->page_cache();
 
@@ -37,7 +39,7 @@ void Overflower::RecordBuild(Record* record_element,
         block->size = record_element->free_list.max_free_size;
     }
     else {
-        assert(header_block_size == noder_->pager_->page_size());
+        assert(header_block_size == pager->page_size());
 
         record_element->free_list.first = kFreeInvalidPos;
         record_element->free_list.max_free_size = 0;
@@ -46,12 +48,13 @@ void Overflower::RecordBuild(Record* record_element,
 
 
 void Overflower::OverflowBuild() {
-    overflow_->record_pgid = noder_->pager_->Alloc(1);
+    auto pager = noder_->pager();
+    overflow_->record_pgid = pager->Alloc(1);
     overflow_->record_index = 0;
     overflow_->record_offset = 0;
     overflow_->record_count = 1;
 
-    auto page = noder_->pager_->Reference(overflow_->record_pgid);
+    auto page = pager->Reference(overflow_->record_pgid);
     auto cache = page.page_cache();
 
     auto record_arr = reinterpret_cast<Record*>(&cache[0]);
@@ -59,7 +62,7 @@ void Overflower::OverflowBuild() {
 }
 
 void Overflower::OverflowAppend(PageReferencer* record_page) {
-    auto pager = noder_->pager_;
+    auto pager = noder_->pager();
 
     auto new_pgid = pager->Alloc(1);
     auto new_page = pager->Reference(new_pgid);
@@ -67,7 +70,7 @@ void Overflower::OverflowAppend(PageReferencer* record_page) {
     auto block_arr_size = sizeof(Record) * overflow_->record_count;
     // 即将被释放，保存overflow_record数组
     std::vector<Record> temp_record_arr{ overflow_->record_count };
-    memcpy(temp_record_arr.data(), 
+    std::memcpy(temp_record_arr.data(),
         &record_page->page_cache()[overflow_->record_offset], 
         block_arr_size
     );
@@ -97,7 +100,7 @@ void Overflower::OverflowAppend(PageReferencer* record_page) {
         record_arr = reinterpret_cast<Record*>(&page.page_cache()[overflow_->record_offset]);
         header_block_size = 0;
     }
-    memcpy(record_arr, temp_record_arr.data(), block_arr_size - sizeof(Record));
+    std::memcpy(record_arr, temp_record_arr.data(), block_arr_size - sizeof(Record));
 
     auto& tail_overflow_record = record_arr[overflow_->record_count];
     RecordBuild(&tail_overflow_record,
@@ -122,7 +125,7 @@ void Overflower::RecordUpdateMaxFreeSize(Overflow::Record* record, uint8_t* cach
 
 
 std::optional<std::pair<uint16_t, PageOffset>> Overflower::Alloc(PageSize size, Record* record_arr) {
-    auto pager = noder_->pager_;
+    auto pager = noder_->pager();
     
     size = Alignment(size);
     
@@ -196,7 +199,7 @@ std::optional<std::pair<uint16_t, PageOffset>> Overflower::Alloc(PageSize size, 
 }
 
 void Overflower::Free(const std::tuple<uint16_t, PageOffset, PageSize>& block, Record* temp_record_element) {
-    auto pager = noder_->pager_;
+    auto pager = noder_->pager();
 
     auto page = pager->Reference(overflow_->record_pgid);
     auto cache = page.page_cache();
@@ -266,7 +269,7 @@ void Overflower::Free(const std::tuple<uint16_t, PageOffset, PageSize>& block, R
 }
 
 std::pair<uint8_t*, PageReferencer> Overflower::Load(uint16_t record_index, PageOffset offset) {
-    auto pager = noder_->pager_;
+    auto pager = noder_->pager();
 
     auto page = pager->Reference(overflow_->record_pgid);
     auto cache = page.page_cache();

@@ -14,12 +14,15 @@
 
 namespace yudb {
 
-class ViewBucket;
-class UpdateBucket;
+class Bucket;
+class Tx;
 
 class BTree {
 public:
-    BTree(ViewBucket* bucket, PageId& root_pgid);
+    using Iterator = BTreeIterator;
+
+public:
+    BTree(Bucket* bucket, PageId& root_pgid);
 
     BTreeIterator Get(std::span<const uint8_t> key) const;
 
@@ -28,19 +31,25 @@ public:
     bool Delete(std::span<const uint8_t> key);
 
 
-    BTreeIterator begin() const noexcept;
+    Iterator begin() const noexcept;
 
-    BTreeIterator end() const noexcept;
+    Iterator end() const noexcept;
+
+
+    Pager* pager() const;
+
+    Tx* tx() const;
 
 
     void Print() const;
 
 private:
-    std::tuple<Noder, uint16_t, Noder, bool> GetSibling(BTreeIterator* iter);
-
+    std::tuple<Noder, uint16_t, Noder, bool> GetSibling(Iterator* iter);
 
     void Print(PageId pgid, int level) const;
 
+
+    Iterator Locate(std::span<const uint8_t> key) const;
 
     /*
     * 分支节点的合并
@@ -50,7 +59,7 @@ private:
     /*
     * 分支节点的删除
     */
-    void Delete(BTreeIterator* iter, Noder&& noder, uint16_t left_del_pos);
+    void Delete(Iterator* iter, Noder&& noder, uint16_t left_del_pos);
 
 
     /*
@@ -62,7 +71,7 @@ private:
     /*
     * 叶子节点的删除
     */
-    void Delete(BTreeIterator* iter, std::span<const uint8_t> key);
+    void Delete(Iterator* iter, std::span<const uint8_t> key);
 
 
 
@@ -75,7 +84,7 @@ private:
     /*
     * 叶子节点的插入
     */
-    void Put(BTreeIterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value);
+    void Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value);
 
 
     /*
@@ -87,18 +96,16 @@ private:
     /*
     * 分支节点的插入
     */
-    void Put(BTreeIterator* iter, Noder&& left, Noder&& right, Span* key, bool branch_put = false);
+    void Put(Iterator* iter, Noder&& left, Noder&& right, Span* key, bool branch_put = false);
 
 
-    Pager* pager() const;
+    void PathCopy(Iterator* iter);
 
 private:
     friend class Noder;
     friend class BTreeIterator;
-    friend class ViewBucket;
-    friend class UpdateBucket;
 
-    ViewBucket* bucket_;
+    Bucket* bucket_;
 
     PageId& root_pgid_; 
 

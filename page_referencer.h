@@ -21,19 +21,24 @@ public:
     ~PageReferencer();
 
     PageReferencer(PageReferencer&& other) noexcept {
+        page_cache_ = nullptr;
         operator=(std::move(other));
     }
 
     void operator=(PageReferencer&& other) noexcept {
+        Dereference();
         pager_ = other.pager_;
         page_cache_ = other.page_cache_;
         other.page_cache_ = nullptr;
     }
 
-public:
-    uint8_t* page_cache() { return page_cache_; }
 
-    PageId page_id();
+    uint8_t* page_cache() const { return page_cache_; }
+
+    PageId page_id() const;
+
+private:
+    void Dereference();
 
 private:
     Pager* pager_;

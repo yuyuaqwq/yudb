@@ -15,7 +15,7 @@ public:
     Freer(Db* db) : db_{ db } {}
 
     PageId Alloc(PageCount count) {
-        // 从空闲链表中找，没有就从末尾中分配
+        
 
     }
 

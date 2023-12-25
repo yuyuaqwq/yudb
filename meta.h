@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "page.h"
-#include "tx_id.h"
+#include "txid.h"
 
 namespace yudb {
 
@@ -14,9 +14,11 @@ struct Meta {
     PageSize page_size;
     PageCount page_count;
     PageId root;
-    TxId tx_id;
+    TxId txid;
     uint32_t crc32;
 };
 #pragma pack(pop)
+
+constexpr size_t kMetaSize = sizeof(Meta);
 
 } // namespace yudb

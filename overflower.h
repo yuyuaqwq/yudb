@@ -13,6 +13,8 @@ class Overflower {
 public:
     Overflower(Noder* noder, Overflow* overflow) : noder_{ noder }, overflow_{ overflow } {}
 
+    ~Overflower() = default;
+
     std::optional<std::pair<uint16_t, PageOffset>> Alloc(PageSize size, Overflow::Record* record_arr = nullptr);
     
     void Free(const std::tuple<uint16_t, PageOffset, uint16_t>& block, Overflow::Record* temp_record_element = nullptr);

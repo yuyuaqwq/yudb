@@ -31,7 +31,6 @@ public:
         else {
             handle_ = CreateFileA(path.data(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_FLAG_WRITE_THROUGH, NULL);
         }
-
         if (handle_ == INVALID_HANDLE_VALUE) {
             return false;
         }
@@ -40,7 +39,7 @@ public:
 
     void Seek(int64_t offset, PointerMode fromwhere = PointerMode::kDbFilePointerSet) {
         if (!SetFilePointerEx(handle_, *reinterpret_cast<LARGE_INTEGER*>(&offset), NULL, static_cast<DWORD>(fromwhere))) {
-            throw std::ios_base::failure{"set file pointer failed!"};
+            throw std::ios_base::failure{ "set file pointer failed!" };
         }
     }
 
@@ -53,13 +52,14 @@ public:
         return liCurrentPosition.QuadPart;
     }
 
-    bool Read(void* buf, size_t size) {
+    size_t Read(void* buf, size_t size) {
         DWORD ret_len;
         BOOL success = ReadFile(handle_, buf, size, &ret_len, NULL);
-        return success && size == ret_len;
+        if (!success) return 0;
+        return ret_len;
     }
 
-    void Write(void* buf, size_t size) {
+    void Write(const void* buf, size_t size) {
         DWORD len;
         if (!WriteFile(handle_, buf, size, &len, NULL)) {
             throw std::ios_base::failure{ "write file failed!" };

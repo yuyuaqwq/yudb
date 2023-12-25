@@ -44,28 +44,6 @@ bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
 }
 
 
-template <class KeyT>
-KeyT BTreeIterator::key() const {
-    auto [buf, size, ref] = KeySpan();
-    if (size != sizeof(KeyT)) {
-        std::runtime_error("The size of the key does not match.");
-    }
-    KeyT key;
-    memcpy(&key, buf, size);
-    return key;
-}
-
-template <class ValueT>
-ValueT BTreeIterator::value() const {
-    auto [buf, size, ref] = ValueSpan();
-    if (size != sizeof(ValueT)) {
-        std::runtime_error("The size of the value does not match.");
-    }
-    ValueT value;
-    memcpy(&value, buf, size);
-    return value;
-}
-
 
 std::string BTreeIterator::key() const {
     auto [buf, size, ref] = KeySpan();
@@ -87,9 +65,9 @@ void BTreeIterator::First(PageId pgid) {
         if (noder.IsLeaf()) {
             break;
         }
+        stack_.push_back({ pgid, 0 });
         assert(node->element_count > 0);
         pgid = node->body.branch[0].left_child;
-        stack_.push_back({ pgid, 0 });
     } while (true);
     Noder noder{ btree_, pgid };
     auto node = noder.node();
@@ -103,9 +81,9 @@ void BTreeIterator::Last(PageId pgid) {
         if (noder.IsLeaf()) {
             break;
         }
+        stack_.push_back({ pgid, node->element_count - 1 });
         assert(node->element_count > 0);
         pgid = node->body.branch[node->element_count - 1].left_child;
-        stack_.push_back({ pgid, node->element_count - 1 });
     } while (true);
     Noder noder{ btree_, pgid };
     auto node = noder.node();
@@ -154,6 +132,7 @@ void BTreeIterator::Prev() {
 
 std::tuple<const uint8_t*, size_t, std::optional<std::variant<PageReferencer, std::vector<uint8_t>>>>
 BTreeIterator::KeySpan() const {
+    assert(*this != btree_->end());
     auto& [pgid, index] = Cur();
     Noder noder{ btree_, pgid };
     if (!noder.IsLeaf()) {
@@ -165,6 +144,7 @@ BTreeIterator::KeySpan() const {
 
 std::tuple<const uint8_t*, size_t, std::optional<std::variant<PageReferencer, std::vector<uint8_t>>>>
 BTreeIterator::ValueSpan() const {
+    assert(*this != btree_->end());
     auto& [pgid, index] = Cur();
     Noder noder{ btree_, pgid };
     if (!noder.IsLeaf()) {
@@ -201,23 +181,28 @@ BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
 
     // 在节点中进行二分查找
     uint16_t index;
+    comp_result_ = CompResult::kInvalid;
     if (node->element_count > 0) {
+        CompResult temp_comp_result = CompResult::kInvalid;
         auto iter = std::lower_bound(noder.begin(), noder.end(), key, [&](const Span& span, std::span<const uint8_t> search_key) -> bool {
             auto [buf, size, ref] = noder.SpanLoad(span);
             auto res = memcmp(buf, search_key.data(), std::min(size, search_key.size()));
             if (res == 0 && size != search_key.size()) {
-                comp_result_ = size < search_key.size() ? CompResult::kLt : CompResult::kGt;
-                return comp_result_ == CompResult::kLt;
+                temp_comp_result = size < search_key.size() ? CompResult::kLt : CompResult::kGt;
+                return temp_comp_result == CompResult::kLt;
             }
             if (res != 0) {
-                comp_result_ = res < 0 ? CompResult::kLt : CompResult::kGt;
-                return comp_result_ == CompResult::kLt;
+                temp_comp_result = res < 0 ? CompResult::kLt : CompResult::kGt;
+                return temp_comp_result == CompResult::kLt;
             }
             else {
                 comp_result_ = CompResult::kEq;
                 return false;
             }
             });
+        if (comp_result_ == CompResult::kInvalid) {
+            comp_result_ = temp_comp_result;
+        }
         index = iter.index();
         if (comp_result_ == CompResult::kEq && noder.IsBranch()) {
             ++index;

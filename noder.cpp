@@ -6,9 +6,19 @@ namespace yudb {
 
 Noder::Noder(const BTree* btree, PageId page_id) :
     btree_{ btree },
-    pager_{ btree_->pager() },
-    page_ref_{ pager_->Reference(page_id) },
+    page_ref_{ btree_->pager()->Reference(page_id) },
     node_{ reinterpret_cast<Node*>(page_ref_.page_cache()) },
     overflower_{ this, &node_->overflow } {}
+
+
+Noder Noder::Copy() const {
+    auto pager = btree_->pager();
+    auto new_pgid = pager->Alloc(1);
+    Noder new_noder{ btree_, new_pgid };
+    std::memcpy(new_noder.page_cache(), page_cache(), pager->page_size());
+    return new_noder;
+}
+
+Pager* Noder::pager() const { return btree_->pager(); }
 
 } // namespace yudb

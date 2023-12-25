@@ -12,7 +12,6 @@
 namespace yudb {
 
 class BTree;
-class UpdateBucket;
 
 class BTreeIterator {
 public:
@@ -57,10 +56,26 @@ public:
 
 
     template <class KeyT>
-    KeyT key() const;
+    KeyT key() const {
+        auto [buf, size, ref] = KeySpan();
+        if (size != sizeof(KeyT)) {
+            std::runtime_error("The size of the key does not match.");
+        }
+        KeyT key;
+        std::memcpy(&key, buf, size);
+        return key;
+    }
 
     template <class ValueT>
-    ValueT value() const;
+    ValueT value() const {
+        auto [buf, size, ref] = ValueSpan();
+        if (size != sizeof(ValueT)) {
+            std::runtime_error("The size of the value does not match.");
+        }
+        ValueT value;
+        std::memcpy(&value, buf, size);
+        return value;
+    }
 
     std::string key() const;
 
@@ -106,7 +121,6 @@ private:
 
 private:
     friend class BTree;
-    friend class UpdateBucket;
 
     const BTree* btree_;
     detail::Stack<std::pair<PageId, uint16_t>, 8> stack_;       // 索引必定是小于等于搜索时key的节点

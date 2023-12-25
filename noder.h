@@ -88,9 +88,18 @@ public:
     Noder(Noder&& right) noexcept : 
         page_ref_{ std::move(right.page_ref_) },
         btree_{ right.btree_ },
-        pager_{ right.pager_ },
         node_{ right.node_ },
         overflower_{ std::move(right.overflower_) } {}
+
+
+    void operator=(Noder&& right) noexcept {
+        page_ref_ = std::move(right.page_ref_);
+        btree_ = right.btree_;
+        node_ = right.node_;
+        overflower_ = std::move(right.overflower_);
+    }
+
+    Noder Copy() const;
 
     /*
     * 将数据保存到Node中
@@ -100,7 +109,7 @@ public:
         if (data.size() <= sizeof(Span::embed.data)) {
             span.type = Span::Type::kEmbed;
             span.embed.size = data.size();
-            memcpy(span.embed.data, data.data(), data.size());
+            std::memcpy(span.embed.data, data.data(), data.size());
         }
         else if (data.size() < kPageSize) {
             auto res = overflower_.Alloc(data.size());
@@ -114,7 +123,7 @@ public:
             span.block.size = data.size();
 
             auto [buf, page] = overflower_.Load(span.block.record_index, span.block.offset);
-            memcpy(buf, data.data(), data.size());
+            std::memcpy(buf, data.data(), data.size());
         }
         else {
             throw std::runtime_error("unrealized types.");
@@ -305,18 +314,21 @@ public:
 
     Node* node() { return node_; }
 
-    PageId page_id() { return page_ref_.page_id(); }
-    uint8_t* page_cache() { return page_ref_.page_cache(); }
+    Pager* pager() const;
+
+    PageId page_id() const { return page_ref_.page_id(); }
+
+    uint8_t* page_cache() const { return page_ref_.page_cache(); }
+
 
     Iterator begin() { return Iterator{ node_, 0 }; }
-    Iterator end() { return Iterator{ node_, node_->element_count }; }
 
+    Iterator end() { return Iterator{ node_, node_->element_count }; }
 
 private:
     friend class Overflower;
 
     const BTree* btree_;
-    Pager* pager_;
 
     PageReferencer page_ref_;
     Node* node_;

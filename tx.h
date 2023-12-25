@@ -5,7 +5,7 @@
 #include <string_view>
 
 #include "noncopyable.h"
-#include "tx_id.h"
+#include "txid.h"
 #include "meta.h"
 #include "bucket.h"
 
@@ -16,20 +16,12 @@ class Txer;
 
 class Tx : noncopyable {
 public:
-    Tx(Txer* txer, const Meta& meta) :
-        txer_{ txer },
-        meta_{ meta } {}
+    Tx(Txer* txer, const Meta& meta);
 
-    Tx(Tx&& right) noexcept :
-        txer_{ right.txer_ },
-        meta_{ std::move(right.meta_) } {}
+    Tx(Tx&& right) noexcept;
+    void operator=(Tx&& right) noexcept;
 
-    void operator=(Tx&& right) noexcept {
-        txer_ = right.txer_;
-        meta_ = std::move(right.meta_);
-    }
-
-    TxId tx_id() { return meta_.tx_id; }
+    TxId txid() { return meta_.txid; }
     
 protected:
     Pager* pager();
@@ -43,37 +35,33 @@ protected:
 
 class ViewTx : public Tx {
 public:
-    ViewTx(Txer* txer, const Meta& meta) :
-        Tx{ txer, meta },
-        bucket_{ pager(), this, meta_.root} {}
+    ViewTx(Txer* txer, const Meta& meta);
 
 public:
     ViewBucket& RootBucket();
 
 private:
+    friend class Txer;
+
     ViewBucket bucket_;
 };
 
 
 class UpdateTx : public Tx {
 public:
-    UpdateTx(Txer* txer, const Meta& meta) :
-        Tx{ txer, meta },
-        bucket_{ pager(), this, meta_.root } {}
+    UpdateTx(Txer* txer, const Meta& meta);
 
 public:
     UpdateBucket& RootBucket();
 
+    void RollBack();
 
-    void RollBack() {
-
-    }
-
-    void Commit() {
-
-    }
+    void Commit();
 
 private:
+    friend class Txer;
+    friend class Pager;
+
     UpdateBucket bucket_;
 };
 

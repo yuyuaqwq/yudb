@@ -10,20 +10,22 @@
 namespace yudb {
 
 class Db;
+class UpdateTx;
 
 class Pager : noncopyable {
 public:
     Pager(Db* db, PageSize page_size) : db_{ db }, 
         page_size_{ page_size }, 
-        cacher_{ this } {}
+        cacher_{ this },
+        update_tx_{ nullptr } {}
 
     Pager(const Pager&) = delete;
     void operator=(const Pager&) = delete;
 
 public:
     PageSize page_size() { return page_size_; }
-    PageCount page_count() { return page_count_; }
-    void set_page_count(PageCount page_count) { page_count_ = page_count; }
+
+    void set_update_tx(UpdateTx* update_tx) { update_tx_ = update_tx; }
 
     /*
     * 非线程安全，仅写事务使用
@@ -32,18 +34,9 @@ public:
 
     void Write(PageId pgid, void* cache, PageCount count);
 
-    PageId Alloc(PageCount count) {
-        PageId pgid = page_count_;
-        page_count_ += count;
-        auto [cache_info, page_cache] = cacher_.Reference(pgid);
-        cache_info->dirty = true;
-        cacher_.Dereference(page_cache);
-        return pgid;
-    }
+    PageId Alloc(PageCount count);
 
-    void Free(PageId pgid, PageCount count) {
-
-    }
+    void Free(PageId pgid, PageCount count);
 
     // 线程安全
     PageReferencer Reference(PageId pgid) {
@@ -55,7 +48,7 @@ public:
         cacher_.Dereference(page_cache);
     }
 
-    PageId CacheToPageId(uint8_t* page_cache) {
+    PageId CacheToPageId(uint8_t* page_cache) const {
         return cacher_.CacheToPageId(page_cache);
     }
 
@@ -63,7 +56,8 @@ private:
     Db* db_;
 
     PageSize page_size_;
-    PageCount page_count_{ 0 };
+
+    UpdateTx* update_tx_;
 
     Cacher cacher_;
 };

@@ -15,12 +15,14 @@ public:
 
     bool Load();
 
+    void Save();
+
     Meta& meta() { return meta_; }
 
 private:
     Db* db_;
     Meta meta_{ 0 };
-    ptrdiff_t meta_index_{ 0 };
+    size_t meta_index_{ 0 };
 };
 
 } // namespace yudb

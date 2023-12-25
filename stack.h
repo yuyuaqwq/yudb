@@ -12,6 +12,7 @@ template <typename T, size_t kSize>
 class Stack {
 public:
     T& front() noexcept {
+        assert(!empty());
         return array_[cur_pos_ - 1];
     }
 

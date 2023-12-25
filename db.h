@@ -16,6 +16,7 @@ class Db : noncopyable {
 public:
     Db() = default;
 
+
     static std::unique_ptr<Db> Open(std::string_view path) {
         auto db = std::make_unique<Db>();
         if (!db->file_.Open(path, false)) {
@@ -27,13 +28,12 @@ public:
         }
 
         db->pager_ = std::make_unique<Pager>(db.get(), db->metaer_.meta().page_size);
-        db->pager_->set_page_count(db->metaer_.meta().page_count);
-
         return db;
     }
 
-    UpdateTx Update() {
-        return txer_.Update();
+    UpdateTx& Update() {
+        auto& update_tx = txer_.Update();
+        return update_tx;
     }
 
     ViewTx View() {
@@ -44,7 +44,6 @@ public:
     friend class Metaer;
     friend class Pager;
     friend class Txer;
-
 
     File file_;
     Metaer metaer_{ this };

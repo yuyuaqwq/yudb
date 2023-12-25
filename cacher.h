@@ -15,14 +15,15 @@ class Pager;
 
 class Cacher : noncopyable {
 public:
-    Cacher(Pager* pager);
+    explicit Cacher(Pager* pager);
+
     ~Cacher();
 
-    std::pair<CacheInfo*, uint8_t*>  Reference(PageId pgid);
+    std::pair<CacheInfo*, uint8_t*> Reference(PageId pgid);
 
     void Dereference(uint8_t* page_cache);
 
-    PageId CacheToPageId(uint8_t* page_cache);
+    PageId CacheToPageId(uint8_t* page_cache) const;
 
 private:
     Pager* pager_;
