@@ -183,26 +183,20 @@ BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
     uint16_t index;
     comp_result_ = CompResult::kInvalid;
     if (node->element_count > 0) {
-        CompResult temp_comp_result = CompResult::kInvalid;
         auto iter = std::lower_bound(noder.begin(), noder.end(), key, [&](const Span& span, std::span<const uint8_t> search_key) -> bool {
             auto [buf, size, ref] = noder.SpanLoad(span);
             auto res = memcmp(buf, search_key.data(), std::min(size, search_key.size()));
             if (res == 0 && size != search_key.size()) {
-                temp_comp_result = size < search_key.size() ? CompResult::kLt : CompResult::kGt;
-                return temp_comp_result == CompResult::kLt;
+                return size < search_key.size();
             }
             if (res != 0) {
-                temp_comp_result = res < 0 ? CompResult::kLt : CompResult::kGt;
-                return temp_comp_result == CompResult::kLt;
+                return res < 0;
             }
             else {
                 comp_result_ = CompResult::kEq;
                 return false;
             }
-            });
-        if (comp_result_ == CompResult::kInvalid) {
-            comp_result_ = temp_comp_result;
-        }
+        });
         index = iter.index();
         if (comp_result_ == CompResult::kEq && noder.IsBranch()) {
             ++index;

@@ -16,6 +16,7 @@ namespace yudb {
 
 class Bucket;
 class Tx;
+class UpdateTx;
 
 class BTree {
 public:
@@ -24,11 +25,17 @@ public:
 public:
     BTree(Bucket* bucket, PageId& root_pgid);
 
+    ~BTree() = default;
+
+    Iterator LowerBound(std::span<const uint8_t> key) const;
+
     BTreeIterator Get(std::span<const uint8_t> key) const;
 
     void Put(std::span<const uint8_t> key, std::span<const uint8_t> value);
 
     bool Delete(std::span<const uint8_t> key);
+
+    void Print() const;
 
 
     Iterator begin() const noexcept;
@@ -36,20 +43,18 @@ public:
     Iterator end() const noexcept;
 
 
+    Bucket* bucket() const { return bucket_; }
+
     Pager* pager() const;
 
     Tx* tx() const;
 
-
-    void Print() const;
+    UpdateTx* update_tx() const;
 
 private:
     std::tuple<Noder, uint16_t, Noder, bool> GetSibling(Iterator* iter);
 
     void Print(PageId pgid, int level) const;
-
-
-    Iterator Locate(std::span<const uint8_t> key) const;
 
     /*
     * 分支节点的合并
@@ -61,30 +66,15 @@ private:
     */
     void Delete(Iterator* iter, Noder&& noder, uint16_t left_del_pos);
 
-
     /*
     * 叶子节点的合并
     */
     void Merge(Noder&& left, Noder&& right);
 
-
     /*
     * 叶子节点的删除
     */
     void Delete(Iterator* iter, std::span<const uint8_t> key);
-
-
-
-    /*
-    * 叶子节点的分裂
-    * 返回新右节点
-    */
-    Noder Split(Noder* left, uint16_t insert_pos, Span&& insert_key, Span&& insert_value);
-
-    /*
-    * 叶子节点的插入
-    */
-    void Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value);
 
 
     /*
@@ -97,12 +87,22 @@ private:
     * 分支节点的插入
     */
     void Put(Iterator* iter, Noder&& left, Noder&& right, Span* key, bool branch_put = false);
+    
+    /*
+    * 叶子节点的分裂
+    * 返回新右节点
+    */
+    Noder Split(Noder* left, uint16_t insert_pos, Span&& insert_key, Span&& insert_value);
+
+    /*
+    * 叶子节点的插入
+    */
+    void Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value);
 
 
     void PathCopy(Iterator* iter);
 
 private:
-    friend class Noder;
     friend class BTreeIterator;
 
     Bucket* bucket_;

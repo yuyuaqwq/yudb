@@ -1,6 +1,7 @@
 #pragma once
 
 #include "page.h"
+#include "txid.h"
 
 namespace yudb {
 
@@ -18,13 +19,15 @@ struct FreeList{
     uint16_t max_free_size;
 };
 
-struct Overflow {
-    struct Record {
-        PageId pgid;
-        FreeList free_list;
-    };
+struct OverflowRecord {
+    PageId pgid;
+    TxId last_modified_txid;
+    FreeList free_list;
+};
 
+struct OverflowInfo {
     PageId record_pgid;
+    TxId last_modified_txid;
     PageOffset record_offset;
     uint16_t record_index;
     uint16_t record_count;

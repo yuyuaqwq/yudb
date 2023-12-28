@@ -22,9 +22,11 @@ public:
     void operator=(Tx&& right) noexcept;
 
     TxId txid() { return meta_.txid; }
-    
+
 protected:
     Pager* pager();
+
+    Meta& meta() { return meta_; }
 
 protected:
     friend class Txer;
@@ -57,6 +59,10 @@ public:
     void RollBack();
 
     void Commit();
+
+    bool IsExpiredTxId(TxId txid) {
+        return txid < this->txid();
+    }
 
 private:
     friend class Txer;

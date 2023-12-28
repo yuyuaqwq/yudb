@@ -3,7 +3,7 @@
 #include "txid.h"
 #include "page.h"
 #include "span.h"
-#include "overflow.h"
+#include "overflow_info.h"
 
 namespace yudb {
 
@@ -33,10 +33,8 @@ struct Node {
         struct {
             Type type : 2;
             uint16_t element_count : 14;
-
-            Overflow overflow;
-
-            TxId last_write_txid;
+            TxId last_modified_txid;
+            OverflowInfo overflow_info;
             union {
                 struct {
                     PageId tail_child;

@@ -87,7 +87,6 @@ void TestBTree(yudb::Db* db) {
 
         for (auto i = 0; i < count; i++) {
             bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-
             bucket.Print();
             printf("\n\n\n\n\n");
         }
@@ -114,12 +113,8 @@ void TestBTree(yudb::Db* db) {
         auto& tx = db->Update();
         auto& bucket = tx.RootBucket();
 
-        bucket.Print();
-        printf("\n\n\n\n\n");
         for (auto i = 0; i < count; i++) {
             auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
-            bucket.Print();
-            printf("\n\n\n\n\n");
             assert(res);
         }
 
@@ -132,6 +127,14 @@ void TestBTree(yudb::Db* db) {
         //    std::cout << std::hex << i++ << " " << std::hex << iter.key<uint32_t>() << "    ";
         //    //assert(iter.key<uint32_t>() == i++);
         //}
+
+
+        //if (count <= 100000) {
+        //    bucket.Print();
+        //    printf("\n\n\n\n\n");
+        //}
+
+
 
         for (auto i = count - 1; i >= 0; i--) {
             auto res = bucket.Get(&arr[i], sizeof(arr[i]));
@@ -153,10 +156,21 @@ void TestBTree(yudb::Db* db) {
         for (auto i = 0; i < count; i++) {
             bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
         }
+
+        bucket.Print();
+        printf("\n\n\n\n\n");
+
+        auto view_tx = db->View();
+        auto& view_bucket = view_tx.RootBucket();
+
+        view_bucket.Print();
+        printf("\n\n\n\n\n");
+
         for (auto i = 0; i < count; i++) {
             auto res = bucket.Get(&arr[i], sizeof(arr[i]));
             assert(res != bucket.end());
         }
+
         for (auto val : set) {
             auto res = bucket.Delete(&val, sizeof(val));
             assert(res);
@@ -167,12 +181,6 @@ void TestBTree(yudb::Db* db) {
         auto k = 0;
         bucket.Delete(&k, sizeof(k));
     }
-
-    
-
-
-    
-
 }
 
 void TestOverflower(yudb::Db* db) {
@@ -181,11 +189,17 @@ void TestOverflower(yudb::Db* db) {
     auto& bucket = tx.RootBucket();
 
     bucket.Put("hello world!", "Cpp yyds!");
+    bucket.Print(); printf("\n\n\n\n");
     bucket.Put("This is yudb", "value!");
+    bucket.Print(); printf("\n\n\n\n");
     bucket.Put("123123", "123123");
+    bucket.Print(); printf("\n\n\n\n");
     bucket.Put("456456", "456456");
+    bucket.Print(); printf("\n\n\n\n");
     bucket.Put("789789", "789789");
+    bucket.Print(); printf("\n\n\n\n");
     bucket.Put("abcabc", "abcabc");
+    bucket.Print(); printf("\n\n\n\n");
     auto res = bucket.Get("hello world!");
     assert(res != bucket.end());
     for (auto& iter : bucket) {
@@ -238,9 +252,9 @@ int main() {
 
     //TestPager(db.get());
 
-    //TestOverflower(db.get());
+    TestOverflower(db.get());
 
-    TestBTree(db.get());
+    //TestBTree(db.get());
 
     
     //TestFreer();

@@ -17,16 +17,17 @@ public:
 
     ViewTx View();
 
-private:
-    void CopyMeta(Meta* dst, const Meta& src);
-
     void Commit();
 
-private:
-    friend class Tx;
-    friend class ViewTx;
-    friend class UpdateTx;
 
+    Pager* pager();
+
+    UpdateTx* update_tx() { return update_tx_.get(); }
+
+
+    void CopyMeta(Meta* dst, const Meta& src);
+
+private:
     Db* db_;
     std::unique_ptr<UpdateTx> update_tx_;
 };

@@ -5,6 +5,7 @@
 namespace yudb {
 
 class Tx;
+class UpdateTx;
 class Pager;
 class ViewBucket;
 
@@ -22,13 +23,13 @@ public:
     }
 
     Iterator Get(const void* key_buf, size_t key_size) const {
-        std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
-        return btree_.Get(key_span);
+        return btree_.Get({ reinterpret_cast<const uint8_t*>(key_buf), key_size });
     }
 
     Iterator Get(std::string_view key) const {
         return Get(key.data(), key.size());
     }
+
 
     Iterator begin() const noexcept {
         return btree_.begin();
@@ -38,9 +39,17 @@ public:
         return btree_.end();
     }
 
-    Pager* pager() { return pager_; }
 
-    Tx* tx() { return tx_; }
+    Pager* pager() const { return pager_; }
+
+    Tx* tx() const { return tx_; }
+
+    UpdateTx* update_tx() const { return reinterpret_cast<UpdateTx*>(tx_); }
+
+
+    void Print() const {
+        btree_.Print();
+    }
 
 protected:
     Pager* pager_;
@@ -78,13 +87,10 @@ public:
         return btree_.Delete(key_span);
     }
 
-    void Print() {
-        btree_.Print();
-    }
-
-
 private:
     friend class Pager;
 };
+
+static_assert(sizeof(Bucket) == sizeof(ViewBucket) && sizeof(Bucket) == sizeof(UpdateBucket), "bucket size mismatch.");
 
 } // namespace yudb

@@ -14,18 +14,15 @@ class UpdateTx;
 
 class Pager : noncopyable {
 public:
-    Pager(Db* db, PageSize page_size) : db_{ db }, 
-        page_size_{ page_size }, 
-        cacher_{ this },
-        update_tx_{ nullptr } {}
+    Pager(Db* db, PageSize page_size) : db_{ db },
+        page_size_{ page_size },
+        cacher_{ this } {}
 
     Pager(const Pager&) = delete;
     void operator=(const Pager&) = delete;
 
 public:
     PageSize page_size() { return page_size_; }
-
-    void set_update_tx(UpdateTx* update_tx) { update_tx_ = update_tx; }
 
     /*
     * 非线程安全，仅写事务使用
@@ -37,6 +34,19 @@ public:
     PageId Alloc(PageCount count);
 
     void Free(PageId pgid, PageCount count);
+
+    PageReferencer Copy(const PageReferencer& page_ref) {
+        auto new_pgid = Alloc(1);
+        auto new_page = Reference(new_pgid);
+        std::memcpy(new_page.page_cache(), page_ref.page_cache(), page_size());
+        return new_page;
+    }
+
+    PageReferencer Copy(PageId pgid) {
+        auto page = Reference(pgid);
+        return Copy(std::move(page));
+    }
+
 
     // 线程安全
     PageReferencer Reference(PageId pgid) {
@@ -52,13 +62,11 @@ public:
         return cacher_.CacheToPageId(page_cache);
     }
 
+
+
 private:
     Db* db_;
-
     PageSize page_size_;
-
-    UpdateTx* update_tx_;
-
     Cacher cacher_;
 };
 

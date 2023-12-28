@@ -16,17 +16,14 @@ class Db : noncopyable {
 public:
     Db() = default;
 
-
     static std::unique_ptr<Db> Open(std::string_view path) {
         auto db = std::make_unique<Db>();
         if (!db->file_.Open(path, false)) {
             return {};
         }
-
         if (!db->metaer_.Load()) {
             return {};
         }
-
         db->pager_ = std::make_unique<Pager>(db.get(), db->metaer_.meta().page_size);
         return db;
     }

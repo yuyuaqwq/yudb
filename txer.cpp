@@ -10,7 +10,6 @@ Txer::Txer(Db* db) :
 UpdateTx& Txer::Update() {
     if (!update_tx_) {
         update_tx_ = std::make_unique<UpdateTx>(this, db_->metaer_.meta());
-        db_->pager_->set_update_tx(update_tx_.get());
     }
     //else {
     //    CopyMeta(&update_tx_->meta_, db_->metaer_.meta());
@@ -25,16 +24,20 @@ ViewTx Txer::View() {
     return tx;
 }
 
+void Txer::Commit() {
+    CopyMeta(&db_->metaer_.meta(), update_tx_->meta_);
+}
+
+
+Pager* Txer::pager() {
+    return db_->pager_.get();
+}
+
 
 void Txer::CopyMeta(Meta* dst, const Meta& src) {
     dst->root = src.root;
     dst->page_count = src.page_count;
     dst->txid = src.txid;
 }
-
-void Txer::Commit() {
-    CopyMeta(&db_->metaer_.meta(), update_tx_->meta_);
-}
-
 
 } // namespace yudb

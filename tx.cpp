@@ -24,7 +24,7 @@ void Tx::operator=(Tx&& right) noexcept {
 }
 
 
-Pager* Tx::pager() { return txer_->db_->pager_.get(); }
+Pager* Tx::pager() { return txer_->pager(); }
 
 
 

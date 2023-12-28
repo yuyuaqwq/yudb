@@ -85,6 +85,9 @@ private:
 public:
     Noder(const BTree* btree, PageId page_id);
 
+    Noder(const BTree* btree, PageReferencer page_ref);
+
+
     Noder(Noder&& right) noexcept : 
         page_ref_{ std::move(right.page_ref_) },
         btree_{ right.btree_ },
@@ -132,7 +135,8 @@ public:
     }
 
     void SpanFree(Span&& span) {
-        if (span.type == Span::Type::kEmbed) { }
+        if (span.type == Span::Type::kInvalid) { }
+        else if (span.type == Span::Type::kEmbed) { }
         else if (span.type == Span::Type::kBlock) {
             overflower_.Free({ span.block.record_index, span.block.offset, span.block.size });
         }
@@ -177,9 +181,9 @@ public:
 
 
     void OverflowInit() {
-        node_->overflow.record_pgid = kPageInvalidId;
-        node_->overflow.record_index = kRecordInvalidIndex;
-        node_->overflow.record_count = 0;
+        node_->overflow_info.record_pgid = kPageInvalidId;
+        node_->overflow_info.record_index = kRecordInvalidIndex;
+        node_->overflow_info.record_count = 0;
     }
 
 
@@ -189,10 +193,8 @@ public:
         node_->element_count = 0;
     }
 
+    // 不释放原来的key和value
     void LeafSet(uint16_t pos, Span&& key, Span&& value) {
-        auto key_span = std::move(node_->body.leaf[pos].key);
-        auto value_span = std::move(node_->body.leaf[pos].value);
-
         node_->body.leaf[pos].key = std::move(key);
         node_->body.leaf[pos].value = std::move(value);
     }
@@ -207,8 +209,8 @@ public:
 
     void LeafDelete(uint16_t pos) {
         assert(pos < node_->element_count);
-        auto key = std::move(node_->body.leaf[pos].key);
-        auto value = std::move(node_->body.leaf[pos].value);
+        SpanFree(std::move(node_->body.leaf[pos].key));
+        SpanFree(std::move(node_->body.leaf[pos].value));
 
         std::memmove(&node_->body.leaf[pos], &node_->body.leaf[pos + 1], (node_->element_count - pos - 1) * sizeof(node_->body.leaf[pos]));
         --node_->element_count;
@@ -253,17 +255,19 @@ public:
                 node_->body.tail_child = node_->body.branch[node_->element_count - 1].left_child;
             }
             if (copy_count > 0) {
+                SpanFree(std::move(node_->body.branch[pos + 1].key));
                 std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos + 2], (copy_count - 1) * sizeof(node_->body.branch[pos]));
             }
         }
         else {
+            SpanFree(std::move(node_->body.branch[pos].key));
             std::memmove(&node_->body.branch[pos], &node_->body.branch[pos + 1], copy_count * sizeof(node_->body.branch[pos]));
         }
         --node_->element_count;
     }
 
     /*
-    * 不处理tail_child的关系，需要自己保证tail_child的正确性
+    * 不处理tail_child的关系，不释放原来的key，需要自己保证tail_child的正确性
     */
     void BranchSet(uint16_t pos, Span&& key, PageId left_child) {
         node_->body.branch[pos].key = std::move(key);
@@ -314,6 +318,8 @@ public:
 
     Node* node() { return node_; }
 
+    const BTree* btree() { return btree_; }
+
     Pager* pager() const;
 
     PageId page_id() const { return page_ref_.page_id(); }
@@ -326,8 +332,6 @@ public:
     Iterator end() { return Iterator{ node_, node_->element_count }; }
 
 private:
-    friend class Overflower;
-
     const BTree* btree_;
 
     PageReferencer page_ref_;

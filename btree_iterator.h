@@ -32,8 +32,6 @@ private:
     typedef enum class CompResult {
         kInvalid,
         kEq,
-        kGt,
-        kLt,
     };
 
 public:
@@ -59,7 +57,7 @@ public:
     KeyT key() const {
         auto [buf, size, ref] = KeySpan();
         if (size != sizeof(KeyT)) {
-            std::runtime_error("The size of the key does not match.");
+            throw std::runtime_error("The size of the key does not match.");
         }
         KeyT key;
         std::memcpy(&key, buf, size);
@@ -70,7 +68,7 @@ public:
     ValueT value() const {
         auto [buf, size, ref] = ValueSpan();
         if (size != sizeof(ValueT)) {
-            std::runtime_error("The size of the value does not match.");
+            throw std::runtime_error("The size of the value does not match.");
         }
         ValueT value;
         std::memcpy(&value, buf, size);
@@ -81,6 +79,8 @@ public:
 
     std::string value() const;
 
+
+    CompResult comp_result() const { return comp_result_; }
 
 private:
     void First(PageId pgid);
@@ -112,12 +112,10 @@ private:
     bool Empty() const;
 
 
-
+private:
     std::pair<PageId, uint16_t>& Index(ptrdiff_t i) { return stack_.index(i); }
 
     size_t Size() const { return stack_.cur_pos(); }
-
-    CompResult comp_result() const { return comp_result_; }
 
 private:
     friend class BTree;
