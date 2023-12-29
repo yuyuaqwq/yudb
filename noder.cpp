@@ -26,6 +26,10 @@ Noder Noder::Copy() const {
     return new_noder;
 }
 
+void Noder::SpanClear() {
+    overflower_.OverflowInfoClear();
+}
+
 Pager* Noder::pager() const { return btree_->pager(); }
 
 } // namespace yudb

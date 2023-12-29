@@ -70,37 +70,49 @@ Tx* BTree::tx() const { return bucket_->tx(); }
 UpdateTx* BTree::update_tx() const{ return bucket_->update_tx(); }
 
 
-void BTree::Print(PageId pgid, int level) const {
+void BTree::Print(bool str, PageId pgid, int level) const {
     std::string indent(level * 4, ' ');
     Noder noder{ this, pgid };
     auto node = noder.node();
     if (noder.IsBranch()) {
-        Print(node->body.tail_child, level + 1);
+        Print(str, node->body.tail_child, level + 1);
         for (int i = node->element_count - 1; i >= 0; i--) {
             std::string key;
             auto [buf, size, ref] = noder.SpanLoad(node->body.branch[i].key);
-            for (int j = 0; j < size; j++) {
-                key += std::format("{:02x}", buf[j]) + " ";
+            if (str) {
+                std::cout << std::format("{}branch[{}]::key::{}::level::{}\n", indent, pgid, std::string_view{ reinterpret_cast<const char*>(buf), size }, level);
             }
-            std::cout << std::format("{}branch[{}]::key::{}::level::{}\n", indent, pgid, key, level);
-            Print(node->body.branch[i].left_child, level + 1);
+            else {
+                for (int j = 0; j < size; j++) {
+                    key += std::format("{:02x}", buf[j]) + " ";
+                }
+                std::cout << std::format("{}branch[{}]::key::{}::level::{}\n", indent, pgid, key, level);
+            }
+            Print(str, node->body.branch[i].left_child, level + 1);
         }
+        //noder.OverflowPrint(); printf("\n");
     }
     else {
         assert(noder.IsLeaf());
         for (int i = node->element_count - 1; i >= 0; i--) {
             std::string key;
             auto [buf, size, ref] = noder.SpanLoad(node->body.leaf[i].key);
-            for (int j = 0; j < size; j++) {
-                key += std::format("{:02x}", buf[j]) + " ";
+            if (str) {
+                std::cout << std::format("{}leaf[{}]::key::{}::level::{}\n", indent, pgid, std::string_view{ reinterpret_cast<const char*>(buf), size }, level);
             }
-            std::cout << std::format("{}leaf[{}]::key::{}::level::{}\n", indent, pgid, key, level);
+            else {
+                for (int j = 0; j < size; j++) {
+                    key += std::format("{:02x}", buf[j]) + " ";
+                }
+                std::cout << std::format("{}leaf[{}]::key::{}::level::{}\n", indent, pgid, key, level);
+            }
         }
+        //noder.OverflowPrint(); printf("\n");
     }
 }
 
-void BTree::Print() const {
-    Print(root_pgid_, 0);
+void BTree::Print(bool str) const {
+    Print(str, root_pgid_, 0);
 }
 
 
@@ -143,6 +155,8 @@ void BTree::Merge(Noder&& left, Noder&& right, Span&& down_key) {
     }
     left_node->body.tail_child = right_node->body.tail_child;
     left_node->element_count += right_node->element_count;
+
+    right.SpanClear();
     pager()->Free(right.page_id(), 1);
 }
 
@@ -254,6 +268,7 @@ void BTree::Merge(Noder&& left, Noder&& right) {
     }
     left_node->element_count += right_node->element_count;
 
+    right.SpanClear();
     pager()->Free(right.page_id(), 1);
 }
 
@@ -372,7 +387,7 @@ std::tuple<Span, Noder> BTree::Split(Noder* left, uint16_t insert_pos, Span&& in
     right_node->body.tail_child = left_node->body.tail_child;
     if (insert_right == 0) {
         if (insert_pos == max_leaf_element_count_) {
-            right.BranchSet(right_node->element_count++, std::move(insert_key), right_node->body.tail_child);
+            right.BranchSet(right_node->element_count++, left->SpanMove(&right, std::move(insert_key)), right_node->body.tail_child);
             right_node->body.tail_child = insert_right_child;
         }
         else {
@@ -441,7 +456,7 @@ void BTree::Put(Iterator* iter, Noder&& left, Noder&& right, Span* key, bool bra
 * 叶子节点的分裂
 * 返回新右节点
 */
-Noder BTree::Split(Noder* left, uint16_t insert_pos, Span&& insert_key, Span&& insert_value) {
+Noder BTree::Split(Noder* left, uint16_t insert_pos, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     Noder right{ this, pager()->Alloc(1) };
     right.LeafBuild();
 
@@ -456,8 +471,8 @@ Noder BTree::Split(Noder* left, uint16_t insert_pos, Span&& insert_key, Span&& i
         auto left_pos = mid + i;
         if (insert_right == 0 && left_pos == insert_pos) {
             right.LeafSet(i,
-                left->SpanMove(&right, std::move(insert_key)),
-                left->SpanMove(&right, std::move(insert_value))
+                right.SpanAlloc(key),
+                right.SpanAlloc(value)
             );
             insert_right = 1;
             --i;
@@ -474,10 +489,10 @@ Noder BTree::Split(Noder* left, uint16_t insert_pos, Span&& insert_key, Span&& i
     if (insert_right == 0) {
         if (insert_pos == max_leaf_element_count_) {
             insert_right = 1;
-            right.LeafSet(right_count, std::move(insert_key), std::move(insert_value));
+            right.LeafSet(right_count, right.SpanAlloc(key), right.SpanAlloc(value));
         }
         else {
-            left->LeafInsert(insert_pos, std::move(insert_key), std::move(insert_value));
+            left->LeafInsert(insert_pos, left->SpanAlloc(key), left->SpanAlloc(value));
         }
     }
     right_node->element_count = right_count + insert_right;
@@ -500,20 +515,18 @@ void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const ui
 
     auto [pgid, pos] = iter->Cur();
     Noder noder{ this, pgid };
-    auto key_span = noder.SpanAlloc(key);
-    auto value_span = noder.SpanAlloc(value);
     if (iter->comp_result() == Iterator::CompResult::kEq) {
-        noder.LeafSet(pos, std::move(key_span), std::move(value_span));
+        noder.LeafSet(pos, noder.SpanAlloc(key), noder.SpanAlloc(value));
         return;
     }
 
     if (noder.node()->element_count < max_leaf_element_count_) {
-        noder.LeafInsert(pos, std::move(key_span), std::move(value_span));
+        noder.LeafInsert(pos, noder.SpanAlloc(key), noder.SpanAlloc(key));
         return;
     }
 
     // 需要分裂再向上插入
-    Noder right = Split(&noder, pos, std::move(key_span), std::move(value_span));
+    Noder right = Split(&noder, pos, key, value);
 
     iter->Pop();
     // 上升右节点的第一个节点
@@ -544,7 +557,6 @@ void BTree::PathCopy(Iterator* iter) {
             new_noder.BranchSetLeftChild(index, lower_pgid);
         }
         lower_pgid = new_noder.page_id();
-        pager()->Free(pgid, 1);
         pgid = lower_pgid;
     }
     iter->btree_->root_pgid_ = lower_pgid;

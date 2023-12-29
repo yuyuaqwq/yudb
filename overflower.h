@@ -15,22 +15,32 @@ public:
 
     ~Overflower() = default;
 
-    std::optional<std::pair<uint16_t, PageOffset>> Alloc(PageSize size, OverflowRecord* record_arr = nullptr);
+    std::optional<std::pair<uint16_t, PageOffset>> BlockAlloc(PageSize size, OverflowRecord* record_arr = nullptr);
     
-    void Free(const std::tuple<uint16_t, PageOffset, uint16_t>& block, OverflowRecord* temp_record_element = nullptr);
+    void BlockFree(const std::tuple<uint16_t, PageOffset, uint16_t>& block, OverflowRecord* temp_record_element = nullptr);
 
-    std::pair<uint8_t*, PageReferencer> Load(uint16_t record_index, PageOffset offset);
+    std::pair<uint8_t*, PageReferencer> BlockLoad(uint16_t record_index, PageOffset offset);
 
+
+    PageSize BlockMaxSize();
+
+
+    void OverflowInfoClear();
+
+
+    void Print();
 
 private:
     void RecordBuild(OverflowRecord* record_element, PageReferencer* page, uint16_t init_block_size);
 
-    void RecordUpdateMaxFreeSize(OverflowRecord* record_element, uint8_t* cache);
+    void RecordUpdateMaxFreeSize(OverflowRecord* record_element, OverflowPage* cache);
 
     void RecordCopy();
 
 
-    void OverflowPageBuild();
+    void OverflowInfoBuild();
+
+
     
     void OverflowPageAppend(PageReferencer* record_page);
 

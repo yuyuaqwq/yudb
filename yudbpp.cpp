@@ -183,30 +183,56 @@ void TestBTree(yudb::Db* db) {
     }
 }
 
+std::string RandomString(size_t min_size, size_t max_size) {
+    int size;
+    if (min_size == max_size) {
+        size = min_size;
+    }
+    else {
+        size = (rand() % (max_size - min_size)) + min_size;
+    }
+    std::string str(size , ' ');
+    for (auto i = 0; i < size; i++) {
+        str[i] = rand() % 26 + 'a';
+    }
+    return str;
+}
+
 void TestOverflower(yudb::Db* db) {
     auto& tx = db->Update();
-
     auto& bucket = tx.RootBucket();
 
-    bucket.Put("hello world!", "Cpp yyds!");
-    bucket.Print(); printf("\n\n\n\n");
-    bucket.Put("This is yudb", "value!");
-    bucket.Print(); printf("\n\n\n\n");
-    bucket.Put("123123", "123123");
-    bucket.Print(); printf("\n\n\n\n");
-    bucket.Put("456456", "456456");
-    bucket.Print(); printf("\n\n\n\n");
-    bucket.Put("789789", "789789");
-    bucket.Print(); printf("\n\n\n\n");
-    bucket.Put("abcabc", "abcabc");
-    bucket.Print(); printf("\n\n\n\n");
-    auto res = bucket.Get("hello world!");
-    assert(res != bucket.end());
-    for (auto& iter : bucket) {
-        auto key = iter.key();
-        auto value = iter.value();
-        std::cout << key << ":";
-        std::cout << value << std::endl;
+    //bucket.Put("hello world!", "Cpp yyds!");
+    //bucket.Put("This is yudb", "value!");
+    //bucket.Put("123123", "123123");
+    //bucket.Put("456456", "456456");
+    //bucket.Put("789789", "789789");
+    //bucket.Put("abcabc", "abcabc");
+    //auto res = bucket.Get("hello world!");
+    //assert(res != bucket.end());
+    //for (auto& iter : bucket) {
+    //    auto key = iter.key();
+    //    auto value = iter.value();
+    //    std::cout << key << ":";
+    //    std::cout << value << std::endl;
+    //}
+
+
+    srand(10);
+
+    auto count = 10000;
+    std::vector<std::string> arr(count);
+
+
+    for (auto i = 0; i < count; i++) {
+        arr[i] = RandomString(8, 16);
+    }
+    auto i = 0;
+    for(auto& iter : arr) {
+        //printf("%d\n", i);
+        ++i;
+        bucket.Put(iter, iter);
+        //bucket.Print(true); printf("\n\n\n\n");
     }
     
 }

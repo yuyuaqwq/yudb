@@ -47,8 +47,8 @@ public:
     UpdateTx* update_tx() const { return reinterpret_cast<UpdateTx*>(tx_); }
 
 
-    void Print() const {
-        btree_.Print();
+    void Print(bool str = false) const {
+        btree_.Print(str);
     }
 
 protected:
@@ -73,9 +73,10 @@ public:
     }
 
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
-        std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
-        std::span<const uint8_t> value_span{ reinterpret_cast<const uint8_t*>(value_buf), value_size };
-        btree_.Put(key_span, value_span);
+        btree_.Put(
+            { reinterpret_cast<const uint8_t*>(key_buf), key_size }, 
+            { reinterpret_cast<const uint8_t*>(value_buf), value_size }
+        );
     }
 
     void Put(std::string_view key, std::string_view value) {
@@ -83,8 +84,7 @@ public:
     }
 
     bool Delete(const void* key_buf, size_t key_size) {
-        std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
-        return btree_.Delete(key_span);
+        return btree_.Delete({ reinterpret_cast<const uint8_t*>(key_buf), key_size });
     }
 
 private:

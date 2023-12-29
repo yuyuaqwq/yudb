@@ -35,7 +35,7 @@ public:
 
     bool Delete(std::span<const uint8_t> key);
 
-    void Print() const;
+    void Print(bool str = false) const;
 
 
     Iterator begin() const noexcept;
@@ -54,7 +54,7 @@ public:
 private:
     std::tuple<Noder, uint16_t, Noder, bool> GetSibling(Iterator* iter);
 
-    void Print(PageId pgid, int level) const;
+    void Print(bool str, PageId pgid, int level) const;
 
     /*
     * 分支节点的合并
@@ -92,7 +92,7 @@ private:
     * 叶子节点的分裂
     * 返回新右节点
     */
-    Noder Split(Noder* left, uint16_t insert_pos, Span&& insert_key, Span&& insert_value);
+    Noder Split(Noder* left, uint16_t insert_pos, std::span<const uint8_t> key, std::span<const uint8_t> value);
 
     /*
     * 叶子节点的插入

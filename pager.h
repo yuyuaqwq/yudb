@@ -39,6 +39,7 @@ public:
         auto new_pgid = Alloc(1);
         auto new_page = Reference(new_pgid);
         std::memcpy(new_page.page_cache(), page_ref.page_cache(), page_size());
+        Free(page_ref.page_id(), 1);    // Pending
         return new_page;
     }
 
@@ -51,6 +52,7 @@ public:
     // 线程安全
     PageReferencer Reference(PageId pgid) {
         auto [cache_info, page_cache] = cacher_.Reference(pgid);
+        cache_info->dirty = true;
         return PageReferencer{ this, page_cache };
     }
 

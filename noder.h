@@ -104,6 +104,7 @@ public:
 
     Noder Copy() const;
 
+
     /*
     * 将数据保存到Node中
     */
@@ -114,19 +115,22 @@ public:
             span.embed.size = data.size();
             std::memcpy(span.embed.data, data.data(), data.size());
         }
-        else if (data.size() < kPageSize) {
-            auto res = overflower_.Alloc(data.size());
+        else if (data.size() <= overflower_.BlockMaxSize()) {
+            auto res = overflower_.BlockAlloc(data.size());
             if (!res) {
                 throw std::runtime_error("overflower alloc error.");
             }
+
             auto [index, offset] = *res;
             span.type = Span::Type::kBlock;
             span.block.record_index = index;
             span.block.offset = offset;
             span.block.size = data.size();
 
-            auto [buf, page] = overflower_.Load(span.block.record_index, span.block.offset);
+            auto [buf, page] = overflower_.BlockLoad(span.block.record_index, span.block.offset);
             std::memcpy(buf, data.data(), data.size());
+
+            //printf("alloc\n"); overflower_.Print(); printf("\n");
         }
         else {
             throw std::runtime_error("unrealized types.");
@@ -138,7 +142,8 @@ public:
         if (span.type == Span::Type::kInvalid) { }
         else if (span.type == Span::Type::kEmbed) { }
         else if (span.type == Span::Type::kBlock) {
-            overflower_.Free({ span.block.record_index, span.block.offset, span.block.size });
+            overflower_.BlockFree({ span.block.record_index, span.block.offset, span.block.size });
+            //printf("free\n"); overflower_.Print(); printf("\n");
         }
         else {
             throw std::runtime_error("unrealized types.");
@@ -171,7 +176,7 @@ public:
             return { span.embed.data, span.embed.size, std::nullopt };
         }
         else if (span.type == Span::Type::kBlock) {
-            auto [buf, page] = overflower_.Load(span.block.record_index, span.block.offset);
+            auto [buf, page] = overflower_.BlockLoad(span.block.record_index, span.block.offset);
             return { buf, span.block.size, std::move(page) };
         }
         else {
@@ -180,10 +185,17 @@ public:
     }
 
 
+    void SpanClear();
+
+
     void OverflowInit() {
         node_->overflow_info.record_pgid = kPageInvalidId;
         node_->overflow_info.record_index = kRecordInvalidIndex;
         node_->overflow_info.record_count = 0;
+    }
+
+    void OverflowPrint() {
+        overflower_.Print();
     }
 
 
