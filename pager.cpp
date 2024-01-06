@@ -22,16 +22,26 @@ void Pager::Write(PageId pgid, void* cache, PageCount count) {
 
 
 PageId Pager::Alloc(PageCount count) {
-    auto update_tx = db_->txer_.update_tx();
+    auto& update_tx = db_->txer_.CurrentUpdateTx();
 
-    PageId pgid = update_tx->meta().page_count;
-    update_tx->meta().page_count += count;
+    //if (!free_db_) {
+        //free_db_ = std::make_unique<UpdateBucket>(this, &update_tx, update_tx->meta().free_db_root);
+    //}
 
+    //PageId pgid;
+    //auto bucket = free_db_->SubUpdateBucket("");
+    //if (bucket.LowerBound(&count, sizeof(count)) != bucket.end()) {
+
+    //}
+    //else {
+        PageId pgid = update_tx.meta().page_count;
+        update_tx.meta().page_count += count;
+    //}
     auto [cache_info, page_cache] = cacher_.Reference(pgid);
     cache_info->dirty = true;
 
-    Noder noder{ &update_tx->RootBucket().btree_, pgid};
-    noder.node()->last_modified_txid = update_tx->txid();
+    Noder noder{ &update_tx.RootBucket().btree(), pgid};
+    noder.node().last_modified_txid = update_tx.txid();
 
     cacher_.Dereference(page_cache);
     return pgid;

@@ -15,15 +15,13 @@
 namespace yudb {
 
 class Bucket;
-class Tx;
-class UpdateTx;
 
 class BTree {
 public:
     using Iterator = BTreeIterator;
 
 public:
-    BTree(Bucket* bucket, PageId& root_pgid);
+    BTree(Bucket* bucket, PageId* root_pgid);
 
     ~BTree() = default;
 
@@ -43,13 +41,7 @@ public:
     Iterator end() const noexcept;
 
 
-    Bucket* bucket() const { return bucket_; }
-
-    Pager* pager() const;
-
-    Tx* tx() const;
-
-    UpdateTx* update_tx() const;
+    Bucket& bucket() const { return *bucket_; }
 
 private:
     std::tuple<Noder, uint16_t, Noder, bool> GetSibling(Iterator* iter);
@@ -106,9 +98,7 @@ private:
     friend class BTreeIterator;
 
     Bucket* bucket_;
-
-    PageId& root_pgid_; 
-
+    PageId* root_pgid_; 
     uint16_t max_leaf_element_count_;
     uint16_t max_branch_element_count_;
 };

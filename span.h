@@ -2,7 +2,6 @@
 
 #include <cstdint>
 
-#include "noncopyable.h"
 #include "page.h"
 
 namespace yudb {
@@ -15,6 +14,20 @@ struct Span {
         kBlock,
         kPageRecord,
     };
+
+    Span() = default;
+
+    Span(const Span&) = delete;
+    void operator=(const Span&) = delete;
+
+    Span(Span&& right) {
+        operator=(std::move(right));
+    }
+
+    void operator=(Span&& right) {
+        std::memcpy(this, &right, sizeof(Span));
+        right.type = Type::kInvalid;
+    }
 
     union {
         Type type : 2;

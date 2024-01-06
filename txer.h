@@ -4,6 +4,8 @@
 
 #include "noncopyable.h"
 #include "tx.h"
+#include "tx_public.h"
+
 
 namespace yudb {
 
@@ -13,23 +15,26 @@ class Txer : noncopyable {
 public:
     Txer(Db* db);
 
-    UpdateTx& Update();
+
+    UpdateTx Update();
 
     ViewTx View();
 
     void Commit();
 
 
-    Pager* pager();
-
-    UpdateTx* update_tx() { return update_tx_.get(); }
+    Tx& CurrentUpdateTx() { return *update_tx_; }
 
 
-    void CopyMeta(Meta* dst, const Meta& src);
+
+    Pager& pager();
+
+public:
+    static void CopyMeta(Meta* dst, const Meta& src);
 
 private:
     Db* db_;
-    std::unique_ptr<UpdateTx> update_tx_;
+    std::unique_ptr<Tx> update_tx_;
 };
 
 } // namespace yudb

@@ -27,16 +27,15 @@ static OverflowPage* PageToOverflowPageCache(PageReferencer* page) {
 }
 
 
-
 void Overflower::OverflowInfoBuild() {
-    auto pager = noder_->pager();
-    overflow_info_->record_pgid = pager->Alloc(1);
+    auto& pager = noder_->btree().bucket().pager();
+    overflow_info_->record_pgid = pager.Alloc(1);
     overflow_info_->record_index = 0;
     overflow_info_->record_offset = 0;
     overflow_info_->record_count = 1;
-    overflow_info_->last_modified_txid = noder_->btree()->update_tx()->txid();
+    overflow_info_->last_modified_txid = noder_->btree().bucket().tx().txid();
 
-    auto page = pager->Reference(overflow_info_->record_pgid);
+    auto page = pager.Reference(overflow_info_->record_pgid);
     auto cache = PageToOverflowPageCache(&page);
 
     auto record_arr = reinterpret_cast<OverflowRecord*>(&cache->data[0]);
@@ -46,21 +45,22 @@ void Overflower::OverflowInfoBuild() {
 void Overflower::OverflowInfoClear() {
     RecordCopy();
 
-    auto pager = noder_->pager();
-    auto page = pager->Reference(overflow_info_->record_pgid);
+    auto& pager = noder_->btree().bucket().pager();
+    auto page = pager.Reference(overflow_info_->record_pgid);
     auto cache = PageToOverflowPageCache(&page);
     auto record_arr = reinterpret_cast<OverflowRecord*>(&cache->data[overflow_info_->record_offset]);
     for (uint16_t i = 0; i < overflow_info_->record_count; i++) {
-        pager->Free(record_arr->pgid, 1);
+        pager.Free(record_arr->pgid, 1);
     }
     overflow_info_->record_pgid = kPageInvalidId;
 }
+
 
 void Overflower::RecordBuild(OverflowRecord* record_element,
     PageReferencer* page,
     uint16_t header_block_size
 ) {
-    auto pager = noder_->pager();
+    auto& pager = noder_->btree().bucket().pager();
 
     header_block_size = Alignment(header_block_size);
 
@@ -82,7 +82,7 @@ void Overflower::RecordBuild(OverflowRecord* record_element,
         cache->first = kFreeInvalidPos;
         record_element->max_free_size = 0;
     }
-    cache->last_modified_txid = noder_->btree()->update_tx()->txid();
+    cache->last_modified_txid = noder_->btree().bucket().tx().txid();
 }
 
 void Overflower::RecordUpdateMaxFreeSize(OverflowRecord* record, OverflowPage* cache) {
@@ -99,14 +99,15 @@ void Overflower::RecordUpdateMaxFreeSize(OverflowRecord* record, OverflowPage* c
 }
 
 void Overflower::RecordCopy() {
-    if (noder_->btree()->update_tx()->IsExpiredTxId(overflow_info_->last_modified_txid)) {
-        auto pager = noder_->pager();
-        auto new_page = pager->Copy(overflow_info_->record_pgid);
+    auto& tx = noder_->btree().bucket().tx();
+    if (tx.IsExpiredTxId(overflow_info_->last_modified_txid)) {
+        auto& pager = noder_->btree().bucket().pager();
+        auto new_page = pager.Copy(overflow_info_->record_pgid);
         auto new_cache = PageToOverflowPageCache(&new_page);
         auto record_arr = reinterpret_cast<OverflowRecord*>(&new_cache->data[overflow_info_->record_offset]);
 
         overflow_info_->record_pgid = new_page.page_id();
-        overflow_info_->last_modified_txid = noder_->btree()->update_tx()->txid();
+        overflow_info_->last_modified_txid = tx.txid();
 
         new_cache->last_modified_txid = overflow_info_->last_modified_txid;
         record_arr[overflow_info_->record_index].pgid = new_page.page_id();
@@ -115,10 +116,10 @@ void Overflower::RecordCopy() {
 
 
 void Overflower::OverflowPageAppend(PageReferencer* record_page) {
-    auto pager = noder_->pager();
+    auto& pager = noder_->btree().bucket().pager();
 
-    auto new_pgid = pager->Alloc(1);
-    auto new_page = pager->Reference(new_pgid);
+    auto new_pgid = pager.Alloc(1);
+    auto new_page = pager.Reference(new_pgid);
     auto new_cache = PageToOverflowPageCache(&new_page);
 
     auto block_arr_size = sizeof(OverflowRecord) * overflow_info_->record_count;
@@ -150,7 +151,7 @@ void Overflower::OverflowPageAppend(PageReferencer* record_page) {
         overflow_info_->record_index = record_alloc->first;
         overflow_info_->record_offset = record_alloc->second;
         overflow_info_->record_pgid = temp_record_arr[overflow_info_->record_index].pgid;
-        auto page = pager->Reference(overflow_info_->record_pgid);
+        auto page = pager.Reference(overflow_info_->record_pgid);
         auto cache = PageToOverflowPageCache(&page);
         record_arr = reinterpret_cast<OverflowRecord*>(&cache->data[overflow_info_->record_offset]);
         header_block_size = 0;
@@ -166,18 +167,19 @@ void Overflower::OverflowPageAppend(PageReferencer* record_page) {
 }
 
 void Overflower::OverflowPageCopy(OverflowRecord* record_element) {
-    auto pager = noder_->pager();
-    auto page = pager->Reference(record_element->pgid);
+    auto& pager = noder_->btree().bucket().pager();
+    auto& tx = noder_->btree().bucket().tx();
+    auto page = pager.Reference(record_element->pgid);
     auto cache = PageToOverflowPageCache(&page);
-    if (noder_->btree()->update_tx()->IsExpiredTxId(cache->last_modified_txid)) {
-        auto new_page = pager->Copy(std::move(page));
+    if (tx.IsExpiredTxId(cache->last_modified_txid)) {
+        auto new_page = pager.Copy(std::move(page));
         record_element->pgid = new_page.page_id();
     }
 }
 
 
 std::optional<std::pair<uint16_t, PageOffset>> Overflower::BlockAlloc(PageSize size, OverflowRecord* record_arr) {
-    auto pager = noder_->pager();
+    auto& pager = noder_->btree().bucket().pager();
     
     size = Alignment(size);
     
@@ -188,7 +190,7 @@ std::optional<std::pair<uint16_t, PageOffset>> Overflower::BlockAlloc(PageSize s
     }
     RecordCopy();
 
-    auto page = pager->Reference(overflow_info_->record_pgid);
+    auto page = pager.Reference(overflow_info_->record_pgid);
     auto cache = PageToOverflowPageCache(&page);
 
     PageOffset ret_offset = 0;
@@ -202,7 +204,7 @@ std::optional<std::pair<uint16_t, PageOffset>> Overflower::BlockAlloc(PageSize s
         if (record_arr[i].max_free_size >= size) {
             OverflowPageCopy(&record_arr[i]);
 
-            auto alloc_page = pager->Reference(record_arr[i].pgid);
+            auto alloc_page = pager.Reference(record_arr[i].pgid);
             auto alloc_cache = PageToOverflowPageCache(&alloc_page);
 
             // ÕÒµ½×ã¹»·ÖÅäµÄFreeBlock
@@ -262,13 +264,13 @@ std::optional<std::pair<uint16_t, PageOffset>> Overflower::BlockAlloc(PageSize s
 void Overflower::BlockFree(const std::tuple<uint16_t, PageOffset, PageSize>& free_block, OverflowRecord* temp_record_element) {
     RecordCopy();
 
-    auto pager = noder_->pager();
+    auto& pager = noder_->btree().bucket().pager();
 
     auto [record_index, free_pos, free_size] = free_block;
     free_size = Alignment(free_size);
 
     if (!temp_record_element) {
-        auto record_page = pager->Reference(overflow_info_->record_pgid);
+        auto record_page = pager.Reference(overflow_info_->record_pgid);
         auto record_cache = PageToOverflowPageCache(&record_page);
         auto record_arr = reinterpret_cast<OverflowRecord*>(&record_cache->data[overflow_info_->record_offset]);
         temp_record_element = &record_arr[record_index];
@@ -276,7 +278,7 @@ void Overflower::BlockFree(const std::tuple<uint16_t, PageOffset, PageSize>& fre
 
     OverflowPageCopy(temp_record_element);
     
-    auto overflow_page = pager->Reference(temp_record_element->pgid);
+    auto overflow_page = pager.Reference(temp_record_element->pgid);
     auto overflow_cache = PageToOverflowPageCache(&overflow_page);
 
     auto cur_pos = overflow_cache->first;
@@ -339,33 +341,33 @@ void Overflower::BlockFree(const std::tuple<uint16_t, PageOffset, PageSize>& fre
 }
 
 std::pair<uint8_t*, PageReferencer> Overflower::BlockLoad(uint16_t record_index, PageOffset offset) {
-    auto pager = noder_->pager();
+    auto& pager = noder_->btree().bucket().pager();
 
-    auto page = pager->Reference(overflow_info_->record_pgid);
+    auto page = pager.Reference(overflow_info_->record_pgid);
     auto cache = PageToOverflowPageCache(&page);
 
     auto record_arr = reinterpret_cast<OverflowRecord*>(&cache->data[overflow_info_->record_offset]);
     
-    auto data_page = pager->Reference(record_arr[record_index].pgid);
+    auto data_page = pager.Reference(record_arr[record_index].pgid);
     auto data_cache = PageToOverflowPageCache(&data_page);
     return { &data_cache->data[offset], std::move(data_page) };
 }
 
 PageSize Overflower::BlockMaxSize() {
-    auto size = noder_->pager()->page_size() - sizeof(OverflowPage);
+    auto size = noder_->btree().bucket().pager().page_size() - sizeof(OverflowPage);
     return size;
 }
 
 
 void Overflower::Print() {
-    auto pager = noder_->pager();
-    auto page = pager->Reference(overflow_info_->record_pgid);
+    auto& pager = noder_->btree().bucket().pager();
+    auto page = pager.Reference(overflow_info_->record_pgid);
     auto cache = PageToOverflowPageCache(&page);
     auto record_arr = reinterpret_cast<OverflowRecord*>(&cache->data[overflow_info_->record_offset]);
     for (uint16_t i = 0; i < overflow_info_->record_count; i++) {
         assert(Aligned(record_arr[i].max_free_size));
 
-        auto alloc_page = pager->Reference(record_arr[i].pgid);
+        auto alloc_page = pager.Reference(record_arr[i].pgid);
         auto alloc_cache = PageToOverflowPageCache(&page);
 
         auto j = 0;

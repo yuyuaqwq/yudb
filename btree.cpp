@@ -6,11 +6,11 @@
 
 namespace yudb {
 
-BTree::BTree(Bucket* bucket, PageId& root_pgid) :
+BTree::BTree(Bucket* bucket, PageId* root_pgid) :
     bucket_{ bucket },
     root_pgid_ { root_pgid }
 {
-    auto free_size = pager()->page_size() - (sizeof(Node) - sizeof(Node::body));
+    auto free_size = bucket_->pager().page_size() - (sizeof(Node) - sizeof(Node::body));
 
     max_leaf_element_count_ = free_size / sizeof(Node::LeafElement);
     max_branch_element_count_ = (free_size - sizeof(PageId)) / sizeof(Node::BranchElement);
@@ -54,7 +54,7 @@ bool BTree::Delete(std::span<const uint8_t> key) {
 
 BTree::Iterator BTree::begin() const noexcept {
     Iterator iter { this };
-    iter.First(root_pgid_);
+    iter.First(*root_pgid_);
     return iter;
 }
 
@@ -63,22 +63,15 @@ BTree::Iterator BTree::end() const noexcept {
 }
 
 
-Pager* BTree::pager() const { return bucket_->pager(); }
-
-Tx* BTree::tx() const { return bucket_->tx(); }
-
-UpdateTx* BTree::update_tx() const{ return bucket_->update_tx(); }
-
-
 void BTree::Print(bool str, PageId pgid, int level) const {
     std::string indent(level * 4, ' ');
     Noder noder{ this, pgid };
-    auto node = noder.node();
+    auto& node = noder.node();
     if (noder.IsBranch()) {
-        Print(str, node->body.tail_child, level + 1);
-        for (int i = node->element_count - 1; i >= 0; i--) {
+        Print(str, node.body.tail_child, level + 1);
+        for (int i = node.element_count - 1; i >= 0; i--) {
             std::string key;
-            auto [buf, size, ref] = noder.SpanLoad(node->body.branch[i].key);
+            auto [buf, size, ref] = noder.SpanLoad(node.body.branch[i].key);
             if (str) {
                 std::cout << std::format("{}branch[{}]::key::{}::level::{}\n", indent, pgid, std::string_view{ reinterpret_cast<const char*>(buf), size }, level);
             }
@@ -88,15 +81,15 @@ void BTree::Print(bool str, PageId pgid, int level) const {
                 }
                 std::cout << std::format("{}branch[{}]::key::{}::level::{}\n", indent, pgid, key, level);
             }
-            Print(str, node->body.branch[i].left_child, level + 1);
+            Print(str, node.body.branch[i].left_child, level + 1);
         }
         //noder.OverflowPrint(); printf("\n");
     }
     else {
         assert(noder.IsLeaf());
-        for (int i = node->element_count - 1; i >= 0; i--) {
+        for (int i = node.element_count - 1; i >= 0; i--) {
             std::string key;
-            auto [buf, size, ref] = noder.SpanLoad(node->body.leaf[i].key);
+            auto [buf, size, ref] = noder.SpanLoad(node.body.leaf[i].key);
             if (str) {
                 std::cout << std::format("{}leaf[{}]::key::{}::level::{}\n", indent, pgid, std::string_view{ reinterpret_cast<const char*>(buf), size }, level);
             }
@@ -112,7 +105,7 @@ void BTree::Print(bool str, PageId pgid, int level) const {
 }
 
 void BTree::Print(bool str) const {
-    Print(str, root_pgid_, 0);
+    Print(str, *root_pgid_, 0);
 }
 
 
@@ -120,11 +113,11 @@ void BTree::Print(bool str) const {
 std::tuple<Noder, uint16_t, Noder, bool> BTree::GetSibling(Iterator* iter) {
     auto [parent_pgid, parent_pos] = iter->Cur();
     Noder parent{ this, parent_pgid };
-    auto parent_node = parent.node();
+    auto& parent_node = parent.node();
         
     bool left_sibling = false;
     PageId sibling_pgid;
-    if (parent_pos == parent_node->element_count) {
+    if (parent_pos == parent_node.element_count) {
         // 是父节点中最大的元素，只能选择左兄弟节点
         left_sibling = true;
         sibling_pgid = parent.BranchGetLeftChild(parent_pos - 1);
@@ -144,55 +137,55 @@ std::tuple<Noder, uint16_t, Noder, bool> BTree::GetSibling(Iterator* iter) {
 * 分支节点的合并
 */
 void BTree::Merge(Noder&& left, Noder&& right, Span&& down_key) {
-    auto left_node = left.node();
-    auto right_node = right.node();
-    left_node->body.branch[left_node->element_count].key = std::move(down_key);
-    left_node->body.branch[left_node->element_count].left_child = left_node->body.tail_child;
-    ++left_node->element_count;
-    for (uint16_t i = 0; i < right_node->element_count; i++) {
-        auto key = right.SpanMove(&left, std::move(right_node->body.branch[i].key));
-        left.BranchSet(i + left_node->element_count, std::move(key), right_node->body.branch[i].left_child);
+    auto& left_node = left.node();
+    auto& right_node = right.node();
+    left_node.body.branch[left_node.element_count].key = std::move(down_key);
+    left_node.body.branch[left_node.element_count].left_child = left_node.body.tail_child;
+    ++left_node.element_count;
+    for (uint16_t i = 0; i < right_node.element_count; i++) {
+        auto key = right.SpanMove(&left, std::move(right_node.body.branch[i].key));
+        left.BranchSet(i + left_node.element_count, std::move(key), right_node.body.branch[i].left_child);
     }
-    left_node->body.tail_child = right_node->body.tail_child;
-    left_node->element_count += right_node->element_count;
+    left_node.body.tail_child = right_node.body.tail_child;
+    left_node.element_count += right_node.element_count;
 
     right.SpanClear();
-    pager()->Free(right.page_id(), 1);
+    bucket_->pager().Free(right.page_id(), 1);
 }
 
 /*
 * 分支节点的删除
 */
 void BTree::Delete(Iterator* iter, Noder&& noder, uint16_t left_del_pos) {
-    auto node = noder.node();
+    auto& node = noder.node();
 
     noder.BranchDelete(left_del_pos, true);
-    if (node->element_count >= (max_branch_element_count_ >> 1)) {
+    if (node.element_count >= (max_branch_element_count_ >> 1)) {
         return;
     }
 
     if (iter->Empty()) {
         // 如果没有父节点
         // 判断是否没有任何子节点了，是则变更余下最后一个子节点为根节点
-        if (node->element_count == 0) {
-            auto old_root = root_pgid_;
-            root_pgid_ = node->body.tail_child;
-            pager()->Free(old_root, 1);
+        if (node.element_count == 0) {
+            auto old_root = *root_pgid_;
+            *root_pgid_ = node.body.tail_child;
+            bucket_->pager().Free(old_root, 1);
         }
         return;
     }
 
-    assert(node->element_count > 0);
+    assert(node.element_count > 0);
 
     auto [parent, parent_pos, sibling, left_sibling] = GetSibling(iter);
     if (left_sibling) --parent_pos;
-    auto parent_node = parent.node();
-    if (sibling.node()->element_count > (max_leaf_element_count_ >> 1)) {
+    auto& parent_node = parent.node();
+    if (sibling.node().element_count > (max_leaf_element_count_ >> 1)) {
         // 若兄弟节点内元素数充足
-        if (bucket_->update_tx()->IsExpiredTxId(sibling.node()->last_modified_txid)) {
+        if (bucket_->tx().IsExpiredTxId(sibling.node().last_modified_txid)) {
             sibling = sibling.Copy();
         }
-        auto sibling_node = sibling.node();
+        auto& sibling_node = sibling.node();
         if (left_sibling) {
             parent.BranchSetLeftChild(parent_pos, sibling.page_id());
             // 左兄弟节点的末尾元素上升到父节点指定位置
@@ -206,13 +199,13 @@ void BTree::Delete(Iterator* iter, Noder&& noder, uint16_t left_del_pos) {
             //                       17
             //      12                                    27            37
             // 1 5      10 15                    20 25         30 35         40 45
-            auto parent_key = parent.SpanMove(&noder, std::move(parent_node->body.branch[parent_pos].key));
-            auto sibling_key = sibling.SpanMove(&parent, std::move(sibling_node->body.branch[sibling_node->element_count - 1].key));
+            auto parent_key = parent.SpanMove(&noder, std::move(parent_node.body.branch[parent_pos].key));
+            auto sibling_key = sibling.SpanMove(&parent, std::move(sibling_node.body.branch[sibling_node.element_count - 1].key));
 
-            noder.BranchInsert(0, std::move(parent_key), sibling_node->body.tail_child, false);
-            sibling.BranchDelete(sibling_node->element_count - 1, true);
+            noder.BranchInsert(0, std::move(parent_key), sibling_node.body.tail_child, false);
+            sibling.BranchDelete(sibling_node.element_count - 1, true);
 
-            parent_node->body.branch[parent_pos].key = std::move(sibling_key);
+            parent_node.body.branch[parent_pos].key = std::move(sibling_key);
         }
         else {
             parent.BranchSetLeftChild(parent_pos + 1, sibling.page_id());
@@ -228,13 +221,13 @@ void BTree::Delete(Iterator* iter, Noder&& noder, uint16_t left_del_pos) {
             //      12          17                               37
             // 1 5      10 15       20 25                30 35         40 45
 
-            auto parent_key = parent.SpanMove(&noder, std::move(parent_node->body.branch[parent_pos].key));
-            auto sibling_key = sibling.SpanMove(&parent, std::move(sibling_node->body.branch[0].key));
+            auto parent_key = parent.SpanMove(&noder, std::move(parent_node.body.branch[parent_pos].key));
+            auto sibling_key = sibling.SpanMove(&parent, std::move(sibling_node.body.branch[0].key));
 
-            noder.BranchInsert(node->element_count, std::move(parent_key), sibling_node->body.branch[0].left_child, true);
+            noder.BranchInsert(node.element_count, std::move(parent_key), sibling_node.body.branch[0].left_child, true);
             sibling.BranchDelete(0, false);
 
-            parent_node->body.branch[parent_pos].key = std::move(sibling_key);
+            parent_node.body.branch[parent_pos].key = std::move(sibling_key);
 
         }
         return;
@@ -242,11 +235,11 @@ void BTree::Delete(Iterator* iter, Noder&& noder, uint16_t left_del_pos) {
 
     // 合并
     if (left_sibling) {
-        auto down_key = parent.SpanMove(&sibling, std::move(parent_node->body.branch[parent_pos].key));
+        auto down_key = parent.SpanMove(&sibling, std::move(parent_node.body.branch[parent_pos].key));
         Merge(std::move(sibling), std::move(noder), std::move(down_key));
     }
     else {
-        auto down_key = parent.SpanMove(&noder, std::move(parent_node->body.branch[parent_pos].key));
+        auto down_key = parent.SpanMove(&noder, std::move(parent_node.body.branch[parent_pos].key));
         Merge(std::move(noder), std::move(sibling), std::move(down_key));
     }
 
@@ -258,18 +251,18 @@ void BTree::Delete(Iterator* iter, Noder&& noder, uint16_t left_del_pos) {
 * 叶子节点的合并
 */
 void BTree::Merge(Noder&& left, Noder&& right) {
-    auto left_node = left.node();
-    auto right_node = right.node();
-    for (uint16_t i = 0; i < right_node->element_count; i++) {
-        auto key = right.SpanMove(&left, std::move(right_node->body.leaf[i].key));
-        auto value = right.SpanMove(&left, std::move(right_node->body.leaf[i].value));
+    auto& left_node = left.node();
+    auto& right_node = right.node();
+    for (uint16_t i = 0; i < right_node.element_count; i++) {
+        auto key = right.SpanMove(&left, std::move(right_node.body.leaf[i].key));
+        auto value = right.SpanMove(&left, std::move(right_node.body.leaf[i].value));
 
-        left.LeafSet(i + left_node->element_count, std::move(key), std::move(value));
+        left.LeafSet(i + left_node.element_count, std::move(key), std::move(value));
     }
-    left_node->element_count += right_node->element_count;
+    left_node.element_count += right_node.element_count;
 
     right.SpanClear();
-    pager()->Free(right.page_id(), 1);
+    bucket_->pager().Free(right.page_id(), 1);
 }
 
 /*
@@ -278,10 +271,10 @@ void BTree::Merge(Noder&& left, Noder&& right) {
 void BTree::Delete(Iterator* iter, std::span<const uint8_t> key) {
     auto [pgid, pos] = iter->Cur();
     Noder noder{ this, pgid };
-    auto node = noder.node();
+    auto& node = noder.node();
 
     noder.LeafDelete(pos);
-    if (node->element_count >= (max_leaf_element_count_ >> 1)) {
+    if (node.element_count >= (max_leaf_element_count_ >> 1)) {
         return;
     }
 
@@ -292,26 +285,26 @@ void BTree::Delete(Iterator* iter, std::span<const uint8_t> key) {
         return;
     }
 
-    assert(node->element_count > 1);
+    assert(node.element_count > 1);
 
     auto [parent, parent_pos, sibling, left_sibling] = GetSibling(iter);
     if (left_sibling) --parent_pos;
-    auto parent_node = parent.node();
+    auto& parent_node = parent.node();
 
-    if (sibling.node()->element_count > (max_leaf_element_count_ >> 1)) {
+    if (sibling.node().element_count > (max_leaf_element_count_ >> 1)) {
         // 若兄弟节点内元素数充足
-        if (bucket_->update_tx()->IsExpiredTxId(sibling.node()->last_modified_txid)) {
+        if (bucket_->tx().IsExpiredTxId(sibling.node().last_modified_txid)) {
             sibling = sibling.Copy();
         }
-        auto sibling_node = sibling.node();
+        auto& sibling_node = sibling.node();
         Span new_key;
         if (left_sibling) {
             parent.BranchSetLeftChild(parent_pos, sibling.page_id());
             // 左兄弟节点的末尾的元素插入到当前节点的头部
             // 更新父元素key为当前节点的新首元素key
-            auto key = sibling.SpanMove(&noder, std::move(sibling_node->body.leaf[sibling_node->element_count - 1].key));
-            auto value = sibling.SpanMove(&noder, std::move(sibling_node->body.leaf[sibling_node->element_count - 1].value));
-            sibling.LeafDelete(sibling_node->element_count - 1);
+            auto key = sibling.SpanMove(&noder, std::move(sibling_node.body.leaf[sibling_node.element_count - 1].key));
+            auto value = sibling.SpanMove(&noder, std::move(sibling_node.body.leaf[sibling_node.element_count - 1].value));
+            sibling.LeafDelete(sibling_node.element_count - 1);
 
             new_key = noder.SpanCopy(&parent, key);
             noder.LeafInsert(0, std::move(key), std::move(value));
@@ -320,15 +313,15 @@ void BTree::Delete(Iterator* iter, std::span<const uint8_t> key) {
             parent.BranchSetLeftChild(parent_pos + 1, sibling.page_id());
             // 右兄弟节点的头部的元素插入到当前节点的尾部
             // 更新父元素key为右兄弟的新首元素
-            auto key = sibling.SpanMove(&noder, std::move(sibling_node->body.leaf[0].key));
-            auto value = sibling.SpanMove(&noder, std::move(sibling_node->body.leaf[0].value));
+            auto key = sibling.SpanMove(&noder, std::move(sibling_node.body.leaf[0].key));
+            auto value = sibling.SpanMove(&noder, std::move(sibling_node.body.leaf[0].value));
             sibling.LeafDelete(0);
 
-            new_key = sibling.SpanCopy(&parent, sibling_node->body.leaf[0].key);
-            noder.LeafInsert(node->element_count, std::move(key), std::move(value));
+            new_key = sibling.SpanCopy(&parent, sibling_node.body.leaf[0].key);
+            noder.LeafInsert(node.element_count, std::move(key), std::move(value));
         }
-        parent.SpanFree(std::move(parent_node->body.branch[parent_pos].key));
-        parent_node->body.branch[parent_pos].key = new_key;
+        parent.SpanFree(std::move(parent_node.body.branch[parent_pos].key));
+        parent_node.body.branch[parent_pos].key = std::move(new_key);
         return;
     }
 
@@ -350,21 +343,21 @@ void BTree::Delete(Iterator* iter, std::span<const uint8_t> key) {
 * 返回左侧节点中末尾上升的元素，新右节点
 */
 std::tuple<Span, Noder> BTree::Split(Noder* left, uint16_t insert_pos, Span&& insert_key, PageId insert_right_child) {
-    Noder right{ this, pager()->Alloc(1) };
+    Noder right{ this, bucket_->pager().Alloc(1) };
     right.BranchBuild();
 
-    auto left_node = left->node();
-    auto right_node = right.node();
+    auto& left_node = left->node();
+    auto& right_node = right.node();
 
-    uint16_t mid = left_node->element_count / 2;
-    uint16_t right_count = mid + (left_node->element_count % 2);
+    uint16_t mid = left_node.element_count / 2;
+    uint16_t right_count = mid + (left_node.element_count % 2);
 
     int insert_right = 0;
     for (uint16_t i = 0; i < right_count; i++) {
         auto left_pos = mid + i;
         if (insert_right == 0 && left_pos == insert_pos) {
-            auto next_left_child = left_node->body.branch[left_pos].left_child;
-            left_node->body.branch[left_pos].left_child = insert_right_child;
+            auto next_left_child = left_node.body.branch[left_pos].left_child;
+            left_node.body.branch[left_pos].left_child = insert_right_child;
             right.BranchSet(i,
                 left->SpanMove(&right, std::move(insert_key)),
                 next_left_child
@@ -373,35 +366,35 @@ std::tuple<Span, Noder> BTree::Split(Noder* left, uint16_t insert_pos, Span&& in
             --i;
             continue;
         }
-        auto key = left->SpanMove(&right, std::move(left_node->body.branch[left_pos].key));
+        auto key = left->SpanMove(&right, std::move(left_node.body.branch[left_pos].key));
         right.BranchSet(i + insert_right,
             std::move(key),
-            left_node->body.branch[left_pos].left_child
+            left_node.body.branch[left_pos].left_child
         );
     }
 
-    left_node->element_count -= right_count;
-    assert(left_node->element_count > 2);
-    right_node->element_count = right_count + insert_right;
+    left_node.element_count -= right_count;
+    assert(left_node.element_count > 2);
+    right_node.element_count = right_count + insert_right;
 
-    right_node->body.tail_child = left_node->body.tail_child;
+    right_node.body.tail_child = left_node.body.tail_child;
     if (insert_right == 0) {
         if (insert_pos == max_leaf_element_count_) {
-            right.BranchSet(right_node->element_count++, left->SpanMove(&right, std::move(insert_key)), right_node->body.tail_child);
-            right_node->body.tail_child = insert_right_child;
+            right.BranchSet(right_node.element_count++, left->SpanMove(&right, std::move(insert_key)), right_node.body.tail_child);
+            right_node.body.tail_child = insert_right_child;
         }
         else {
             left->BranchInsert(insert_pos, std::move(insert_key), insert_right_child, true);
         }
     }
 
-    assert(right_node->element_count > 2);
+    assert(right_node.element_count > 2);
 
     // 左侧末尾元素上升，其left_child变为tail_child
-    Span span = left_node->body.branch[--left_node->element_count].key;
-    left_node->body.tail_child = left_node->body.branch[left_node->element_count].left_child;
+    Span span{ std::move(left_node.body.branch[--left_node.element_count].key) };
+    left_node.body.tail_child = left_node.body.branch[left_node.element_count].left_child;
 
-    return { span, std::move(right) };
+    return { std::move(span), std::move(right) };
 }
 
 /*
@@ -409,11 +402,11 @@ std::tuple<Span, Noder> BTree::Split(Noder* left, uint16_t insert_pos, Span&& in
 */
 void BTree::Put(Iterator* iter, Noder&& left, Noder&& right, Span* key, bool branch_put) {
     if (iter->Empty()) {
-        root_pgid_ = pager()->Alloc(1);
-        Noder noder{ this, root_pgid_ };
+        *root_pgid_ = bucket_->pager().Alloc(1);
+        Noder noder{ this, *root_pgid_ };
 
         noder.BranchBuild();
-        noder.node()->body.tail_child = left.page_id();
+        noder.node().body.tail_child = left.page_id();
 
         Span noder_key_span;
         if (branch_put) {
@@ -442,7 +435,7 @@ void BTree::Put(Iterator* iter, Noder&& left, Noder&& right, Span* key, bool bra
 
     //      3       5    7 
     // 1 2     3 4     5    7 8
-    if (noder.node()->element_count < max_leaf_element_count_) {
+    if (noder.node().element_count < max_leaf_element_count_) {
         noder.BranchInsert(pos, std::move(noder_key_span), right.page_id(), true);
         return;
     }
@@ -457,14 +450,14 @@ void BTree::Put(Iterator* iter, Noder&& left, Noder&& right, Span* key, bool bra
 * 返回新右节点
 */
 Noder BTree::Split(Noder* left, uint16_t insert_pos, std::span<const uint8_t> key, std::span<const uint8_t> value) {
-    Noder right{ this, pager()->Alloc(1) };
+    Noder right{ this, bucket_->pager().Alloc(1) };
     right.LeafBuild();
 
-    auto left_node = left->node();
-    auto right_node = right.node();
+    auto& left_node = left->node();
+    auto& right_node = right.node();
 
-    uint16_t mid = left_node->element_count / 2;
-    uint16_t right_count = mid + (left_node->element_count % 2);
+    uint16_t mid = left_node.element_count / 2;
+    uint16_t right_count = mid + (left_node.element_count % 2);
 
     int insert_right = 0;
     for (uint16_t i = 0; i < right_count; i++) {
@@ -478,14 +471,14 @@ Noder BTree::Split(Noder* left, uint16_t insert_pos, std::span<const uint8_t> ke
             --i;
             continue;
         }
-        auto key = left->SpanMove(&right, std::move(left_node->body.leaf[left_pos].key));
-        auto value = left->SpanMove(&right, std::move(left_node->body.leaf[left_pos].value));
+        auto key = left->SpanMove(&right, std::move(left_node.body.leaf[left_pos].key));
+        auto value = left->SpanMove(&right, std::move(left_node.body.leaf[left_pos].value));
 
         right.LeafSet(i + insert_right, std::move(key), std::move(value));
     }
 
-    left_node->element_count -= right_count;
-    assert(left_node->element_count > 2);
+    left_node.element_count -= right_count;
+    assert(left_node.element_count > 2);
     if (insert_right == 0) {
         if (insert_pos == max_leaf_element_count_) {
             insert_right = 1;
@@ -495,8 +488,8 @@ Noder BTree::Split(Noder* left, uint16_t insert_pos, std::span<const uint8_t> ke
             left->LeafInsert(insert_pos, left->SpanAlloc(key), left->SpanAlloc(value));
         }
     }
-    right_node->element_count = right_count + insert_right;
-    assert(right_node->element_count > 2);
+    right_node.element_count = right_count + insert_right;
+    assert(right_node.element_count > 2);
 
     return right;
 }
@@ -506,8 +499,8 @@ Noder BTree::Split(Noder* left, uint16_t insert_pos, std::span<const uint8_t> ke
 */
 void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     if (iter->Empty()) {
-        root_pgid_ = pager()->Alloc(1);
-        Noder noder{ this, root_pgid_ };
+        *root_pgid_ = bucket_->pager().Alloc(1);
+        Noder noder{ this, *root_pgid_ };
         noder.LeafBuild();
         noder.LeafInsert(0, noder.SpanAlloc(key), noder.SpanAlloc(value));
         return;
@@ -520,7 +513,7 @@ void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const ui
         return;
     }
 
-    if (noder.node()->element_count < max_leaf_element_count_) {
+    if (noder.node().element_count < max_leaf_element_count_) {
         noder.LeafInsert(pos, noder.SpanAlloc(key), noder.SpanAlloc(key));
         return;
     }
@@ -532,7 +525,7 @@ void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const ui
     // 上升右节点的第一个节点
     Put(iter, std::move(noder),
         std::move(right),
-        &right.node()->body.leaf[0].key
+        &right.node().body.leaf[0].key
     );
 }
 
@@ -541,17 +534,17 @@ void BTree::PathCopy(Iterator* iter) {
     if (iter->Empty()) {
         return;
     }
+    auto& tx = bucket_->tx();
     auto lower_pgid = kPageInvalidId;
-
     for (ptrdiff_t i = iter->Size() - 1; i >= 0; i--) {
         auto& [pgid, index] = iter->Index(i);
         Noder noder{ this, pgid };
-        if (!bucket_->update_tx()->IsExpiredTxId(noder.node()->last_modified_txid)) {
+        if (!tx.IsExpiredTxId(noder.node().last_modified_txid)) {
             return;
         }
 
         Noder new_noder = noder.Copy();
-        new_noder.node()->last_modified_txid = bucket_->tx()->txid();
+        new_noder.node().last_modified_txid = tx.txid();
         if (new_noder.IsBranch()) {
             assert(lower_pgid != kPageInvalidId);
             new_noder.BranchSetLeftChild(index, lower_pgid);
@@ -559,7 +552,7 @@ void BTree::PathCopy(Iterator* iter) {
         lower_pgid = new_noder.page_id();
         pgid = lower_pgid;
     }
-    iter->btree_->root_pgid_ = lower_pgid;
+    *iter->btree_->root_pgid_ = lower_pgid;
 }
 
 

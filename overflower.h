@@ -14,13 +14,13 @@ public:
     Overflower(Noder* noder, OverflowInfo* overflow_info) : noder_{ noder }, overflow_info_{ overflow_info } {}
 
     ~Overflower() = default;
+    
 
     std::optional<std::pair<uint16_t, PageOffset>> BlockAlloc(PageSize size, OverflowRecord* record_arr = nullptr);
     
     void BlockFree(const std::tuple<uint16_t, PageOffset, uint16_t>& block, OverflowRecord* temp_record_element = nullptr);
 
     std::pair<uint8_t*, PageReferencer> BlockLoad(uint16_t record_index, PageOffset offset);
-
 
     PageSize BlockMaxSize();
 

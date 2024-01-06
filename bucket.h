@@ -1,26 +1,36 @@
 #pragma once
 
+#include <unordered_map>
+
 #include "btree.h"
 
 namespace yudb {
 
-class Tx;
-class UpdateTx;
 class Pager;
-class ViewBucket;
+class Tx;
 
-class Bucket {
+class Bucket : noncopyable {
 public:
     using Iterator = BTreeIterator;
 
 public:
-    Bucket(Pager* pager, Tx* tx, PageId& btree_root);
+    Bucket(Pager* pager, Tx* tx, PageId* btree_root, bool writable);
 
-    ViewBucket& SubViewBucket(std::string_view key) const {
-        auto iter = Get(key);
-        auto root_pgid = iter->value<PageId>();
-        //return ViewBucket{ pager_, tx_, root_pgid };
+    Bucket(Bucket&& right) noexcept : 
+        pager_{ right.pager_ },
+        tx_{ right.tx_ },
+        btree_{ std::move(right.btree_) },
+        writable_{ right.writable_ },
+        sub_bucket_map_{ std::move(right.sub_bucket_map_) } {}
+
+    void operator=(Bucket&& right) noexcept {
+        pager_ = right.pager_;
+        tx_ = right.tx_;
+        btree_ = std::move(right.btree_);
+        writable_ = right.writable_;
+        sub_bucket_map_ = std::move(right.sub_bucket_map_);
     }
+
 
     Iterator Get(const void* key_buf, size_t key_size) const {
         return btree_.Get({ reinterpret_cast<const uint8_t*>(key_buf), key_size });
@@ -30,51 +40,17 @@ public:
         return Get(key.data(), key.size());
     }
 
-
-    Iterator begin() const noexcept {
-        return btree_.begin();
+    Iterator LowerBound(const void* key_buf, size_t key_size) const {
+        return btree_.LowerBound({ reinterpret_cast<const uint8_t*>(key_buf), key_size });
     }
 
-    Iterator end() const noexcept {
-        return btree_.end();
-    }
-
-
-    Pager* pager() const { return pager_; }
-
-    Tx* tx() const { return tx_; }
-
-    UpdateTx* update_tx() const { return reinterpret_cast<UpdateTx*>(tx_); }
-
-
-    void Print(bool str = false) const {
-        btree_.Print(str);
-    }
-
-protected:
-    Pager* pager_;
-    Tx* tx_;
-    BTree btree_;
-};
-
-class ViewBucket : public Bucket {
-public:
-    using Bucket::Bucket;
-};
-
-class UpdateBucket : public Bucket {
-public:
-    using Bucket::Bucket;
-
-    UpdateBucket& SubUpdateBucket(std::string_view key) {
-        auto iter = Get(key);
-        auto root_pgid = iter->value<PageId>();
-        //return UpdateBucket{ pager_, tx_, root_pgid};
+    Iterator LowerBound(std::string_view key) const {
+        return LowerBound(key.data(), key.size());
     }
 
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
         btree_.Put(
-            { reinterpret_cast<const uint8_t*>(key_buf), key_size }, 
+            { reinterpret_cast<const uint8_t*>(key_buf), key_size },
             { reinterpret_cast<const uint8_t*>(value_buf), value_size }
         );
     }
@@ -87,10 +63,44 @@ public:
         return btree_.Delete({ reinterpret_cast<const uint8_t*>(key_buf), key_size });
     }
 
-private:
-    friend class Pager;
+
+    Bucket& SubBucket(std::string_view key, bool writable);
+
+
+    Iterator begin() const noexcept {
+        return btree_.begin();
+    }
+
+    Iterator end() const noexcept {
+        return btree_.end();
+    }
+
+
+
+    Pager& pager() { return *pager_; }
+
+    bool writable() const { return writable_; }
+
+    BTree& btree() { return btree_; }
+
+    Tx& tx() { return *tx_; }
+
+    void Print(bool str = false) const {
+        btree_.Print(str);
+    }
+
+protected:
+    Pager* pager_;
+    Tx* tx_;
+    BTree btree_;
+    bool writable_;
+
+    std::unordered_map<std::string, std::pair<uint32_t, PageId>> sub_bucket_map_;
 };
 
-static_assert(sizeof(Bucket) == sizeof(ViewBucket) && sizeof(Bucket) == sizeof(UpdateBucket), "bucket size mismatch.");
+
+
+
+
 
 } // namespace yudb

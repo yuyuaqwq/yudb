@@ -61,50 +61,50 @@ std::string BTreeIterator::value() const {
 void BTreeIterator::First(PageId pgid) {
     do {
         Noder noder{ btree_, pgid };
-        auto node = noder.node();
+        auto& node = noder.node();
         if (noder.IsLeaf()) {
             break;
         }
         stack_.push_back({ pgid, 0 });
-        assert(node->element_count > 0);
-        pgid = node->body.branch[0].left_child;
+        assert(node.element_count > 0);
+        pgid = node.body.branch[0].left_child;
     } while (true);
     Noder noder{ btree_, pgid };
-    auto node = noder.node();
+    auto& node = noder.node();
     stack_.push_back({ pgid, 0 });
 }
 
 void BTreeIterator::Last(PageId pgid) {
     do {
         Noder noder{ btree_, pgid };
-        auto node = noder.node();
+        auto& node = noder.node();
         if (noder.IsLeaf()) {
             break;
         }
-        stack_.push_back({ pgid, node->element_count - 1 });
-        assert(node->element_count > 0);
-        pgid = node->body.branch[node->element_count - 1].left_child;
+        stack_.push_back({ pgid, node.element_count - 1 });
+        assert(node.element_count > 0);
+        pgid = node.body.branch[node.element_count - 1].left_child;
     } while (true);
     Noder noder{ btree_, pgid };
-    auto node = noder.node();
-    stack_.push_back({ pgid, node->element_count - 1 });
+    auto& node = noder.node();
+    stack_.push_back({ pgid, node.element_count - 1 });
 }
 
 void BTreeIterator::Next() {
     do {
         auto& [pgid, index] = Cur();
         Noder noder{ btree_, pgid };
-        auto node = noder.node();
+        auto& node = noder.node();
 
-        if (++index < node->element_count) {
+        if (++index < node.element_count) {
             if (noder.IsLeaf()) {
                 return;
             }
-            First(node->body.branch[index].left_child);
+            First(node.body.branch[index].left_child);
             return;
         }
-        if (noder.IsBranch() && index == node->element_count) {
-            First(node->body.tail_child);
+        if (noder.IsBranch() && index == node.element_count) {
+            First(node.body.tail_child);
             return;
         }
         Pop();
@@ -115,14 +115,14 @@ void BTreeIterator::Prev() {
     do {
         auto& [pgid, index] = Cur();
         Noder noder{ btree_, pgid };
-        auto node = noder.node();
+        auto& node = noder.node();
 
         if (index > 0) {
             --index;
             if (noder.IsLeaf()) {
                 return;
             }
-            Last(node->body.branch[index].left_child);
+            Last(node.body.branch[index].left_child);
             return;
         }
         Pop();
@@ -138,7 +138,7 @@ BTreeIterator::KeySpan() const {
     if (!noder.IsLeaf()) {
         throw std::runtime_error("not pointing to valid data");
     }
-    auto res = noder.SpanLoad(noder.node()->body.leaf[index].key);
+    auto res = noder.SpanLoad(noder.node().body.leaf[index].key);
     return res;
 }
 
@@ -150,7 +150,7 @@ BTreeIterator::ValueSpan() const {
     if (!noder.IsLeaf()) {
         throw std::runtime_error("not pointing to valid data");
     }
-    auto res = noder.SpanLoad(noder.node()->body.leaf[index].value);
+    auto res = noder.SpanLoad(noder.node().body.leaf[index].value);
     return res;
 }
 
@@ -162,7 +162,7 @@ BTreeIterator::Status BTreeIterator::Top(std::span<const uint8_t> key) {
 BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
     PageId pgid;
     if (stack_.empty()) {
-        pgid = btree_->root_pgid_;
+        pgid = *btree_->root_pgid_;
         if (pgid == kPageInvalidId) {
             return Status::kEnd;
         }
@@ -170,19 +170,19 @@ BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
     else {
         auto [parent_pgid, pos] = stack_.front();
         Noder parent{ btree_, parent_pgid };
-        auto parent_node = parent.node();
+        auto& parent_node = parent.node();
         if (parent.IsLeaf()) {
             return Status::kEnd;
         }
         pgid = parent.BranchGetLeftChild(pos);
     }
     Noder noder{ btree_, pgid };
-    auto node = noder.node();
+    auto& node = noder.node();
 
     // 在节点中进行二分查找
     uint16_t index;
     comp_result_ = CompResult::kInvalid;
-    if (node->element_count > 0) {
+    if (node.element_count > 0) {
         auto iter = std::lower_bound(noder.begin(), noder.end(), key, [&](const Span& span, std::span<const uint8_t> search_key) -> bool {
             auto [buf, size, ref] = noder.SpanLoad(span);
             auto res = memcmp(buf, search_key.data(), std::min(size, search_key.size()));

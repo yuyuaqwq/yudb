@@ -15,6 +15,7 @@ struct Meta {
     PageCount page_count;
     PageId root;
     TxId txid;
+    PageId free_db_root;
     uint32_t crc32;
 };
 #pragma pack(pop)

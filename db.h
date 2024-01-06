@@ -28,9 +28,8 @@ public:
         return db;
     }
 
-    UpdateTx& Update() {
-        auto& update_tx = txer_.Update();
-        return update_tx;
+    UpdateTx Update() {
+        return txer_.Update();
     }
 
     ViewTx View() {

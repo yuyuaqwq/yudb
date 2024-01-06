@@ -82,8 +82,8 @@ void TestBTree(yudb::Db* db) {
     }
 
     {
-        auto& tx = db->Update();
-        auto& bucket = tx.RootBucket();
+        auto tx = db->Update();
+        auto bucket = tx.RootBucket();
 
         for (auto i = 0; i < count; i++) {
             bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
@@ -96,7 +96,7 @@ void TestBTree(yudb::Db* db) {
 
     {
         auto view_tx = db->View();
-        auto& view_bucket = view_tx.RootBucket();
+        auto view_bucket = view_tx.RootBucket();
 
         //if (count <= 100000) {
         //    bucket.Print();
@@ -110,8 +110,8 @@ void TestBTree(yudb::Db* db) {
     }
 
     {
-        auto& tx = db->Update();
-        auto& bucket = tx.RootBucket();
+        auto tx = db->Update();
+        auto bucket = tx.RootBucket();
 
         for (auto i = 0; i < count; i++) {
             auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
@@ -161,7 +161,7 @@ void TestBTree(yudb::Db* db) {
         printf("\n\n\n\n\n");
 
         auto view_tx = db->View();
-        auto& view_bucket = view_tx.RootBucket();
+        auto view_bucket = view_tx.RootBucket();
 
         view_bucket.Print();
         printf("\n\n\n\n\n");
@@ -199,8 +199,8 @@ std::string RandomString(size_t min_size, size_t max_size) {
 }
 
 void TestOverflower(yudb::Db* db) {
-    auto& tx = db->Update();
-    auto& bucket = tx.RootBucket();
+    auto tx = db->Update();
+    auto bucket = tx.RootBucket();
 
     //bucket.Put("hello world!", "Cpp yyds!");
     //bucket.Put("This is yudb", "value!");
@@ -217,6 +217,7 @@ void TestOverflower(yudb::Db* db) {
     //    std::cout << value << std::endl;
     //}
 
+    
 
     srand(10);
 

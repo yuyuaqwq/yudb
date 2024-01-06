@@ -1,11 +1,13 @@
 #pragma once
 
 #include <memory>
+#include <set>
 
 #include "noncopyable.h"
 #include "page.h"
 #include "page_referencer.h"
 #include "cacher.h"
+#include "bucket.h"
 
 namespace yudb {
 
@@ -18,12 +20,7 @@ public:
         page_size_{ page_size },
         cacher_{ this } {}
 
-    Pager(const Pager&) = delete;
-    void operator=(const Pager&) = delete;
-
 public:
-    PageSize page_size() { return page_size_; }
-
     /*
     * 非线程安全，仅写事务使用
     */
@@ -60,16 +57,20 @@ public:
         cacher_.Dereference(page_cache);
     }
 
+
     PageId CacheToPageId(uint8_t* page_cache) const {
         return cacher_.CacheToPageId(page_cache);
     }
 
 
+    PageSize page_size() { return page_size_; }
 
 private:
     Db* db_;
     PageSize page_size_;
     Cacher cacher_;
+    std::set<PageId> pending_;
+    
 };
 
 } // namespace yudb

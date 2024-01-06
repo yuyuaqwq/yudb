@@ -11,12 +11,11 @@
 #include "noncopyable.h"
 #include "node.h"
 #include "overflower.h"
-#include "pager.h"
+#include "page_referencer.h"
 
 namespace yudb {
 
 class BTree;
-class Pager;
 
 class Noder : noncopyable {
 private:
@@ -261,7 +260,7 @@ public:
         auto copy_count = node_->element_count - pos - 1;
         if (right_child) {
             if (pos + 1 < node_->element_count) {
-                node_->body.branch[pos].key = node_->body.branch[pos + 1].key;
+                node_->body.branch[pos].key = std::move(node_->body.branch[pos + 1].key);
             }
             else {
                 node_->body.tail_child = node_->body.branch[node_->element_count - 1].left_child;
@@ -328,11 +327,9 @@ public:
     }
 
 
-    Node* node() { return node_; }
+    const BTree& btree() const { return *btree_; }
 
-    const BTree* btree() { return btree_; }
-
-    Pager* pager() const;
+    Node& node() { return *node_; }
 
     PageId page_id() const { return page_ref_.page_id(); }
 
