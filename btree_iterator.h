@@ -23,13 +23,13 @@ public:
     using reference = const value_type&;
 
 private:
-    typedef enum class Status {
+    enum class Status {
         kDown,
         kNext,
         kEnd,
     };
 
-    typedef enum class CompResult {
+    enum class CompResult {
         kInvalid,
         kEq,
     };

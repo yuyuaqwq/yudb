@@ -3,7 +3,7 @@
 #include "txid.h"
 #include "page.h"
 #include "span.h"
-#include "overflow_info.h"
+#include "block_info.h"
 
 namespace yudb {
 
@@ -37,7 +37,7 @@ struct Node {
             Type type : 2;
             uint16_t element_count : 14;
             TxId last_modified_txid;
-            OverflowInfo overflow_info;
+            BlockInfo block_info;
             union {
                 struct {
                     PageId tail_child;
@@ -46,11 +46,9 @@ struct Node {
                 LeafElement leaf[1];
             } body;
         };
-        uint8_t full[];
+        uint8_t full[1];
     };
 };
 #pragma pack(pop)
-
-auto a = sizeof(Node);
 
 } // namespace

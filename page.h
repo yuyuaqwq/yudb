@@ -10,16 +10,8 @@ using PageCount = uint32_t;
 using PageSize = uint16_t;
 using PageOffset = int16_t;
 
-constexpr PageSize kPageSize = 100;
+constexpr PageSize kPageSize = 1024;
 
 constexpr PageId kPageInvalidId = 0xffffffff;
-
-#pragma pack(push, 1)
-struct PageHeader {
-    
-};
-#pragma pack(pop)
-
-//auto test = sizeof(Page::Cell);
 
 } // namespace yudb

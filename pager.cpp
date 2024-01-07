@@ -53,8 +53,8 @@ void Pager::Free(PageId pgid, PageCount count) {
 
     // span的cow如何数据
     // block的话，会出现两个span指向同一个block，当block被free的时候触发copy
-
-    std::cout << "free" << pgid << std::endl;
+    assert(pgid != kPageInvalidId);
+    //std::cout << "free" << pgid << std::endl;
 }
 
 } // namespace yudb

@@ -9,13 +9,13 @@ Noder::Noder(const BTree* btree, PageId page_id) :
     btree_{ btree },
     page_ref_{ btree_->bucket().pager().Reference(page_id) },
     node_{ reinterpret_cast<Node*>(page_ref_.page_cache()) },
-    overflower_{ this, &node_->overflow_info } {}
+    blocker_{ this, &node_->block_info } {}
 
 Noder::Noder(const BTree* btree, PageReferencer page_ref) :
     btree_{ btree },
     page_ref_{ std::move(page_ref) },
     node_{ reinterpret_cast<Node*>(page_ref_.page_cache()) },
-    overflower_{ this, &node_->overflow_info } {}
+    blocker_{ this, &node_->block_info } {}
 
 
 Noder Noder::Copy() const {
@@ -28,7 +28,7 @@ Noder Noder::Copy() const {
 }
 
 void Noder::SpanClear() {
-    overflower_.OverflowInfoClear();
+    blocker_.BlockInfoClear();
 }
 
 

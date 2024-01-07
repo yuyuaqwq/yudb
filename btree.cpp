@@ -83,7 +83,7 @@ void BTree::Print(bool str, PageId pgid, int level) const {
             }
             Print(str, node.body.branch[i].left_child, level + 1);
         }
-        //noder.OverflowPrint(); printf("\n");
+        //noder.BlockPrint(); printf("\n");
     }
     else {
         assert(noder.IsLeaf());
@@ -100,7 +100,7 @@ void BTree::Print(bool str, PageId pgid, int level) const {
                 std::cout << std::format("{}leaf[{}]::key::{}::level::{}\n", indent, pgid, key, level);
             }
         }
-        //noder.OverflowPrint(); printf("\n");
+        //noder.BlockPrint(); printf("\n");
     }
 }
 
@@ -180,14 +180,20 @@ void BTree::Delete(Iterator* iter, Noder&& noder, uint16_t left_del_pos) {
     auto [parent, parent_pos, sibling, left_sibling] = GetSibling(iter);
     if (left_sibling) --parent_pos;
     auto& parent_node = parent.node();
-    if (sibling.node().element_count > (max_leaf_element_count_ >> 1)) {
-        // 若兄弟节点内元素数充足
-        if (bucket_->tx().IsExpiredTxId(sibling.node().last_modified_txid)) {
-            sibling = sibling.Copy();
-        }
-        auto& sibling_node = sibling.node();
+
+    if (bucket_->tx().IsExpiredTxId(sibling.node().last_modified_txid)) {
+        sibling = sibling.Copy();
         if (left_sibling) {
             parent.BranchSetLeftChild(parent_pos, sibling.page_id());
+        }
+        else {
+            parent.BranchSetLeftChild(parent_pos + 1, sibling.page_id());
+        }
+    }
+    auto& sibling_node = sibling.node();
+    if (sibling_node.element_count > (max_leaf_element_count_ >> 1)) {
+        // 若兄弟节点内元素数充足
+        if (left_sibling) {
             // 左兄弟节点的末尾元素上升到父节点指定位置
             // 父节点的对应元素下降到当前节点的头部
             // 上升元素其右子节点挂在下降的父节点元素的左侧
@@ -291,15 +297,20 @@ void BTree::Delete(Iterator* iter, std::span<const uint8_t> key) {
     if (left_sibling) --parent_pos;
     auto& parent_node = parent.node();
 
-    if (sibling.node().element_count > (max_leaf_element_count_ >> 1)) {
-        // 若兄弟节点内元素数充足
-        if (bucket_->tx().IsExpiredTxId(sibling.node().last_modified_txid)) {
-            sibling = sibling.Copy();
-        }
-        auto& sibling_node = sibling.node();
-        Span new_key;
+    if (bucket_->tx().IsExpiredTxId(sibling.node().last_modified_txid)) {
+        sibling = sibling.Copy();
         if (left_sibling) {
             parent.BranchSetLeftChild(parent_pos, sibling.page_id());
+        }
+        else {
+            parent.BranchSetLeftChild(parent_pos + 1, sibling.page_id());
+        }
+    }
+    auto& sibling_node = sibling.node();
+    if (sibling_node.element_count > (max_leaf_element_count_ >> 1)) {
+        // 若兄弟节点内元素数充足
+        Span new_key;
+        if (left_sibling) {
             // 左兄弟节点的末尾的元素插入到当前节点的头部
             // 更新父元素key为当前节点的新首元素key
             auto key = sibling.SpanMove(&noder, std::move(sibling_node.body.leaf[sibling_node.element_count - 1].key));
@@ -310,7 +321,6 @@ void BTree::Delete(Iterator* iter, std::span<const uint8_t> key) {
             noder.LeafInsert(0, std::move(key), std::move(value));
         }
         else {
-            parent.BranchSetLeftChild(parent_pos + 1, sibling.page_id());
             // 右兄弟节点的头部的元素插入到当前节点的尾部
             // 更新父元素key为右兄弟的新首元素
             auto key = sibling.SpanMove(&noder, std::move(sibling_node.body.leaf[0].key));
@@ -540,6 +550,10 @@ void BTree::PathCopy(Iterator* iter) {
         auto& [pgid, index] = iter->Index(i);
         Noder noder{ this, pgid };
         if (!tx.IsExpiredTxId(noder.node().last_modified_txid)) {
+            if (noder.IsBranch()) {
+                assert(lower_pgid != kPageInvalidId);
+                noder.BranchSetLeftChild(index, lower_pgid);
+            }
             return;
         }
 

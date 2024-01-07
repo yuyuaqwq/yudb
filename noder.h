@@ -10,7 +10,7 @@
 
 #include "noncopyable.h"
 #include "node.h"
-#include "overflower.h"
+#include "blocker.h"
 #include "page_referencer.h"
 
 namespace yudb {
@@ -91,14 +91,18 @@ public:
         page_ref_{ std::move(right.page_ref_) },
         btree_{ right.btree_ },
         node_{ right.node_ },
-        overflower_{ std::move(right.overflower_) } {}
+        blocker_{ std::move(right.blocker_) }
+    {
+        blocker_.set_noder(this);
+    }
 
 
     void operator=(Noder&& right) noexcept {
         page_ref_ = std::move(right.page_ref_);
         btree_ = right.btree_;
         node_ = right.node_;
-        overflower_ = std::move(right.overflower_);
+        blocker_ = std::move(right.blocker_);
+        blocker_.set_noder(this);
     }
 
     Noder Copy() const;
@@ -114,10 +118,10 @@ public:
             span.embed.size = data.size();
             std::memcpy(span.embed.data, data.data(), data.size());
         }
-        else if (data.size() <= overflower_.BlockMaxSize()) {
-            auto res = overflower_.BlockAlloc(data.size());
+        else if (data.size() <= blocker_.BlockMaxSize()) {
+            auto res = blocker_.BlockAlloc(data.size());
             if (!res) {
-                throw std::runtime_error("overflower alloc error.");
+                throw std::runtime_error("blocker alloc error.");
             }
 
             auto [index, offset] = *res;
@@ -126,10 +130,10 @@ public:
             span.block.offset = offset;
             span.block.size = data.size();
 
-            auto [buf, page] = overflower_.BlockLoad(span.block.record_index, span.block.offset);
+            auto [buf, page] = blocker_.BlockLoad(span.block.record_index, span.block.offset);
             std::memcpy(buf, data.data(), data.size());
 
-            //printf("alloc\n"); overflower_.Print(); printf("\n");
+            //printf("alloc\n"); blocker_.Print(); printf("\n");
         }
         else {
             throw std::runtime_error("unrealized types.");
@@ -141,8 +145,8 @@ public:
         if (span.type == Span::Type::kInvalid) { }
         else if (span.type == Span::Type::kEmbed) { }
         else if (span.type == Span::Type::kBlock) {
-            overflower_.BlockFree({ span.block.record_index, span.block.offset, span.block.size });
-            //printf("free\n"); overflower_.Print(); printf("\n");
+            blocker_.BlockFree({ span.block.record_index, span.block.offset, span.block.size });
+            //printf("free\n"); blocker_.Print(); printf("\n");
         }
         else {
             throw std::runtime_error("unrealized types.");
@@ -175,7 +179,7 @@ public:
             return { span.embed.data, span.embed.size, std::nullopt };
         }
         else if (span.type == Span::Type::kBlock) {
-            auto [buf, page] = overflower_.BlockLoad(span.block.record_index, span.block.offset);
+            auto [buf, page] = blocker_.BlockLoad(span.block.record_index, span.block.offset);
             return { buf, span.block.size, std::move(page) };
         }
         else {
@@ -187,19 +191,19 @@ public:
     void SpanClear();
 
 
-    void OverflowInit() {
-        node_->overflow_info.record_pgid = kPageInvalidId;
-        node_->overflow_info.record_index = kRecordInvalidIndex;
-        node_->overflow_info.record_count = 0;
+    void BlockInit() {
+        node_->block_info.record_pgid = kPageInvalidId;
+        node_->block_info.record_index = kRecordInvalidIndex;
+        node_->block_info.record_count = 0;
     }
 
-    void OverflowPrint() {
-        overflower_.Print();
+    void BlockPrint() {
+        blocker_.Print();
     }
 
 
     void LeafBuild() {
-        OverflowInit();
+        BlockInit();
         node_->type = Node::Type::kLeaf;
         node_->element_count = 0;
     }
@@ -229,7 +233,7 @@ public:
 
 
     void BranchBuild() {
-        OverflowInit();
+        BlockInit();
         node_->type = Node::Type::kBranch;
         node_->element_count = 0;
     }
@@ -346,7 +350,7 @@ private:
     PageReferencer page_ref_;
     Node* node_;
 
-    Overflower overflower_;
+    Blocker blocker_;
 };  
 
 } // namespace yudb

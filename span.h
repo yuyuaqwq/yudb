@@ -20,11 +20,11 @@ struct Span {
     Span(const Span&) = delete;
     void operator=(const Span&) = delete;
 
-    Span(Span&& right) {
+    Span(Span&& right) noexcept {
         operator=(std::move(right));
     }
 
-    void operator=(Span&& right) {
+    void operator=(Span&& right) noexcept {
         std::memcpy(this, &right, sizeof(Span));
         right.type = Type::kInvalid;
     }

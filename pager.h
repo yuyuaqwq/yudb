@@ -48,6 +48,7 @@ public:
 
     // 线程安全
     PageReferencer Reference(PageId pgid) {
+        assert(pgid != kPageInvalidId);
         auto [cache_info, page_cache] = cacher_.Reference(pgid);
         cache_info->dirty = true;
         return PageReferencer{ this, page_cache };

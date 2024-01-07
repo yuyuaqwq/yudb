@@ -87,7 +87,7 @@ public:
 
     void Print(bool str = false) const {
         btree_.Print(str);
-    }
+     }
 
 protected:
     Pager* pager_;

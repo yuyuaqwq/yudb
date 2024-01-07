@@ -73,7 +73,7 @@ void TestPager(yudb::Db* db) {
 void TestBTree(yudb::Db* db) {
     srand(10);
 
-    auto count = 10;
+    auto count = 100000;
     std::vector<int> arr(count);
 
 
@@ -87,8 +87,7 @@ void TestBTree(yudb::Db* db) {
 
         for (auto i = 0; i < count; i++) {
             bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-            bucket.Print();
-            printf("\n\n\n\n\n");
+            //bucket.Print(); printf("\n\n\n\n\n");
         }
 
         tx.Commit();
@@ -115,6 +114,7 @@ void TestBTree(yudb::Db* db) {
 
         for (auto i = 0; i < count; i++) {
             auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
+            //bucket.Print(); printf("\n\n\n\n\n");
             assert(res);
         }
 
@@ -157,14 +157,14 @@ void TestBTree(yudb::Db* db) {
             bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
         }
 
-        bucket.Print();
-        printf("\n\n\n\n\n");
+        //bucket.Print();
+        //printf("\n\n\n\n\n");
 
         auto view_tx = db->View();
         auto view_bucket = view_tx.RootBucket();
 
-        view_bucket.Print();
-        printf("\n\n\n\n\n");
+        //view_bucket.Print();
+        //printf("\n\n\n\n\n");
 
         for (auto i = 0; i < count; i++) {
             auto res = bucket.Get(&arr[i], sizeof(arr[i]));
@@ -176,8 +176,8 @@ void TestBTree(yudb::Db* db) {
             assert(res);
         }
 
-        bucket.Print();
-        printf("\n\n\n\n\n");
+        //bucket.Print();
+        //printf("\n\n\n\n\n");
         auto k = 0;
         bucket.Delete(&k, sizeof(k));
     }
@@ -198,7 +198,7 @@ std::string RandomString(size_t min_size, size_t max_size) {
     return str;
 }
 
-void TestOverflower(yudb::Db* db) {
+void TestBlocker(yudb::Db* db) {
     auto tx = db->Update();
     auto bucket = tx.RootBucket();
 
@@ -268,8 +268,6 @@ int main() {
     TestLru();
     //TestLog();
 
-    std::list<int> daaa;
-    daaa.begin();
 
     auto db = yudb::Db::Open("Z:/test.ydb");
     if (!db) {
@@ -279,9 +277,9 @@ int main() {
 
     //TestPager(db.get());
 
-    TestOverflower(db.get());
+    //TestBlocker(db.get());
 
-    //TestBTree(db.get());
+    TestBTree(db.get());
 
     
     //TestFreer();

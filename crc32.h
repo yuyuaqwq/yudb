@@ -79,7 +79,7 @@ class Crc32 {
 public:
     void Append(const void* buf, size_t size) {
         auto buf_ = reinterpret_cast<const uint8_t*>(buf);
-        for (ptrdiff_t i = 0; i < size; i++) {
+        for (size_t i = 0; i < size; i++) {
             value_ = crc32_table[(value_ ^ buf_[i]) & 0xff] ^ (value_ >> 8);
         }
     }

@@ -15,7 +15,8 @@ class Writer : noncopyable {
 public:
     Writer(File* file) : 
         file_{ file }, 
-        block_offset_{ 0 }
+        block_offset_{ 0 },
+        size_{ 0 }
     {
         file_->Seek(0, File::PointerMode::kDbFilePointerEnd);
         buffer_.resize(kBlockSize);
