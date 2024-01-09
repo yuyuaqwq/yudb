@@ -37,6 +37,7 @@ Pager& Txer::pager() {
 
 void Txer::CopyMeta(Meta* dst, const Meta& src) {
     dst->root = src.root;
+    dst->free_db_root = src.free_db_root;
     dst->page_count = src.page_count;
     dst->txid = src.txid;
 }

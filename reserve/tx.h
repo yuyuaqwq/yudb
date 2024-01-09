@@ -33,7 +33,7 @@ public:
         return sub_bucket_cache_[index];
     }
 
-    bool NeedCopy(TxId txid) {
+    bool IsExpiredTxId(TxId txid) {
         return txid < this->txid();
     }
 

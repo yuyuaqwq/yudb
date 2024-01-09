@@ -34,10 +34,13 @@ struct Node {
 
     union {
         struct {
-            Type type : 2;
-            uint16_t element_count : 14;
+            struct{
+                Type type : 2;
+                uint16_t element_count : 14;
+            };
+            PageSize free_size;
+            uint16_t block_record_count;
             TxId last_modified_txid;
-            BlockInfo block_info;
             union {
                 struct {
                     PageId tail_child;
@@ -50,7 +53,5 @@ struct Node {
     };
 };
 #pragma pack(pop)
-
-static_assert(sizeof(Node) - sizeof(Node::body) >= sizeof(Node::LeafElement) * 2, "node head length.");
 
 } // namespace

@@ -39,15 +39,14 @@ void Blocker::BlockInfoBuild() {
     auto cache = PageToBlockPageCache(&page);
 
     auto record_arr = reinterpret_cast<BlockRecord*>(&cache->data[0]);
-    RecordBuild(&record_arr[0], &page, sizeof(BlockRecord));
+    BlockRecordBuild(&record_arr[0], &page, sizeof(BlockRecord));
 }
 
 void Blocker::BlockInfoClear() {
     if (block_info_->record_pgid == kPageInvalidId) {
         return;
     }
-
-    RecordCopy();
+    BlockRecordPageCopy();
 
     auto& pager = noder_->btree().bucket().pager();
     auto page = pager.Reference(block_info_->record_pgid);
@@ -60,10 +59,7 @@ void Blocker::BlockInfoClear() {
 }
 
 
-void Blocker::RecordBuild(BlockRecord* record_element,
-    PageReferencer* page,
-    uint16_t header_block_size
-) {
+void Blocker::BlockRecordBuild(BlockRecord* record_element, PageReferencer* page, uint16_t header_block_size) {
     auto& pager = noder_->btree().bucket().pager();
 
     header_block_size = Alignment(header_block_size);
@@ -89,7 +85,7 @@ void Blocker::RecordBuild(BlockRecord* record_element,
     cache->last_modified_txid = noder_->btree().bucket().tx().txid();
 }
 
-void Blocker::RecordUpdateMaxFreeSize(BlockRecord* record, BlockPage* cache) {
+void Blocker::BlockRecordUpdateMaxFreeSize(BlockRecord* record_element, BlockPage* cache) {
     auto max_free_size = 0;
     auto cur_pos = cache->first;
     while (cur_pos != kFreeInvalidPos) {
@@ -99,12 +95,12 @@ void Blocker::RecordUpdateMaxFreeSize(BlockRecord* record, BlockPage* cache) {
         }
         cur_pos = free_block->next;
     }
-    record->max_free_size = max_free_size;
+    record_element->max_free_size = max_free_size;
 }
 
-void Blocker::RecordCopy() {
+void Blocker::BlockRecordPageCopy() {
     auto& tx = noder_->btree().bucket().tx();
-    if (tx.IsExpiredTxId(block_info_->last_modified_txid)) {
+    if (tx.NeedCopy(block_info_->last_modified_txid)) {
         auto& pager = noder_->btree().bucket().pager();
         auto new_page = pager.Copy(block_info_->record_pgid);
         auto new_cache = PageToBlockPageCache(&new_page);
@@ -126,19 +122,19 @@ void Blocker::BlockPageAppend(PageReferencer* record_page) {
     auto new_page = pager.Reference(new_pgid);
     auto new_cache = PageToBlockPageCache(&new_page);
 
-    auto block_arr_size = sizeof(BlockRecord) * block_info_->record_count;
+    auto record_arr_size = sizeof(BlockRecord) * block_info_->record_count;
     // 即将被释放，保存block_record数组
     std::vector<BlockRecord> temp_record_arr{ block_info_->record_count };
     auto record_cache = PageToBlockPageCache(record_page);
     std::memcpy(temp_record_arr.data(),
         &record_cache->data[block_info_->record_offset],
-        block_arr_size
+        record_arr_size
     );
     // 自此开始先使用保存的block_record数组
-    BlockFree({ block_info_->record_index, block_info_->record_offset, block_arr_size }, &temp_record_arr[block_info_->record_index]);
-    block_arr_size += sizeof(BlockRecord);
-    assert(block_arr_size <= BlockMaxSize());
-    auto record_alloc = BlockAlloc(block_arr_size, temp_record_arr.data());
+    BlockFree({ block_info_->record_index, block_info_->record_offset, record_arr_size }, &temp_record_arr[block_info_->record_index]);
+    record_arr_size += sizeof(BlockRecord);
+    assert(record_arr_size <= BlockMaxSize());
+    auto record_alloc = BlockAlloc(record_arr_size, temp_record_arr.data());
 
     BlockRecord* record_arr;
     uint16_t header_block_size;
@@ -149,7 +145,7 @@ void Blocker::BlockPageAppend(PageReferencer* record_page) {
         block_info_->record_offset = 0;
 
         record_arr = reinterpret_cast<BlockRecord*>(new_cache->data);
-        header_block_size = block_arr_size;
+        header_block_size = record_arr_size;
     }
     else {
         block_info_->record_index = record_alloc->first;
@@ -160,13 +156,10 @@ void Blocker::BlockPageAppend(PageReferencer* record_page) {
         record_arr = reinterpret_cast<BlockRecord*>(&cache->data[block_info_->record_offset]);
         header_block_size = 0;
     }
-    std::memcpy(record_arr, temp_record_arr.data(), block_arr_size - sizeof(BlockRecord));
+    std::memcpy(record_arr, temp_record_arr.data(), record_arr_size - sizeof(BlockRecord));
 
     auto& tail_block_info_record = record_arr[block_info_->record_count];
-    RecordBuild(&tail_block_info_record,
-        &new_page,
-        header_block_size
-    );
+    BlockRecordBuild(&tail_block_info_record, &new_page, header_block_size);
     ++block_info_->record_count;
 }
 
@@ -175,7 +168,7 @@ void Blocker::BlockPageCopy(BlockRecord* record_element) {
     auto& tx = noder_->btree().bucket().tx();
     auto page = pager.Reference(record_element->pgid);
     auto cache = PageToBlockPageCache(&page);
-    if (tx.IsExpiredTxId(cache->last_modified_txid)) {
+    if (tx.NeedCopy(cache->last_modified_txid)) {
         auto new_page = pager.Copy(std::move(page));
         record_element->pgid = new_page.page_id();
     }
@@ -191,7 +184,7 @@ std::optional<std::pair<uint16_t, PageOffset>> Blocker::BlockAlloc(PageSize size
     if (block_info_->record_pgid == kPageInvalidId) {
         BlockInfoBuild();
     }
-    RecordCopy();
+    BlockRecordPageCopy();
 
     auto page = pager.Reference(block_info_->record_pgid);
     auto cache = PageToBlockPageCache(&page);
@@ -203,11 +196,13 @@ std::optional<std::pair<uint16_t, PageOffset>> Blocker::BlockAlloc(PageSize size
         record_arr = reinterpret_cast<BlockRecord*>(&cache->data[block_info_->record_offset]);
     }
     for (uint16_t i = 0; i < block_info_->record_count; i++) {
-        assert(Aligned(record_arr[i].max_free_size));
-        if (record_arr[i].max_free_size >= size) {
-            BlockPageCopy(&record_arr[i]);
+        auto& record_element = record_arr[i];
 
-            auto alloc_page = pager.Reference(record_arr[i].pgid);
+        assert(Aligned(record_element.max_free_size));
+        if (record_element.max_free_size >= size) {
+            BlockPageCopy(&record_element);
+
+            auto alloc_page = pager.Reference(record_element.pgid);
             auto alloc_cache = PageToBlockPageCache(&alloc_page);
 
             // 找到足够分配的FreeBlock
@@ -249,8 +244,8 @@ std::optional<std::pair<uint16_t, PageOffset>> Blocker::BlockAlloc(PageSize size
                 prev_free_block->next = new_pos;
             }
 
-            if (free_block ->size == record_arr[i].max_free_size) {
-                RecordUpdateMaxFreeSize(&record_arr[i], alloc_cache);
+            if (free_block ->size == record_element.max_free_size) {
+                BlockRecordUpdateMaxFreeSize(&record_element, alloc_cache);
             }
             return std::pair{ i, cur_pos };
         }
@@ -262,24 +257,24 @@ std::optional<std::pair<uint16_t, PageOffset>> Blocker::BlockAlloc(PageSize size
     return BlockAlloc(size);
 }
 
-void Blocker::BlockFree(const std::tuple<uint16_t, PageOffset, PageSize>& free_block, BlockRecord* temp_record_element) {
-    RecordCopy();
+void Blocker::BlockFree(const std::tuple<uint16_t, PageOffset, PageSize>& free_block, BlockRecord* record_element) {
+    BlockRecordPageCopy();
 
     auto& pager = noder_->btree().bucket().pager();
 
     auto [record_index, free_pos, free_size] = free_block;
     free_size = Alignment(free_size);
 
-    if (!temp_record_element) {
+    if (!record_element) {
         auto record_page = pager.Reference(block_info_->record_pgid);
         auto record_cache = PageToBlockPageCache(&record_page);
         auto record_arr = reinterpret_cast<BlockRecord*>(&record_cache->data[block_info_->record_offset]);
-        temp_record_element = &record_arr[record_index];
+        record_element = &record_arr[record_index];
     }
 
-    BlockPageCopy(temp_record_element);
+    BlockPageCopy(record_element);
     
-    auto block_page = pager.Reference(temp_record_element->pgid);
+    auto block_page = pager.Reference(record_element->pgid);
     auto block_cache = PageToBlockPageCache(&block_page);
 
     auto cur_pos = block_cache->first;
@@ -336,8 +331,8 @@ void Blocker::BlockFree(const std::tuple<uint16_t, PageOffset, PageSize>& free_b
     free_free_block->size = free_size;
 
     block_cache->first = free_pos;
-    if (free_size > temp_record_element->max_free_size) {
-        temp_record_element->max_free_size = free_size;
+    if (free_size > record_element->max_free_size) {
+        record_element->max_free_size = free_size;
     }
 }
 
@@ -355,7 +350,7 @@ std::pair<uint8_t*, PageReferencer> Blocker::BlockLoad(uint16_t record_index, Pa
 }
 
 PageSize Blocker::BlockMaxSize() {
-    auto size = noder_->btree().bucket().pager().page_size() - sizeof(BlockPage);
+    auto size = noder_->btree().bucket().pager().page_size() - (sizeof(BlockPage) - sizeof(BlockPage::data));
     return size;
 }
 

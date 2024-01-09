@@ -18,7 +18,7 @@ struct BlockPage {
     TxId last_modified_txid;
     PageOffset first;
     uint16_t pedding;
-    uint8_t data[];
+    uint8_t data[1];
 };
 
 struct BlockRecord {
@@ -29,23 +29,19 @@ struct BlockRecord {
 struct BlockInfo {
     PageId record_pgid;
     TxId last_modified_txid;
-    PageOffset record_offset;
-    uint16_t record_index;
     uint16_t record_count;
+    uint16_t record_index;
+    PageOffset record_offset;
     uint32_t pedding;
 };
 
 /*
 * 极端场景下，每一个span都需要分配一页来存储
-* 而每个leaf_element都有2个span，leaf_element是12字节
-
-* record_count = (page_size - block_page_header_size) / recoud_size
-* record至多需要一页来存，因此 record_count -= 1
-* (page_size - node_header_size) / leaf_element_size * 2 <= record_count
+* 而每个leaf_element都有2个span，leaf_element_size是12字节
 * 
-* 要即可保证一页能够装入record_arr
-* 需要保证 noder_size >= leaf_element_size * 2 (最大占用4页，即4项record)
-* 抵消掉 block_page_header_size(8) + record_arr_page(6) 所占用的空间(3项record)
+* 需保证一页能够装入record_arr
+* 要求 node_size >= leaf_element_size(12) * 2 = 24 (4个span，4项record)
+* 即满足 block_page_header_size(8) + record_arr_page(6) = 14 ≈ 16 所使用的空间 (3项record)
 */
 
 #pragma pack(pop)
