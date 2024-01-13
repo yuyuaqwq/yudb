@@ -6,6 +6,7 @@
 #include <format>
 #include <string>
 
+#include "noncopyable.h"
 #include "btree_iterator.h"
 #include "page.h"
 #include "noder.h"
@@ -16,18 +17,31 @@ namespace yudb {
 
 class Bucket;
 
-class BTree {
+class BTree : noncopyable {
 public:
     using Iterator = BTreeIterator;
+    using Comparator = std::strong_ordering(*)(std::span<const uint8_t> key1, std::span<const uint8_t> key2);
 
 public:
-    BTree(Bucket* bucket, PageId* root_pgid);
+    BTree(Bucket* bucket, PageId* root_pgid, Comparator comparator);
 
     ~BTree() = default;
 
+    BTree(BTree&& right) noexcept {
+        operator=(std::move(right));
+    }
+
+    void operator=(BTree&& right) noexcept {
+        bucket_ = right.bucket_;
+        root_pgid_ = right.root_pgid_;
+        comparator_ = std::move(right.comparator_);
+        right.root_pgid_ = nullptr;
+    }
+
+
     Iterator LowerBound(std::span<const uint8_t> key) const;
 
-    BTreeIterator Get(std::span<const uint8_t> key) const;
+    Iterator Get(std::span<const uint8_t> key) const;
 
     void Put(std::span<const uint8_t> key, std::span<const uint8_t> value);
 
@@ -40,6 +54,8 @@ public:
 
     Iterator end() const noexcept;
 
+
+    void set_bucket(Bucket* bucket) { bucket_ = bucket; }
 
     Bucket& bucket() const { return *bucket_; }
 
@@ -91,16 +107,13 @@ private:
     */
     void Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value);
 
-
-    void PathCopy(Iterator* iter);
-
 private:
     friend class BTreeIterator;
 
     Bucket* bucket_;
     PageId* root_pgid_; 
-    uint16_t max_leaf_element_count_;
-    uint16_t max_branch_element_count_;
+
+    Comparator comparator_;
 };
 
 } // namespace yudb

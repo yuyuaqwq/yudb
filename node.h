@@ -51,6 +51,6 @@ struct Node {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(Node) - sizeof(Node::body) >= sizeof(Node::LeafElement) * 2, "node head length.");
+static_assert(sizeof(Node) - sizeof(Node::body) >= sizeof(Node::LeafElement) * 2, "abnormal length of head node.");
 
 } // namespace

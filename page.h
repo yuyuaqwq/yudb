@@ -10,7 +10,7 @@ using PageCount = uint32_t;
 using PageSize = uint16_t;
 using PageOffset = int16_t;
 
-constexpr PageSize kPageSize = 1024;
+constexpr PageSize kPageSize = 100;
 
 constexpr PageId kPageInvalidId = 0xffffffff;
 

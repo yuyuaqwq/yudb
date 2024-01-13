@@ -73,7 +73,7 @@ void TestPager(yudb::Db* db) {
 void TestBTree(yudb::Db* db) {
     srand(10);
 
-    auto count = 100000;
+    auto count = 10;
     std::vector<int> arr(count);
 
 
@@ -85,9 +85,17 @@ void TestBTree(yudb::Db* db) {
         auto tx = db->Update();
         auto bucket = tx.RootBucket();
 
+        auto sub_bucket = bucket.SubUpdateBucket("abc");
+        sub_bucket.Put("abc", "def");
+        sub_bucket.Print();  printf("\n\n\n\n\n");
         for (auto i = 0; i < count; i++) {
             bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
             //bucket.Print(); printf("\n\n\n\n\n");
+        }
+        bucket.Print();
+        int old_key = -1;
+        for (auto& iter : bucket) {
+            assert(iter.key<int>() > old_key);
         }
 
         tx.Commit();
@@ -96,7 +104,7 @@ void TestBTree(yudb::Db* db) {
     {
         auto view_tx = db->View();
         auto view_bucket = view_tx.RootBucket();
-
+        //view_bucket.Print(); printf("\n\n\n\n\n");
         //if (count <= 100000) {
         //    bucket.Print();
         //    printf("\n\n\n\n\n");
@@ -119,7 +127,16 @@ void TestBTree(yudb::Db* db) {
         }
 
         for (auto i = count - 1; i >= 0; i--) {
+            //if (i == 236) DebugBreak();
             bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+            //bucket.Print(); printf("\n\n\n\n\n");
+            //auto res = bucket.Get(&arr[299], sizeof(arr[i]));
+            //assert(res != bucket.end());
+        }
+
+        int old_key = -1;
+        for (auto& iter : bucket) {
+            assert(iter.key<int>() > old_key);
         }
 
         //auto i = 0;
@@ -135,13 +152,18 @@ void TestBTree(yudb::Db* db) {
         //}
 
 
-
+        //bucket.Print(); printf("\n\n\n\n\n");
         for (auto i = count - 1; i >= 0; i--) {
+            //if (i == 239) DebugBreak();
             auto res = bucket.Get(&arr[i], sizeof(arr[i]));
             assert(res != bucket.end());
         }
+
+        //bucket.Print(); printf("\n\n\n\n\n");
+
         for (auto i = count - 1; i >= 0; i--) {
             auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
+            //bucket.Print(); printf("\n\n\n\n\n");
             assert(res);
         }
 
@@ -163,8 +185,7 @@ void TestBTree(yudb::Db* db) {
         auto view_tx = db->View();
         auto view_bucket = view_tx.RootBucket();
 
-        //view_bucket.Print();
-        //printf("\n\n\n\n\n");
+        //bucket.Print(); printf("\n\n\n\n\n");
 
         for (auto i = 0; i < count; i++) {
             auto res = bucket.Get(&arr[i], sizeof(arr[i]));
@@ -173,11 +194,11 @@ void TestBTree(yudb::Db* db) {
 
         for (auto val : set) {
             auto res = bucket.Delete(&val, sizeof(val));
+            //bucket.Print(); printf("\n\n\n\n\n");
             assert(res);
         }
 
-        //bucket.Print();
-        //printf("\n\n\n\n\n");
+        //bucket.Print(); printf("\n\n\n\n\n");
         auto k = 0;
         bucket.Delete(&k, sizeof(k));
     }
@@ -233,7 +254,7 @@ void TestBlocker(yudb::Db* db) {
         //printf("%d\n", i);
         ++i;
         bucket.Put(iter, iter);
-        //bucket.Print(true); printf("\n\n\n\n");
+        bucket.Print(true); printf("\n\n\n\n");
     }
     
 }

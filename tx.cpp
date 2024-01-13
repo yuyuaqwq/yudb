@@ -31,6 +31,11 @@ Pager& Tx::pager() { return txer_->pager(); }
 
 
 void Tx::Commit() {
+    for (auto& bucket : sub_bucket_cache_) {
+        for (auto& iter : bucket.sub_bucket_map_) {
+            bucket.Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second));
+        }
+    }
     txer_->Commit();
 }
 

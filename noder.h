@@ -113,6 +113,7 @@ public:
     */
     Span SpanAlloc(std::span<const uint8_t> data) {
         Span span;
+        span.is_bucket = false;
         if (data.size() <= sizeof(Span::embed.data)) {
             span.type = Span::Type::kEmbed;
             span.embed.size = data.size();
@@ -126,11 +127,11 @@ public:
 
             auto [index, offset] = *res;
             span.type = Span::Type::kBlock;
-            span.block.record_index = index;
+            span.block.set_record_index(index);
             span.block.offset = offset;
             span.block.size = data.size();
 
-            auto [buf, page] = blocker_.BlockLoad(span.block.record_index, span.block.offset);
+            auto [buf, page] = blocker_.BlockLoad(span.block.record_index(), span.block.offset);
             std::memcpy(buf, data.data(), data.size());
 
             //printf("alloc\n"); blocker_.Print(); printf("\n");
@@ -145,7 +146,7 @@ public:
         if (span.type == Span::Type::kInvalid) { }
         else if (span.type == Span::Type::kEmbed) { }
         else if (span.type == Span::Type::kBlock) {
-            blocker_.BlockFree({ span.block.record_index, span.block.offset, span.block.size });
+            blocker_.BlockFree({ span.block.record_index(), span.block.offset, span.block.size});
             //printf("free\n"); blocker_.Print(); printf("\n");
         }
         else {
@@ -173,14 +174,30 @@ public:
         return new_span;
     }
 
-    std::tuple<const uint8_t*, size_t, std::optional<std::variant<PageReferencer, std::vector<uint8_t>>>>
+    /*
+    * 实现返回的可能是其中的一段(因为最多返回其中的一页)，需要循环才能读完
+    * kPage类型建议另外实现一个传入buff的函数，直接读取到buff中
+    */
+    std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
     SpanLoad(const Span& span) {
         if (span.type == Span::Type::kEmbed) {
             return { span.embed.data, span.embed.size, std::nullopt };
         }
         else if (span.type == Span::Type::kBlock) {
-            auto [buf, page] = blocker_.BlockLoad(span.block.record_index, span.block.offset);
+            auto [buf, page] = blocker_.BlockLoad(span.block.record_index(), span.block.offset);
             return { buf, span.block.size, std::move(page) };
+        }
+        else {
+            throw std::runtime_error("unrealized types.");
+        }
+    }
+
+    size_t SpanSize(const Span& span) {
+        if (span.type == Span::Type::kEmbed) {
+            return span.embed.size;
+        }
+        else if (span.type == Span::Type::kBlock) {
+            return span.block.size;
         }
         else {
             throw std::runtime_error("unrealized types.");

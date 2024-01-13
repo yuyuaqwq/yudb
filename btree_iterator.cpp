@@ -1,6 +1,8 @@
 #include "btree_iterator.h"
 
 #include "btree.h"
+#include "bucket.h"
+#include "tx.h"
 
 namespace yudb {
 
@@ -38,8 +40,8 @@ bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
     if (Empty() || right.Empty()) {
         return Empty() && right.Empty();
     }
-    auto& [pgid, index] = Cur();
-    auto& [pgid2, index2] = right.Cur();
+    auto& [pgid, index] = Front();
+    auto& [pgid2, index2] = right.Front();
     return btree_ == right.btree_ && pgid == pgid2 && index == index2;
 }
 
@@ -55,6 +57,51 @@ std::string BTreeIterator::value() const {
     auto [buf, size, ref] = ValueSpan();
     std::string val{ reinterpret_cast<const char*>(buf), size };
     return val;
+}
+
+bool BTreeIterator::is_bucket() const {
+    auto [noder, index] = LeafNoder();
+    return noder.node().body.leaf[index].key.is_bucket_or_is_inline_bucket;
+}
+
+void BTreeIterator::set_is_bucket() {
+    auto [noder, index] = LeafNoder();
+    noder.node().body.leaf[index].key.is_bucket_or_is_inline_bucket = true;
+}
+
+bool BTreeIterator::is_inline_bucket() const {
+    auto [noder, index] = LeafNoder();
+    return noder.node().body.leaf[index].value.is_bucket_or_is_inline_bucket;
+}
+
+void BTreeIterator::set_is_inline_bucket() {
+    auto [noder, index] = LeafNoder();
+    noder.node().body.leaf[index].value.is_bucket_or_is_inline_bucket = true;
+}
+
+
+std::pair<Noder, uint16_t> BTreeIterator::LeafNoder() const {
+    assert(*this != btree_->end());
+    auto& [pgid, index] = Front();
+    Noder noder{ btree_, pgid };
+    if (!noder.IsLeaf()) {
+        throw std::runtime_error("not pointing to valid data");
+    }
+    return { std::move(noder), index };
+}
+
+std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
+BTreeIterator::KeySpan() const {
+    auto [noder, index] = LeafNoder();
+    auto res = noder.SpanLoad(noder.node().body.leaf[index].key);
+    return res;
+}
+
+std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
+BTreeIterator::ValueSpan() const {
+    auto [noder, index] = LeafNoder();
+    auto res = noder.SpanLoad(noder.node().body.leaf[index].value);
+    return res;
 }
 
 
@@ -92,7 +139,7 @@ void BTreeIterator::Last(PageId pgid) {
 
 void BTreeIterator::Next() {
     do {
-        auto& [pgid, index] = Cur();
+        auto& [pgid, index] = Front();
         Noder noder{ btree_, pgid };
         auto& node = noder.node();
 
@@ -113,7 +160,7 @@ void BTreeIterator::Next() {
 
 void BTreeIterator::Prev() {
     do {
-        auto& [pgid, index] = Cur();
+        auto& [pgid, index] = Front();
         Noder noder{ btree_, pgid };
         auto& node = noder.node();
 
@@ -127,31 +174,6 @@ void BTreeIterator::Prev() {
         }
         Pop();
     } while (!Empty());
-}
-
-
-std::tuple<const uint8_t*, size_t, std::optional<std::variant<PageReferencer, std::vector<uint8_t>>>>
-BTreeIterator::KeySpan() const {
-    assert(*this != btree_->end());
-    auto& [pgid, index] = Cur();
-    Noder noder{ btree_, pgid };
-    if (!noder.IsLeaf()) {
-        throw std::runtime_error("not pointing to valid data");
-    }
-    auto res = noder.SpanLoad(noder.node().body.leaf[index].key);
-    return res;
-}
-
-std::tuple<const uint8_t*, size_t, std::optional<std::variant<PageReferencer, std::vector<uint8_t>>>>
-BTreeIterator::ValueSpan() const {
-    assert(*this != btree_->end());
-    auto& [pgid, index] = Cur();
-    Noder noder{ btree_, pgid };
-    if (!noder.IsLeaf()) {
-        throw std::runtime_error("not pointing to valid data");
-    }
-    auto res = noder.SpanLoad(noder.node().body.leaf[index].value);
-    return res;
 }
 
 
@@ -181,11 +203,11 @@ BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
 
     // 在节点中进行二分查找
     uint16_t index;
-    comp_result_ = CompResult::kInvalid;
+    comp_result_ = CompResult::kNe;
     if (node.element_count > 0) {
         auto iter = std::lower_bound(noder.begin(), noder.end(), key, [&](const Span& span, std::span<const uint8_t> search_key) -> bool {
             auto [buf, size, ref] = noder.SpanLoad(span);
-            auto res = memcmp(buf, search_key.data(), std::min(size, search_key.size()));
+            auto res = btree_->comparator_({ buf, size }, search_key);
             if (res == 0 && size != search_key.size()) {
                 return size < search_key.size();
             }
@@ -210,11 +232,11 @@ BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
 }
 
 
-std::pair<PageId, uint16_t>& BTreeIterator::Cur() {
+std::pair<PageId, uint16_t>& BTreeIterator::Front() {
     return stack_.front();
 }
 
-const std::pair<PageId, uint16_t>& BTreeIterator::Cur() const {
+const std::pair<PageId, uint16_t>& BTreeIterator::Front() const {
     return stack_.front();
 }
 
@@ -226,5 +248,37 @@ void BTreeIterator::Pop() {
 bool BTreeIterator::Empty() const {
     return stack_.empty();
 }
+
+
+
+void BTreeIterator::PathCopy() {
+    if (Empty()) {
+        return;
+    }
+    auto& tx = btree_->bucket().tx();
+    auto lower_pgid = kPageInvalidId;
+    for (ptrdiff_t i = stack_.size() - 1; i >= 0; i--) {
+        auto& [pgid, index] = stack_[i];
+        Noder noder{ btree_, pgid };
+        if (!tx.NeedCopy(noder.node().last_modified_txid)) {
+            if (noder.IsBranch()) {
+                assert(lower_pgid != kPageInvalidId);
+                noder.BranchSetLeftChild(index, lower_pgid);
+            }
+            return;
+        }
+
+        Noder new_noder = noder.Copy();
+        new_noder.node().last_modified_txid = tx.txid();
+        if (new_noder.IsBranch()) {
+            assert(lower_pgid != kPageInvalidId);
+            new_noder.BranchSetLeftChild(index, lower_pgid);
+        }
+        lower_pgid = new_noder.page_id();
+        pgid = lower_pgid;
+    }
+    *btree_->root_pgid_ = lower_pgid;
+}
+
 
 } // namespace yudb

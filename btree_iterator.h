@@ -22,7 +22,8 @@ public:
     using pointer = typename BTreeIterator*;
     using reference = const value_type&;
 
-private:
+    using Stack = detail::Stack<std::pair<PageId, uint16_t>, 8>;
+
     enum class Status {
         kDown,
         kNext,
@@ -32,6 +33,7 @@ private:
     enum class CompResult {
         kInvalid,
         kEq,
+        kNe,
     };
 
 public:
@@ -51,6 +53,15 @@ public:
     BTreeIterator operator--(int) noexcept;
 
     bool operator==(const BTreeIterator& right) const noexcept;
+
+    
+    bool is_bucket() const;
+
+    void set_is_bucket();
+
+    bool is_inline_bucket() const;
+
+    void set_is_inline_bucket();
 
 
     template <class KeyT>
@@ -80,9 +91,7 @@ public:
     std::string value() const;
 
 
-    CompResult comp_result() const { return comp_result_; }
 
-private:
     void First(PageId pgid);
 
     void Last(PageId pgid);
@@ -91,37 +100,37 @@ private:
 
     void Prev();
 
-private:
-    std::tuple<const uint8_t*, size_t, std::optional<std::variant<PageReferencer, std::vector<uint8_t>>>>
-    KeySpan() const;
 
-    std::tuple<const uint8_t*, size_t, std::optional<std::variant<PageReferencer, std::vector<uint8_t>>>>
-    ValueSpan() const;
-
-private:
     Status Top(std::span<const uint8_t> key);
 
     Status Down(std::span<const uint8_t> key);
 
-    std::pair<PageId, uint16_t>& Cur();
+    std::pair<PageId, uint16_t>& Front();
 
-    const std::pair<PageId, uint16_t>& Cur() const;
+    const std::pair<PageId, uint16_t>& Front() const;
 
     void Pop();
 
     bool Empty() const;
 
 
+    void PathCopy();
+
+
+    CompResult comp_result() const { return comp_result_; }
+
 private:
-    std::pair<PageId, uint16_t>& Index(ptrdiff_t i) { return stack_.index(i); }
+    std::pair<Noder, uint16_t> LeafNoder() const;
 
-    size_t Size() const { return stack_.cur_pos(); }
+    std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
+    KeySpan() const;
+
+    std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
+    ValueSpan() const;
 
 private:
-    friend class BTree;
-
     const BTree* btree_;
-    detail::Stack<std::pair<PageId, uint16_t>, 8> stack_;       // 索引必定是小于等于搜索时key的节点
+    Stack stack_;       // 索引必定是小于等于搜索时key的节点
     CompResult comp_result_{ CompResult::kInvalid };
 };
 

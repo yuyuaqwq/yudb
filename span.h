@@ -8,11 +8,11 @@ namespace yudb {
 
 #pragma pack(push, 1)
 struct Span {
-    enum class Type : uint16_t {
+    enum class Type : uint8_t {
         kInvalid = 0,
         kEmbed,
         kBlock,
-        kPageRecord,
+        kPage,
     };
 
     Span() = default;
@@ -31,27 +31,34 @@ struct Span {
 
     union {
         Type type : 2;
+        uint8_t is_bucket_or_is_inline_bucket : 1;
         struct {
-            uint8_t type : 2;
-            uint8_t invalid : 2;
+            uint8_t reserve : 4;
             uint8_t size : 4;
             uint8_t data[5];
         } embed;
         struct {
-            Type type : 2;
-            uint16_t size : 14;
-            uint16_t record_index;
+            uint8_t reserve : 3;
+            uint8_t record_index_high : 5;
+            uint8_t record_index_low;
+            uint16_t size;
             PageOffset offset;
+
+            uint16_t record_index() const {
+                return (record_index_high << 8) | record_index_low;
+            }
+
+            void set_record_index(uint16_t record_index) {
+                assert(record_index < (1 << 13));
+                record_index_high = (record_index << 8) & 0xff;
+                record_index_low = record_index & 0xff;
+            }
+
         } block;
-        struct {
-            Type type : 2;
-            uint16_t size : 14;
-            uint16_t record_index;
-            PageOffset offset;
-        } page_record;
     };
 };
 #pragma pack(pop)
 
+static_assert(sizeof(Span) == 6, "");
 
 } // namespace yudb 

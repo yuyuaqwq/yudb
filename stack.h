@@ -38,9 +38,12 @@ public:
         return cur_pos_ == 0;
     }
 
-    T& index(ptrdiff_t i) { return array_[i]; }
+    size_t size() const { return cur_pos_; }
 
-    ptrdiff_t cur_pos() const { return cur_pos_; }
+
+    const T& operator[](size_t pos) const noexcept  { return array_[pos]; }
+
+    T& operator[](size_t pos) noexcept { return array_[pos]; }
 
 private:
     std::array<T, kSize> array_;

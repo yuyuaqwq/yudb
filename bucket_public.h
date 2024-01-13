@@ -6,9 +6,13 @@ namespace yudb {
 
 class ViewBucket : noncopyable {
 public:
-    using Iterator = BTreeIterator;
+    using Iterator = BucketIterator;
 public:
     ViewBucket(Bucket* bucket) : bucket_{ bucket } {};
+
+    ViewBucket SubViewBucket(std::string_view key) {
+        return ViewBucket{ &bucket_->SubBucket(key, false) };
+    }
 
     Iterator Get(const void* key_buf, size_t key_size) const {
         return bucket_->Get(key_buf, key_size );
@@ -48,6 +52,11 @@ protected:
 class UpdateBucket : public ViewBucket {
 public:
     using ViewBucket::ViewBucket;
+
+    UpdateBucket SubUpdateBucket(std::string_view key) {
+        return UpdateBucket{ &bucket_->SubBucket(key, true) };
+    }
+
 
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
         bucket_->Put(key_buf, key_size, value_buf, value_size);
