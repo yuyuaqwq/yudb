@@ -21,7 +21,7 @@ public:
     Tx(Tx&& right) noexcept;
     void operator=(Tx&& right) noexcept;
 
-    Bucket& RootBucket() { return root_; }
+    Bucket& RootBucket() { return root_bucket_; }
 
 
     uint32_t NewSubBucket(PageId* root_pgid, bool writable) {
@@ -62,7 +62,7 @@ protected:
 
     bool writable_;
 
-    Bucket root_;
+    Bucket root_bucket_;
     std::vector<Bucket> sub_bucket_cache_;
 };
 

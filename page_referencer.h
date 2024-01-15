@@ -20,29 +20,33 @@ public:
 
     ~PageReferencer();
 
-    PageReferencer(PageReferencer&& other) noexcept {
+    PageReferencer(PageReferencer&& right) noexcept {
         page_cache_ = nullptr;
-        operator=(std::move(other));
+        operator=(std::move(right));
     }
 
-    void operator=(PageReferencer&& other) noexcept {
+    void operator=(PageReferencer&& right) noexcept {
         Dereference();
-        pager_ = other.pager_;
-        page_cache_ = other.page_cache_;
-        other.page_cache_ = nullptr;
+        pager_ = right.pager_;
+        page_cache_ = right.page_cache_;
+        right.page_cache_ = nullptr;
     }
 
+    template <typename T>
+    const T& page_cache() const { return *reinterpret_cast<T*>(page_cache_); }
 
-    uint8_t* page_cache() const { return page_cache_; }
+    template <typename T>
+    T& page_cache() { return *reinterpret_cast<T*>(page_cache_); }
 
     PageId page_id() const;
 
-private:
+protected:
     void Dereference();
 
-private:
+protected:
     Pager* pager_;
     uint8_t* page_cache_;
 };
+
 
 } // namespace yudb

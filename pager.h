@@ -34,23 +34,26 @@ public:
 
     PageReferencer Copy(const PageReferencer& page_ref) {
         auto new_pgid = Alloc(1);
-        auto new_page = Reference(new_pgid);
-        std::memcpy(new_page.page_cache(), page_ref.page_cache(), page_size());
+        auto new_page = Reference(new_pgid, true);
+        std::memcpy(&new_page.page_cache<uint8_t>(), &page_ref.page_cache<uint8_t>(), page_size());
         Free(page_ref.page_id(), 1);    // Pending
         return new_page;
     }
 
     PageReferencer Copy(PageId pgid) {
-        auto page = Reference(pgid);
+        auto page = Reference(pgid, false);
         return Copy(std::move(page));
     }
 
 
     // 线程安全
-    PageReferencer Reference(PageId pgid) {
+    PageReferencer Reference(PageId pgid, bool dirty) {
         assert(pgid != kPageInvalidId);
         auto [cache_info, page_cache] = cacher_.Reference(pgid);
-        cache_info->dirty = true;
+        if (cache_info->dirty != dirty) {
+            cache_info->dirty = dirty;
+        }
+        cache_info->dirty = true;   // 目前还有问题
         return PageReferencer{ this, page_cache };
     }
 

@@ -38,11 +38,11 @@ public:
     BucketIterator& operator++() noexcept {
         if (iterator_.index() == kInline) {
             auto& iter = std::get<kInline>(iterator_);
-            iter++;
+            ++iter;
         }
         else {
             auto& iter = std::get<kBTree>(iterator_);
-            iter++;
+            ++iter;
         }
         return *this;
     }
@@ -51,17 +51,16 @@ public:
         BucketIterator tmp = *this;
         tmp++;
         return tmp;
-
     }
 
     BucketIterator& operator--() noexcept {
         if (iterator_.index() == kInline) {
             auto& iter = std::get<kInline>(iterator_);
-            iter--;
+            --iter;
         }
         else {
             auto& iter = std::get<kBTree>(iterator_);
-            iter--;
+            --iter;
         }
         return *this;
     }
@@ -136,8 +135,6 @@ public:
         }
     }
 
-
-private:
     bool is_bucket() const {
         if (iterator_.index() == kInline) {
 
@@ -149,8 +146,16 @@ private:
         return false;
     }
 
-    void set_is_bucket() {
+private:
 
+    void set_is_bucket() {
+        if (iterator_.index() == kInline) {
+
+        }
+        else {
+            auto& iter = std::get<kBTree>(iterator_);
+            iter.set_is_bucket();
+        }
     }
 
     bool is_inline_bucket() const {
@@ -165,7 +170,13 @@ private:
     }
 
     void set_is_inline_bucket() {
+        if (iterator_.index() == kInline) {
 
+        }
+        else {
+            auto& iter = std::get<kBTree>(iterator_);
+            iter.set_is_inline_bucket();
+        }
     }
 
 

@@ -32,7 +32,7 @@ struct BlockInfo {
     uint16_t record_count;
     uint16_t record_index;
     PageOffset record_offset;
-    uint32_t pedding;
+    uint16_t pedding;
 };
 
 /*

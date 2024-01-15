@@ -1,13 +1,17 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
+#include <cassert>
+
+#include <utility>
 
 #include "page.h"
 
 namespace yudb {
 
 #pragma pack(push, 1)
-struct Span {
+struct Cell {
     enum class Type : uint8_t {
         kInvalid = 0,
         kEmbed,
@@ -15,23 +19,27 @@ struct Span {
         kPage,
     };
 
-    Span() = default;
+    Cell() = default;
 
-    Span(const Span&) = delete;
-    void operator=(const Span&) = delete;
+    Cell(const Cell&) = delete;
+    void operator=(const Cell&) = delete;
 
-    Span(Span&& right) noexcept {
+    Cell(Cell&& right) noexcept {
         operator=(std::move(right));
     }
 
-    void operator=(Span&& right) noexcept {
-        std::memcpy(this, &right, sizeof(Span));
+    void operator=(Cell&& right) noexcept {
+        std::memcpy(this, &right, sizeof(Cell));
         right.type = Type::kInvalid;
     }
 
     union {
-        Type type : 2;
-        uint8_t is_bucket_or_is_inline_bucket : 1;
+        struct {
+            Type type : 2;
+            uint8_t bucket_flag : 1;
+            uint8_t invalid_1 : 5;
+            uint8_t invalid_2[5];
+        };
         struct {
             uint8_t reserve : 4;
             uint8_t size : 4;
@@ -59,6 +67,6 @@ struct Span {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(Span) == 6, "");
+static_assert(sizeof(Cell) == 6, "");
 
 } // namespace yudb 

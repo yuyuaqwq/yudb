@@ -48,66 +48,79 @@ bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
 
 
 std::string BTreeIterator::key() const {
-    auto [buf, size, ref] = KeySpan();
+    auto [buf, size, ref] = KeyCell();
     std::string val{ reinterpret_cast<const char*>(buf), size };
     return val;
 }
 
 std::string BTreeIterator::value() const {
-    auto [buf, size, ref] = ValueSpan();
+    auto [buf, size, ref] = ValueCell();
     std::string val{ reinterpret_cast<const char*>(buf), size };
     return val;
 }
 
 bool BTreeIterator::is_bucket() const {
-    auto [noder, index] = LeafNoder();
-    return noder.node().body.leaf[index].key.is_bucket_or_is_inline_bucket;
+    auto [noder, index] = LeafImmNoder();
+    return noder.node().body.leaf[index].key.bucket_flag;
 }
 
 void BTreeIterator::set_is_bucket() {
-    auto [noder, index] = LeafNoder();
-    noder.node().body.leaf[index].key.is_bucket_or_is_inline_bucket = true;
+    auto [noder, index] = LeafMutNoder();
+    noder.node().body.leaf[index].key.bucket_flag = 1;
 }
 
 bool BTreeIterator::is_inline_bucket() const {
-    auto [noder, index] = LeafNoder();
-    return noder.node().body.leaf[index].value.is_bucket_or_is_inline_bucket;
+    auto [noder, index] = LeafImmNoder();
+    return noder.node().body.leaf[index].value.bucket_flag;
 }
 
 void BTreeIterator::set_is_inline_bucket() {
-    auto [noder, index] = LeafNoder();
-    noder.node().body.leaf[index].value.is_bucket_or_is_inline_bucket = true;
+    auto [noder, index] = LeafMutNoder();
+    noder.node().body.leaf[index].value.bucket_flag = 1;
 }
 
 
-std::pair<Noder, uint16_t> BTreeIterator::LeafNoder() const {
-    assert(*this != btree_->end());
-    auto& [pgid, index] = Front();
-    Noder noder{ btree_, pgid };
-    if (!noder.IsLeaf()) {
-        throw std::runtime_error("not pointing to valid data");
+std::pair<ImmNoder, uint16_t> BTreeIterator::LeafImmNoder() const {
+    if (*this == btree_->end()) {
+        throw std::runtime_error("invalid iterator.");
     }
+    auto& [pgid, index] = Front();
+    ImmNoder noder{ btree_, pgid };
+    assert(*this != btree_->end());
+    assert(noder.IsLeaf());
     return { std::move(noder), index };
 }
 
+std::pair<MutNoder, uint16_t> BTreeIterator::LeafMutNoder() const {
+    if (*this == btree_->end()) {
+        throw std::runtime_error("invalid iterator.");
+    }
+    auto& [pgid, index] = Front();
+    MutNoder noder{ btree_, pgid };
+    assert(*this != btree_->end());
+    assert(noder.IsLeaf());
+    return { std::move(noder), index };
+}
+
+
 std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
-BTreeIterator::KeySpan() const {
-    auto [noder, index] = LeafNoder();
-    auto res = noder.SpanLoad(noder.node().body.leaf[index].key);
+BTreeIterator::KeyCell() const {
+    auto [noder, index] = LeafImmNoder();
+    auto res = noder.CellLoad(noder.node().body.leaf[index].key);
     return res;
 }
 
 std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
-BTreeIterator::ValueSpan() const {
-    auto [noder, index] = LeafNoder();
-    auto res = noder.SpanLoad(noder.node().body.leaf[index].value);
+BTreeIterator::ValueCell() const {
+    auto [noder, index] = LeafImmNoder();
+    auto res = noder.CellLoad(noder.node().body.leaf[index].value);
     return res;
 }
 
 
 void BTreeIterator::First(PageId pgid) {
     do {
-        Noder noder{ btree_, pgid };
+        ImmNoder noder{ btree_, pgid };
         auto& node = noder.node();
         if (noder.IsLeaf()) {
             break;
@@ -116,14 +129,14 @@ void BTreeIterator::First(PageId pgid) {
         assert(node.element_count > 0);
         pgid = node.body.branch[0].left_child;
     } while (true);
-    Noder noder{ btree_, pgid };
+    ImmNoder noder{ btree_, pgid };
     auto& node = noder.node();
     stack_.push_back({ pgid, 0 });
 }
 
 void BTreeIterator::Last(PageId pgid) {
     do {
-        Noder noder{ btree_, pgid };
+        ImmNoder noder{ btree_, pgid };
         auto& node = noder.node();
         if (noder.IsLeaf()) {
             break;
@@ -132,7 +145,7 @@ void BTreeIterator::Last(PageId pgid) {
         assert(node.element_count > 0);
         pgid = node.body.branch[node.element_count - 1].left_child;
     } while (true);
-    Noder noder{ btree_, pgid };
+    ImmNoder noder{ btree_, pgid };
     auto& node = noder.node();
     stack_.push_back({ pgid, node.element_count - 1 });
 }
@@ -140,7 +153,7 @@ void BTreeIterator::Last(PageId pgid) {
 void BTreeIterator::Next() {
     do {
         auto& [pgid, index] = Front();
-        Noder noder{ btree_, pgid };
+        ImmNoder noder{ btree_, pgid };
         auto& node = noder.node();
 
         if (++index < node.element_count) {
@@ -161,7 +174,7 @@ void BTreeIterator::Next() {
 void BTreeIterator::Prev() {
     do {
         auto& [pgid, index] = Front();
-        Noder noder{ btree_, pgid };
+        ImmNoder noder{ btree_, pgid };
         auto& node = noder.node();
 
         if (index > 0) {
@@ -191,22 +204,22 @@ BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
     }
     else {
         auto [parent_pgid, pos] = stack_.front();
-        Noder parent{ btree_, parent_pgid };
+        ImmNoder parent{ btree_, parent_pgid };
         auto& parent_node = parent.node();
         if (parent.IsLeaf()) {
             return Status::kEnd;
         }
         pgid = parent.BranchGetLeftChild(pos);
     }
-    Noder noder{ btree_, pgid };
+    ImmNoder noder{ btree_, pgid };
     auto& node = noder.node();
 
     // 在节点中进行二分查找
     uint16_t index;
     comp_result_ = CompResult::kNe;
     if (node.element_count > 0) {
-        auto iter = std::lower_bound(noder.begin(), noder.end(), key, [&](const Span& span, std::span<const uint8_t> search_key) -> bool {
-            auto [buf, size, ref] = noder.SpanLoad(span);
+        auto iter = std::lower_bound(noder.begin(), noder.end(), key, [&](const Cell& span, std::span<const uint8_t> search_key) -> bool {
+            auto [buf, size, ref] = noder.CellLoad(span);
             auto res = btree_->comparator_({ buf, size }, search_key);
             if (res == 0 && size != search_key.size()) {
                 return size < search_key.size();
@@ -259,7 +272,7 @@ void BTreeIterator::PathCopy() {
     auto lower_pgid = kPageInvalidId;
     for (ptrdiff_t i = stack_.size() - 1; i >= 0; i--) {
         auto& [pgid, index] = stack_[i];
-        Noder noder{ btree_, pgid };
+        MutNoder noder{ btree_, pgid };
         if (!tx.NeedCopy(noder.node().last_modified_txid)) {
             if (noder.IsBranch()) {
                 assert(lower_pgid != kPageInvalidId);

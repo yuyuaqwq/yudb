@@ -10,114 +10,77 @@
 
 #include "noncopyable.h"
 #include "node.h"
+#include "noder_iterator.h"
 #include "blocker.h"
 #include "page_referencer.h"
 
 namespace yudb {
 
 class BTree;
+class Noder;
 
 class Noder : noncopyable {
-private:
-    class Iterator {
-    public:
-        using iterator_category = std::random_access_iterator_tag;
-
-        using difference_type = uint16_t;
-        using value_type = Span;
-        using difference_type = uint16_t;
-        using pointer = Span*;
-        using reference = Span&;
-
-    public:
-        Iterator(Node* node, uint16_t index) : node_{ node }, index_{ index } {}
-
-        reference operator*() const { 
-            if (node_->type == Node::Type::kBranch) {
-                return node_->body.branch[index_].key;
-            }
-            else {
-                assert(node_->type == Node::Type::kLeaf);
-                return node_->body.leaf[index_].key;
-            }
-        }
-
-        Iterator& operator--() noexcept {
-            --index_;
-            return *this;
-        }
-
-        Iterator& operator++() noexcept {
-            ++index_;
-            return *this;
-        }
-
-        Iterator operator+(const difference_type n) const {
-            return Iterator{ node_, uint16_t(index_ + n) };
-        }
-
-        Iterator operator-(const difference_type n) const {
-            return Iterator{ node_, uint16_t(index_ - n) };
-        }
-
-        difference_type operator-(const Iterator& right) const noexcept {
-            return index_ - right.index_;
-        }
-
-        Iterator& operator-=(const difference_type off) noexcept {
-            index_ -= off;
-            return *this;
-        }
-
-        Iterator& operator+=(const difference_type off) noexcept {
-            index_ += off;
-            return *this;
-        }
-
-        uint16_t index() { return index_; }
-
-    private:
-        Node* node_;
-        uint16_t index_;
-    };
-
 public:
-    Noder(const BTree* btree, PageId page_id);
+    using Iterator = NoderIterator;
+
+    Noder(const BTree* btree, PageId page_id, bool dirty);
 
     Noder(const BTree* btree, PageReferencer page_ref);
 
+    Noder(Noder&& right) noexcept;
 
-    Noder(Noder&& right) noexcept : 
-        page_ref_{ std::move(right.page_ref_) },
-        btree_{ right.btree_ },
-        node_{ right.node_ },
-        blocker_{ std::move(right.blocker_) }
-    {
-        blocker_.set_noder(this);
+    void operator=(Noder&& right) noexcept;
+
+
+    bool IsLeaf() const {
+        return node_->type == Node::Type::kLeaf;
+    }
+
+    bool IsBranch() const {
+        return node_->type == Node::Type::kBranch;
     }
 
 
-    void operator=(Noder&& right) noexcept {
-        page_ref_ = std::move(right.page_ref_);
-        btree_ = right.btree_;
-        node_ = right.node_;
-        blocker_ = std::move(right.blocker_);
-        blocker_.set_noder(this);
+    /*
+    * 实现返回的可能是其中的一段(因为最多返回其中的一页)，需要循环才能读完
+    * kPage类型建议另外实现一个传入buff的函数，直接读取到buff中
+    */
+    std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
+    CellLoad(const Cell& cell) {
+        if (cell.type == Cell::Type::kEmbed) {
+            return { cell.embed.data, cell.embed.size, std::nullopt };
+        }
+        else if (cell.type == Cell::Type::kBlock) {
+            auto [buf, page] = blocker_.BlockLoad(cell.block.record_index(), cell.block.offset);
+            return { buf, cell.block.size, std::move(page) };
+        }
+        else {
+            throw std::runtime_error("unrealized types.");
+        }
     }
 
-    Noder Copy() const;
-
+    size_t CellSize(const Cell& cell) {
+        if (cell.type == Cell::Type::kEmbed) {
+            return cell.embed.size;
+        }
+        else if (cell.type == Cell::Type::kBlock) {
+            return cell.block.size;
+        }
+        else {
+            throw std::runtime_error("unrealized types.");
+        }
+    }
 
     /*
     * 将数据保存到Node中
     */
-    Span SpanAlloc(std::span<const uint8_t> data) {
-        Span span;
-        span.is_bucket = false;
-        if (data.size() <= sizeof(Span::embed.data)) {
-            span.type = Span::Type::kEmbed;
-            span.embed.size = data.size();
-            std::memcpy(span.embed.data, data.data(), data.size());
+    Cell CellAlloc(std::span<const uint8_t> data) {
+        Cell cell;
+        cell.bucket_flag = 0;
+        if (data.size() <= sizeof(Cell::embed.data)) {
+            cell.type = Cell::Type::kEmbed;
+            cell.embed.size = data.size();
+            std::memcpy(cell.embed.data, data.data(), data.size());
         }
         else if (data.size() <= blocker_.BlockMaxSize()) {
             auto res = blocker_.BlockAlloc(data.size());
@@ -126,12 +89,12 @@ public:
             }
 
             auto [index, offset] = *res;
-            span.type = Span::Type::kBlock;
-            span.block.set_record_index(index);
-            span.block.offset = offset;
-            span.block.size = data.size();
+            cell.type = Cell::Type::kBlock;
+            cell.block.set_record_index(index);
+            cell.block.offset = offset;
+            cell.block.size = data.size();
 
-            auto [buf, page] = blocker_.BlockLoad(span.block.record_index(), span.block.offset);
+            auto [buf, page] = blocker_.BlockLoad(cell.block.record_index(), cell.block.offset);
             std::memcpy(buf, data.data(), data.size());
 
             //printf("alloc\n"); blocker_.Print(); printf("\n");
@@ -139,73 +102,48 @@ public:
         else {
             throw std::runtime_error("unrealized types.");
         }
-        return span;
+        return cell;
     }
 
-    void SpanFree(Span&& span) {
-        if (span.type == Span::Type::kInvalid) { }
-        else if (span.type == Span::Type::kEmbed) { }
-        else if (span.type == Span::Type::kBlock) {
-            blocker_.BlockFree({ span.block.record_index(), span.block.offset, span.block.size});
+    void CellFree(Cell&& cell) {
+        if (cell.type == Cell::Type::kInvalid) {}
+        else if (cell.type == Cell::Type::kEmbed) {}
+        else if (cell.type == Cell::Type::kBlock) {
+            blocker_.BlockFree({ cell.block.record_index(), cell.block.offset, cell.block.size });
             //printf("free\n"); blocker_.Print(); printf("\n");
         }
         else {
             throw std::runtime_error("unrealized types.");
         }
-        span.type = Span::Type::kInvalid;
+        cell.type = Cell::Type::kInvalid;
     }
 
     /*
-    * 将span移动到新节点
+    * 将cell移动到新节点
     */
-    Span SpanMove(Noder* new_noder, Span&& span) {
-        auto [buf, size, ref] = SpanLoad(span);
-        auto new_span =  new_noder->SpanAlloc({ buf, size });
-        SpanFree(std::move(span));
-        return new_span;
+    Cell CellMove(Noder* new_noder, Cell&& cell) {
+        auto [buf, size, ref] = CellLoad(cell);
+        auto bucket_flag = cell.bucket_flag;
+        auto new_cell = new_noder->CellAlloc({ buf, size });
+        new_cell.bucket_flag = bucket_flag;
+        CellFree(std::move(cell));
+        return new_cell;
     }
 
     /*
-    * 将span拷贝到新节点
+    * 将cell拷贝到新节点
     */
-    Span SpanCopy(Noder* new_noder, const Span& span) {
-        auto [buf, size, ref] = SpanLoad(span);
-        auto new_span = new_noder->SpanAlloc({ buf, size });
-        return new_span;
-    }
-
-    /*
-    * 实现返回的可能是其中的一段(因为最多返回其中的一页)，需要循环才能读完
-    * kPage类型建议另外实现一个传入buff的函数，直接读取到buff中
-    */
-    std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
-    SpanLoad(const Span& span) {
-        if (span.type == Span::Type::kEmbed) {
-            return { span.embed.data, span.embed.size, std::nullopt };
-        }
-        else if (span.type == Span::Type::kBlock) {
-            auto [buf, page] = blocker_.BlockLoad(span.block.record_index(), span.block.offset);
-            return { buf, span.block.size, std::move(page) };
-        }
-        else {
-            throw std::runtime_error("unrealized types.");
-        }
-    }
-
-    size_t SpanSize(const Span& span) {
-        if (span.type == Span::Type::kEmbed) {
-            return span.embed.size;
-        }
-        else if (span.type == Span::Type::kBlock) {
-            return span.block.size;
-        }
-        else {
-            throw std::runtime_error("unrealized types.");
-        }
+    Cell CellCopy(Noder* new_noder, const Cell& cell) {
+        auto [buf, size, ref] = CellLoad(cell);
+        auto bucket_flag = cell.bucket_flag;
+        auto new_cell = new_noder->CellAlloc({ buf, size });
+        new_cell.bucket_flag = bucket_flag;
+        return new_cell;
     }
 
 
-    void SpanClear();
+
+    void CellClear();
 
 
     void BlockInit() {
@@ -221,59 +159,69 @@ public:
 
     void LeafBuild() {
         BlockInit();
+        FreeSizeInit();
         node_->type = Node::Type::kLeaf;
         node_->element_count = 0;
     }
 
-    // 不释放原来的key和value
-    void LeafSet(uint16_t pos, Span&& key, Span&& value) {
+    void LeafAlloc(uint16_t ele_count);
+
+    void LeafFree(uint16_t ele_count);
+
+    // 不释放原来的key和value，需要提前分配
+    void LeafSet(uint16_t pos, Cell&& key, Cell&& value) {
         node_->body.leaf[pos].key = std::move(key);
         node_->body.leaf[pos].value = std::move(value);
     }
 
-    void LeafInsert(uint16_t pos, Span&& key, Span&& value) {
+    void LeafInsert(uint16_t pos, Cell&& key, Cell&& value) {
         assert(pos <= node_->element_count);
-        std::memmove(&node_->body.leaf[pos + 1], &node_->body.leaf[pos], (node_->element_count - pos) * sizeof(node_->body.leaf[pos]));
+        LeafAlloc(1);
+        std::memmove(&node_->body.leaf[pos + 1], &node_->body.leaf[pos], (node_->element_count - 1 - pos) * sizeof(node_->body.leaf[pos]));
         node_->body.leaf[pos].key = std::move(key);
         node_->body.leaf[pos].value = std::move(value);
-        ++node_->element_count;
     }
 
     void LeafDelete(uint16_t pos) {
         assert(pos < node_->element_count);
-        SpanFree(std::move(node_->body.leaf[pos].key));
-        SpanFree(std::move(node_->body.leaf[pos].value));
-
+        CellFree(std::move(node_->body.leaf[pos].key));
+        CellFree(std::move(node_->body.leaf[pos].value));
         std::memmove(&node_->body.leaf[pos], &node_->body.leaf[pos + 1], (node_->element_count - pos - 1) * sizeof(node_->body.leaf[pos]));
-        --node_->element_count;
+        LeafFree(1);
     }
 
 
     void BranchBuild() {
         BlockInit();
+        FreeSizeInit();
         node_->type = Node::Type::kBranch;
         node_->element_count = 0;
     }
 
-    void BranchInsert(uint16_t pos, Span&& key, PageId child, bool right_child) {
+    void BranchAlloc(uint16_t ele_count);
+
+    void BranchFree(uint16_t ele_count);
+
+    void BranchInsert(uint16_t pos, Cell&& key, PageId child, bool right_child) {
         assert(pos <= node_->element_count);
+        auto original_count = node_->element_count;
+        BranchAlloc(1);
         if (right_child) {
-            if (pos == node_->element_count) {
+            if (pos == original_count) {
                 node_->body.branch[pos].left_child = node_->body.tail_child;
                 node_->body.tail_child = child;
             }
             else {
-                std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos], (node_->element_count - pos) * sizeof(node_->body.branch[pos]));
+                std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos], (original_count - pos) * sizeof(node_->body.branch[pos]));
                 node_->body.branch[pos].left_child = node_->body.branch[pos + 1].left_child;
                 node_->body.branch[pos + 1].left_child = child;
             }
         }
         else {
-            std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos], (node_->element_count - pos) * sizeof(node_->body.branch[pos]));
+            std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos], (original_count - pos) * sizeof(node_->body.branch[pos]));
             node_->body.branch[pos].left_child = child;
         }
         node_->body.branch[pos].key = std::move(key);
-        ++node_->element_count;
     }
 
     void BranchDelete(uint16_t pos, bool right_child) {
@@ -287,21 +235,21 @@ public:
                 node_->body.tail_child = node_->body.branch[node_->element_count - 1].left_child;
             }
             if (copy_count > 0) {
-                SpanFree(std::move(node_->body.branch[pos + 1].key));
+                CellFree(std::move(node_->body.branch[pos + 1].key));
                 std::memmove(&node_->body.branch[pos + 1], &node_->body.branch[pos + 2], (copy_count - 1) * sizeof(node_->body.branch[pos]));
             }
         }
         else {
-            SpanFree(std::move(node_->body.branch[pos].key));
+            CellFree(std::move(node_->body.branch[pos].key));
             std::memmove(&node_->body.branch[pos], &node_->body.branch[pos + 1], copy_count * sizeof(node_->body.branch[pos]));
         }
-        --node_->element_count;
+        BranchFree(1);
     }
 
     /*
     * 不处理tail_child的关系，不释放原来的key，需要自己保证tail_child的正确性
     */
-    void BranchSet(uint16_t pos, Span&& key, PageId left_child) {
+    void BranchSet(uint16_t pos, Cell&& key, PageId left_child) {
         node_->body.branch[pos].key = std::move(key);
         node_->body.branch[pos].left_child = left_child;
     }
@@ -339,35 +287,91 @@ public:
     }
 
 
-    bool IsLeaf() const {
-        return node_->type == Node::Type::kLeaf;
-    }
 
-    bool IsBranch() const {
-        return node_->type == Node::Type::kBranch;
-    }
+
+    Iterator begin() { return Iterator{ &node(), 0 }; }
+
+    Iterator end() { return Iterator{ &node(), node_->element_count }; }
+
 
 
     const BTree& btree() const { return *btree_; }
+
+    const Node& node() const { return *node_; }
 
     Node& node() { return *node_; }
 
     PageId page_id() const { return page_ref_.page_id(); }
 
-    uint8_t* page_cache() const { return page_ref_.page_cache(); }
+    template <typename T>
+    const T& page_cache() const { return page_ref_.page_cache<T>(); }
+
+    template <typename T>
+    T& page_cache() { return page_ref_.page_cache<T>(); }
 
 
-    Iterator begin() { return Iterator{ node_, 0 }; }
+    void LeafCheck();
 
-    Iterator end() { return Iterator{ node_, node_->element_count }; }
+    void BranchCheck();
 
-private:
+
+protected:
+    void FreeSizeInit();
+
+protected:
     const BTree* btree_;
 
     PageReferencer page_ref_;
     Node* node_;
-
     Blocker blocker_;
-};  
+};
+
+class ImmNoder : Noder {
+public:
+    ImmNoder(const BTree* btree, PageId page_id) : Noder{ btree, page_id, false } {}
+
+
+    Iterator begin() { return Noder::begin(); }
+
+    Iterator end() { return Noder::end(); }
+
+
+    bool IsLeaf() const {
+        return Noder::IsLeaf();
+    }
+
+    bool IsBranch() const {
+        return Noder::IsBranch();
+    }
+
+    void BranchCheck() {
+        Noder::BranchCheck();
+    }
+    void LeafCheck() {
+        Noder::LeafCheck();
+    }
+
+    const Node& node() const { return Noder::node(); }
+
+    std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
+    CellLoad(const Cell& cell){
+        return Noder::CellLoad(cell);
+    }
+
+    PageId BranchGetLeftChild(uint16_t pos) {
+        return Noder::BranchGetLeftChild(pos);
+    }
+
+    PageId BranchGetRightChild(uint16_t pos) {
+        return Noder::BranchGetRightChild(pos);
+    }
+};
+
+class MutNoder : public Noder {
+public:
+    MutNoder(const BTree* btree, PageId page_id) : Noder{ btree, page_id, true } {}
+
+    MutNoder Copy() const;
+};
 
 } // namespace yudb

@@ -40,7 +40,7 @@ PageId Pager::Alloc(PageCount count) {
     auto [cache_info, page_cache] = cacher_.Reference(pgid);
     cache_info->dirty = true;
 
-    Noder noder{ &update_tx.RootBucket().btree(), pgid};
+    MutNoder noder{ &update_tx.RootBucket().btree(), pgid };
     noder.node().last_modified_txid = update_tx.txid();
 
     cacher_.Dereference(page_cache);

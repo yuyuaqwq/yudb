@@ -60,14 +60,14 @@ public:
     Bucket& bucket() const { return *bucket_; }
 
 private:
-    std::tuple<Noder, uint16_t, Noder, bool> GetSibling(Iterator* iter);
+    std::tuple<MutNoder, uint16_t, MutNoder, bool> GetSibling(Iterator* iter);
 
     void Print(bool str, PageId pgid, int level) const;
 
     /*
     * 分支节点的合并
     */
-    void Merge(Noder&& left, Noder&& right, Span&& down_key);
+    void Merge(Noder&& left, Noder&& right, Cell&& down_key);
 
     /*
     * 分支节点的删除
@@ -89,12 +89,12 @@ private:
     * 分支节点的分裂
     * 返回左侧节点中末尾上升的元素，新右节点
     */
-    std::tuple<Span, Noder> Split(Noder* left, uint16_t insert_pos, Span&& insert_key, PageId insert_right_child);
+    std::tuple<Cell, Noder> Split(Noder* left, uint16_t insert_pos, Cell&& insert_key, PageId insert_right_child);
 
     /*
     * 分支节点的插入
     */
-    void Put(Iterator* iter, Noder&& left, Noder&& right, Span* key, bool branch_put = false);
+    void Put(Iterator* iter, Noder&& left, Noder&& right, Cell* key, bool branch_put = false);
     
     /*
     * 叶子节点的分裂

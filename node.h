@@ -2,7 +2,7 @@
 
 #include "txid.h"
 #include "page.h"
-#include "span.h"
+#include "cell.h"
 #include "block_info.h"
 
 namespace yudb {
@@ -16,13 +16,13 @@ struct Node {
     };
 
     struct BranchElement {
-        Span key;
+        Cell key;
         PageId left_child;
     };
 
     struct LeafElement {
-        Span key;
-        Span value;
+        Cell key;
+        Cell value;
     };
 
     Node(const Node&) = delete;
@@ -36,6 +36,7 @@ struct Node {
         struct {
             Type type : 2;
             uint16_t element_count : 14;
+            uint16_t free_size;
             TxId last_modified_txid;
             BlockInfo block_info;
             union {

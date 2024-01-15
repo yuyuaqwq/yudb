@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <variant>
 
 #include "noncopyable.h"
 #include "block_info.h"
@@ -15,7 +16,7 @@ public:
     Blocker(Noder* noder, BlockInfo* block_info) : noder_{ noder }, block_info_{ block_info } {}
 
     ~Blocker() = default;
-    
+
     Blocker(Blocker&& right) noexcept {
         operator=(std::move(right));
     }
@@ -23,6 +24,7 @@ public:
     void operator=(Blocker&& right) noexcept {
         noder_ = right.noder_;
         block_info_ = right.block_info_;
+        
         right.noder_ = nullptr;
         right.block_info_ = nullptr;
     }
@@ -31,19 +33,19 @@ public:
     void BlockInfoClear();
 
 
-    std::optional<std::pair<uint16_t, PageOffset>> BlockAlloc(PageSize size, BlockRecord* record_arr = nullptr);
-    
-    void BlockFree(const std::tuple<uint16_t, PageOffset, uint16_t>& block, BlockRecord* record_element = nullptr);
+    PageSize BlockMaxSize();
 
     std::pair<uint8_t*, PageReferencer> BlockLoad(uint16_t record_index, PageOffset offset);
 
-    PageSize BlockMaxSize();
+    std::optional<std::pair<uint16_t, PageOffset>> BlockAlloc(PageSize size, BlockRecord* record_arr = nullptr);
+
+    void BlockFree(const std::tuple<uint16_t, PageOffset, uint16_t>& block, BlockRecord* record_element = nullptr);
 
 
     void Print();
 
 
-    void set_noder(Noder* noder) { noder_ = noder;; }
+    void set_noder(Noder* noder) { noder_ = noder; }
 
 private:
     void BlockRecordBuild(BlockRecord* record_element, PageReferencer* page, uint16_t init_block_size);
@@ -62,7 +64,7 @@ private:
 
     void BlockPageCopy(BlockRecord* record_element);
 
-private:
+protected:
     Noder* noder_;
     BlockInfo* block_info_;
 };

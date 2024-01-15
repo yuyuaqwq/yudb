@@ -66,7 +66,7 @@ public:
 
     template <class KeyT>
     KeyT key() const {
-        auto [buf, size, ref] = KeySpan();
+        auto [buf, size, ref] = KeyCell();
         if (size != sizeof(KeyT)) {
             throw std::runtime_error("The size of the key does not match.");
         }
@@ -77,7 +77,7 @@ public:
 
     template <class ValueT>
     ValueT value() const {
-        auto [buf, size, ref] = ValueSpan();
+        auto [buf, size, ref] = ValueCell();
         if (size != sizeof(ValueT)) {
             throw std::runtime_error("The size of the value does not match.");
         }
@@ -120,13 +120,15 @@ public:
     CompResult comp_result() const { return comp_result_; }
 
 private:
-    std::pair<Noder, uint16_t> LeafNoder() const;
+    std::pair<ImmNoder, uint16_t> LeafImmNoder() const;
+
+    std::pair<MutNoder, uint16_t> LeafMutNoder() const;
 
     std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
-    KeySpan() const;
+    KeyCell() const;
 
     std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
-    ValueSpan() const;
+    ValueCell() const;
 
 private:
     const BTree* btree_;

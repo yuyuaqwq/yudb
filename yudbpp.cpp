@@ -56,16 +56,16 @@ void TestPager(yudb::Db* db) {
     for (auto i = 0; i < 100000; i++) {
         auto pgid = db->pager_->Alloc(1);
         set.insert(pgid);
-        auto page_ref = db->pager_->Reference(pgid);
+        auto page_ref = db->pager_->Reference(pgid, true);
         for (auto i = 0; i < db->pager_->page_size(); i+=4) {
-            std::memcpy(&page_ref.page_cache()[i], &pgid, sizeof(pgid));
+            std::memcpy(&(&page_ref.page_cache<uint8_t>())[i], & pgid, sizeof(pgid));
         }
         
     }
     for (auto pgid : set) {
-        auto page_ref = db->pager_->Reference(pgid);
+        auto page_ref = db->pager_->Reference(pgid, false);
         for (auto i = 0; i < db->pager_->page_size(); i += 4) {
-            assert(std::memcmp(&page_ref.page_cache()[i], &pgid, sizeof(pgid)) == 0);
+            assert(std::memcmp(&(&page_ref.page_cache<uint8_t>())[i], &pgid, sizeof(pgid)) == 0);
         }
     }
 }
@@ -73,7 +73,7 @@ void TestPager(yudb::Db* db) {
 void TestBTree(yudb::Db* db) {
     srand(10);
 
-    auto count = 10;
+    auto count = 100000;
     std::vector<int> arr(count);
 
 
@@ -85,16 +85,22 @@ void TestBTree(yudb::Db* db) {
         auto tx = db->Update();
         auto bucket = tx.RootBucket();
 
-        auto sub_bucket = bucket.SubUpdateBucket("abc");
-        sub_bucket.Put("abc", "def");
-        sub_bucket.Print();  printf("\n\n\n\n\n");
+        //auto sub_bucket = bucket.SubUpdateBucket("abcd");
+        //for (auto& iter : bucket) {
+        //    std::cout << "is_bucket:" << iter.key<int>() << " " << iter.value<int>() << "" << iter.is_bucket() << std::endl;
+        //    //assert(iter.key<int>() > old_key);
+        //}
+
+        /*sub_bucket.Put("abc", "def");
+        sub_bucket.Print();  printf("\n\n\n\n\n");*/
         for (auto i = 0; i < count; i++) {
             bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
             //bucket.Print(); printf("\n\n\n\n\n");
         }
-        bucket.Print();
+        //bucket.Print();
         int old_key = -1;
         for (auto& iter : bucket) {
+            //std::cout << "is_bucket:" << iter.key<int>() << " " << iter.value<int>() << "" << iter.is_bucket() << std::endl;
             assert(iter.key<int>() > old_key);
         }
 
@@ -110,10 +116,20 @@ void TestBTree(yudb::Db* db) {
         //    printf("\n\n\n\n\n");
         //}
 
+        //for (auto& iter : view_bucket) {
+        //    //std::cout << "is_bucket:" << iter.key<int>() << " " << iter.value<int>() << "" << iter.is_bucket() << std::endl;
+        //    //assert(iter.key<int>() > old_key);
+        //}
+        //auto sub_bucket = view_bucket.SubViewBucket("abcd");
+
+        //auto iter = sub_bucket.Get("abc");
+        //auto value = iter.value();
+
         for (auto i = 0; i < count; i++) {
             auto res = view_bucket.Get(&arr[i], sizeof(arr[i]));
             assert(res != view_bucket.end());
         }
+
     }
 
     {
@@ -126,6 +142,7 @@ void TestBTree(yudb::Db* db) {
             assert(res);
         }
 
+        bucket.Print();
         for (auto i = count - 1; i >= 0; i--) {
             //if (i == 236) DebugBreak();
             bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));

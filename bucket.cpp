@@ -50,13 +50,16 @@ Bucket& Bucket::SubBucket(std::string_view key, bool writable) {
     auto map_iter = sub_bucket_map_.find(key.data());
     uint32_t index;
     if (map_iter == sub_bucket_map_.end()) {
+        auto res = sub_bucket_map_.insert({ key.data(), { 0, kPageInvalidId } });
+        map_iter = res.first;
         auto iter = Get(key);
         if (iter == end()) {
-            auto res = sub_bucket_map_.insert({ key.data(), { 0, kPageInvalidId } });
-            map_iter = res.first;
             // 提前预留空间，以避免Commit时的Put触发分裂
             PageId pgid = kPageInvalidId;
             Put(key.data(), key.size(), &pgid, sizeof(pgid));
+            iter = Get(key);
+            iter.set_is_bucket();
+            assert(iter.is_bucket());
         }
         else {
             auto data = iter->value();
@@ -66,7 +69,7 @@ Bucket& Bucket::SubBucket(std::string_view key, bool writable) {
                 throw std::runtime_error("not a sub bucket.");
             }
         }
-        if (iter.is_bucket()) {
+        if (!iter.is_inline_bucket()) {
             index = tx_->NewSubBucket(&map_iter->second.second, writable);
         }
         //else {
