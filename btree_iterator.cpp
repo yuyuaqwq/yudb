@@ -37,12 +37,28 @@ BTreeIterator BTreeIterator::operator--(int) noexcept {
 }
 
 bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
+    if (btree_ != right.btree_) {
+        return false;
+    }
     if (Empty() || right.Empty()) {
-        return Empty() && right.Empty();
+        if (Empty()) {
+            if (right.Empty()) {
+                return true;
+            }
+            if (right.status() == Status::kInvalid) {
+                return true;
+            }
+        }
+        else if (right.Empty()) {
+            if (status() == Status::kInvalid) {
+                return true;
+            }
+        }
+        return false;
     }
     auto& [pgid, index] = Front();
     auto& [pgid2, index2] = right.Front();
-    return btree_ == right.btree_ && pgid == pgid2 && index == index2;
+    return pgid == pgid2 && index == index2;
 }
 
 
@@ -119,6 +135,10 @@ BTreeIterator::ValueCell() const {
 
 
 void BTreeIterator::First(PageId pgid) {
+    if (pgid == kPageInvalidId) {
+        return;
+    }
+    status_ = Status::kIter;
     do {
         ImmNoder noder{ btree_, pgid };
         auto& node = noder.node();
@@ -135,6 +155,7 @@ void BTreeIterator::First(PageId pgid) {
 }
 
 void BTreeIterator::Last(PageId pgid) {
+    status_ = Status::kIter;
     do {
         ImmNoder noder{ btree_, pgid };
         auto& node = noder.node();
@@ -151,6 +172,7 @@ void BTreeIterator::Last(PageId pgid) {
 }
 
 void BTreeIterator::Next() {
+    assert(!Empty());
     do {
         auto& [pgid, index] = Front();
         ImmNoder noder{ btree_, pgid };
@@ -172,11 +194,14 @@ void BTreeIterator::Next() {
 }
 
 void BTreeIterator::Prev() {
+    if (Empty()) {
+        Last(*btree_->root_pgid_);
+        return;
+    }
     do {
         auto& [pgid, index] = Front();
         ImmNoder noder{ btree_, pgid };
         auto& node = noder.node();
-
         if (index > 0) {
             --index;
             if (noder.IsLeaf()) {
@@ -190,16 +215,16 @@ void BTreeIterator::Prev() {
 }
 
 
-BTreeIterator::Status BTreeIterator::Top(std::span<const uint8_t> key) {
+bool BTreeIterator::Top(std::span<const uint8_t> key) {
     return Down(key);
 }
 
-BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
+bool BTreeIterator::Down(std::span<const uint8_t> key) {
     PageId pgid;
     if (stack_.empty()) {
         pgid = *btree_->root_pgid_;
         if (pgid == kPageInvalidId) {
-            return Status::kEnd;
+            return false;
         }
     }
     else {
@@ -207,7 +232,7 @@ BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
         ImmNoder parent{ btree_, parent_pgid };
         auto& parent_node = parent.node();
         if (parent.IsLeaf()) {
-            return Status::kEnd;
+            return false;
         }
         pgid = parent.BranchGetLeftChild(pos);
     }
@@ -216,10 +241,10 @@ BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
 
     // 在节点中进行二分查找
     uint16_t index;
-    comp_result_ = CompResult::kNe;
+    status_ = Status::kNe;
     if (node.element_count > 0) {
-        auto iter = std::lower_bound(noder.begin(), noder.end(), key, [&](const Cell& span, std::span<const uint8_t> search_key) -> bool {
-            auto [buf, size, ref] = noder.CellLoad(span);
+        auto iter = std::lower_bound(noder.begin(), noder.end(), key, [&](const NoderIterator& iter, std::span<const uint8_t> search_key) -> bool {
+            auto [buf, size, ref] = noder.CellLoad(iter.key());
             auto res = btree_->comparator_({ buf, size }, search_key);
             if (res == 0 && size != search_key.size()) {
                 return size < search_key.size();
@@ -228,12 +253,15 @@ BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
                 return res < 0;
             }
             else {
-                comp_result_ = CompResult::kEq;
+                status_ = Status::kEq;
                 return false;
             }
         });
         index = iter.index();
-        if (comp_result_ == CompResult::kEq && noder.IsBranch()) {
+        if (index == node.element_count && noder.IsLeaf()) {
+            status_ = Status::kInvalid;
+        }
+        if (status_ == Status::kEq && noder.IsBranch()) {
             ++index;
         }
     }
@@ -241,7 +269,7 @@ BTreeIterator::Status BTreeIterator::Down(std::span<const uint8_t> key) {
         index = 0;
     }
     stack_.push_back(std::pair{ pgid, index });
-    return Status::kDown;
+    return true;
 }
 
 

@@ -4,6 +4,7 @@
 #include "page.h"
 #include "cell.h"
 #include "block_info.h"
+#include "page_space.h"
 
 namespace yudb {
 
@@ -34,11 +35,12 @@ struct Node {
 
     union {
         struct {
+            TxId last_modified_txid;
             Type type : 2;
             uint16_t element_count : 14;
-            uint16_t free_size;
-            TxId last_modified_txid;
             BlockInfo block_info;
+            PageSpace page_space;
+            uint16_t padding;
             union {
                 struct {
                     PageId tail_child;
@@ -52,6 +54,8 @@ struct Node {
 };
 #pragma pack(pop)
 
+
+constexpr auto aaa = sizeof(Node) - sizeof(Node::body);
 static_assert(sizeof(Node) - sizeof(Node::body) >= sizeof(Node::LeafElement) * 2, "abnormal length of head node.");
 
 } // namespace

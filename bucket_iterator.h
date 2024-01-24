@@ -49,7 +49,7 @@ public:
 
     BucketIterator operator++(int) noexcept {
         BucketIterator tmp = *this;
-        tmp++;
+        ++tmp;
         return tmp;
     }
 
@@ -67,7 +67,7 @@ public:
 
     BucketIterator operator--(int) noexcept {
         BucketIterator tmp = *this;
-        tmp--;
+        --tmp;
         return tmp;
     }
 

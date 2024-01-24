@@ -57,6 +57,13 @@ public:
         return UpdateBucket{ &bucket_->SubBucket(key, true) };
     }
 
+    void Insert(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
+        bucket_->Insert(key_buf, key_size, value_buf, value_size);
+    }
+
+    void Insert(std::string_view key, std::string_view value) {
+        Insert(key.data(), key.size(), value.data(), value.size());
+    }
 
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
         bucket_->Put(key_buf, key_size, value_buf, value_size);
@@ -65,7 +72,7 @@ public:
     void Put(std::string_view key, std::string_view value) {
         Put(key.data(), key.size(), value.data(), value.size());
     }
-
+    
     bool Delete(const void* key_buf, size_t key_size) {
         return bucket_->Delete(key_buf, key_size);
     }

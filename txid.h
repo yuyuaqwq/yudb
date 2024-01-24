@@ -4,6 +4,7 @@
 
 namespace yudb {
 
-using TxId = uint32_t;
+using TxId = uint64_t;
+constexpr TxId kInvalidTxId = 0xffffffffffffffff;
 
 } // namespace yudb

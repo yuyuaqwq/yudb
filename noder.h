@@ -13,6 +13,7 @@
 #include "noder_iterator.h"
 #include "blocker.h"
 #include "page_referencer.h"
+#include "page_spacer.h"
 
 namespace yudb {
 
@@ -51,7 +52,7 @@ public:
             return { cell.embed.data, cell.embed.size, std::nullopt };
         }
         else if (cell.type == Cell::Type::kBlock) {
-            auto [buf, page] = blocker_.BlockLoad(cell.block.record_index(), cell.block.offset);
+            auto [buf, page] = blocker_.Load(cell.block.record_index(), cell.block.offset);
             return { buf, cell.block.size, std::move(page) };
         }
         else {
@@ -82,8 +83,8 @@ public:
             cell.embed.size = data.size();
             std::memcpy(cell.embed.data, data.data(), data.size());
         }
-        else if (data.size() <= blocker_.BlockMaxSize()) {
-            auto res = blocker_.BlockAlloc(data.size());
+        else if (data.size() <= blocker_.MaxSize()) {
+            auto res = blocker_.Alloc(data.size());
             if (!res) {
                 throw std::runtime_error("blocker alloc error.");
             }
@@ -94,7 +95,7 @@ public:
             cell.block.offset = offset;
             cell.block.size = data.size();
 
-            auto [buf, page] = blocker_.BlockLoad(cell.block.record_index(), cell.block.offset);
+            auto [buf, page] = blocker_.Load(cell.block.record_index(), cell.block.offset);
             std::memcpy(buf, data.data(), data.size());
 
             //printf("alloc\n"); blocker_.Print(); printf("\n");
@@ -109,7 +110,7 @@ public:
         if (cell.type == Cell::Type::kInvalid) {}
         else if (cell.type == Cell::Type::kEmbed) {}
         else if (cell.type == Cell::Type::kBlock) {
-            blocker_.BlockFree({ cell.block.record_index(), cell.block.offset, cell.block.size });
+            blocker_.Free({ cell.block.record_index(), cell.block.offset, cell.block.size });
             //printf("free\n"); blocker_.Print(); printf("\n");
         }
         else {
@@ -148,7 +149,6 @@ public:
 
     void BlockInit() {
         node_->block_info.record_pgid = kPageInvalidId;
-        node_->block_info.record_index = kRecordInvalidIndex;
         node_->block_info.record_count = 0;
     }
 
@@ -159,7 +159,7 @@ public:
 
     void LeafBuild() {
         BlockInit();
-        FreeSizeInit();
+        PageSpaceInit();
         node_->type = Node::Type::kLeaf;
         node_->element_count = 0;
     }
@@ -193,7 +193,7 @@ public:
 
     void BranchBuild() {
         BlockInit();
-        FreeSizeInit();
+        PageSpaceInit();
         node_->type = Node::Type::kBranch;
         node_->element_count = 0;
     }
@@ -316,13 +316,14 @@ public:
 
 
 protected:
-    void FreeSizeInit();
+    void PageSpaceInit();
 
 protected:
     const BTree* btree_;
 
     PageReferencer page_ref_;
     Node* node_;
+    PageSpacer page_spacer_;
     Blocker blocker_;
 };
 
@@ -349,6 +350,10 @@ public:
     }
     void LeafCheck() {
         Noder::LeafCheck();
+    }
+
+    void BlockPrint() {
+        return Noder::BlockPrint();
     }
 
     const Node& node() const { return Noder::node(); }

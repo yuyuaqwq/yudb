@@ -22,12 +22,13 @@ std::pair<CacheInfo*, uint8_t*> Cacher::Reference(PageId pgid) {
         if (evict) {
             // 将淘汰页面写回磁盘，未来添加写盘队列则直接放入队列
             auto& [evict_cache_id, evict_pgid, evict_cache_info] = *evict;
-            assert(evict_cache_info.reference_count == 0);
+            if (evict_cache_info.reference_count != 0) {
+                throw std::runtime_error("unable to reallocate cache.");
+            }
             if (evict_cache_info.dirty) {
                 pager_->Write(evict_pgid, &page_pool_[evict_cache_id * pager_->page_size()], 1);
             }
         }
-
         auto pair = lru_list_.Get(pgid);
         cache_info = pair.first;
         cache_info->dirty = false;
@@ -37,7 +38,6 @@ std::pair<CacheInfo*, uint8_t*> Cacher::Reference(PageId pgid) {
         pager_->Read(pgid, cache, 1);
     }
     ++cache_info->reference_count;
-    //lru_list_.Print();
     return { cache_info, &page_pool_[cache_id * pager_->page_size()] };
 }
 

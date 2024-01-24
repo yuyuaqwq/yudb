@@ -15,22 +15,20 @@ public:
     using iterator_category = std::random_access_iterator_tag;
 
     using difference_type = uint16_t;
-    using value_type = Cell;
+    using value_type = NoderIterator;
     using difference_type = uint16_t;
-    using pointer = Cell*;
-    using reference = Cell&;
+    using pointer = NoderIterator*;
+    using reference = NoderIterator&;
 
 public:
-    NoderIterator(const Node* node, uint16_t index) : node_{ node }, index_{ index } {}
+    NoderIterator(Node* node, uint16_t index) : node_{ node }, index_{ index } {}
 
-    const Cell& operator*() const {
-        if (node_->type == Node::Type::kBranch) {
-            return node_->body.branch[index_].key;
-        }
-        else {
-            assert(node_->type == Node::Type::kLeaf);
-            return node_->body.leaf[index_].key;
-        }
+    const NoderIterator& operator*() const {
+        return *this;
+    }
+
+    NoderIterator& operator*() {
+        return *this;
     }
 
     NoderIterator& operator--() noexcept {
@@ -65,10 +63,29 @@ public:
         return *this;
     }
 
+    bool operator==(const NoderIterator& right) const {
+        return node_ == right.node_ && index_ == right.index_;
+    }
+
     uint16_t index() { return index_; }
 
+    Cell& key() const {
+        if (node_->type == Node::Type::kBranch) {
+            return node_->body.branch[index_].key;
+        }
+        else {
+            assert(node_->type == Node::Type::kLeaf);
+            return node_->body.leaf[index_].key;
+        }
+    }
+
+    Cell& value() const {
+        assert(node_->type == Node::Type::kLeaf);
+        return node_->body.leaf[index_].value;
+    }
+
 private:
-    const Node* node_;
+    Node* node_;
     uint16_t index_;
 };
 

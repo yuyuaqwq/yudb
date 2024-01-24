@@ -37,7 +37,6 @@ Bucket::Bucket(Pager* pager, Tx* tx, std::span<const uint8_t> inline_bucket_data
     writable_{ writable }
 {
     auto free_size = pager_->page_size() - (sizeof(Node) - sizeof(Node::body));
-
     max_leaf_ele_count_ = free_size / sizeof(Node::LeafElement);
     max_branch_ele_count_ = (free_size - sizeof(PageId)) / sizeof(Node::BranchElement);
 
@@ -47,10 +46,10 @@ Bucket::Bucket(Pager* pager, Tx* tx, std::span<const uint8_t> inline_bucket_data
 
 
 Bucket& Bucket::SubBucket(std::string_view key, bool writable) {
-    auto map_iter = sub_bucket_map_.find(key.data());
+    auto map_iter = sub_bucket_map_.find({ key.data(), key.size() });
     uint32_t index;
     if (map_iter == sub_bucket_map_.end()) {
-        auto res = sub_bucket_map_.insert({ key.data(), { 0, kPageInvalidId } });
+        auto res = sub_bucket_map_.insert({ { key.data(), key.size() }, { 0, kPageInvalidId } });
         map_iter = res.first;
         auto iter = Get(key);
         if (iter == end()) {
@@ -66,7 +65,7 @@ Bucket& Bucket::SubBucket(std::string_view key, bool writable) {
             auto pgid = *reinterpret_cast<PageId*>(data.data());
             map_iter->second.second = pgid;
             if (!iter.is_bucket()) {
-                throw std::runtime_error("not a sub bucket.");
+                throw std::runtime_error("This is not a bucket.");
             }
         }
         if (!iter.is_inline_bucket()) {
@@ -76,12 +75,12 @@ Bucket& Bucket::SubBucket(std::string_view key, bool writable) {
         //    map_iter->second.second = kPageInvalidId;
         //    index = tx_->NewSubBucket({ bucket_info->data, data.size() - 1 }, writable);
         //}
+        map_iter->second.first = index;
     }
     else {
         index = map_iter->second.first;
     }
-    return tx_->AsSubBucket(index);
+    return tx_->AtSubBucket(index);
 }
-
 
 } // namespace yudb

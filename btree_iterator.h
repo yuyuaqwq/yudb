@@ -13,6 +13,9 @@ namespace yudb {
 
 class BTree;
 
+/*
+* 栈空/kInvalid表示end
+*/
 class BTreeIterator {
 public:
     using iterator_category = std::bidirectional_iterator_tag;
@@ -25,15 +28,10 @@ public:
     using Stack = detail::Stack<std::pair<PageId, uint16_t>, 8>;
 
     enum class Status {
-        kDown,
-        kNext,
-        kEnd,
-    };
-
-    enum class CompResult {
         kInvalid,
         kEq,
         kNe,
+        kIter,
     };
 
 public:
@@ -101,9 +99,9 @@ public:
     void Prev();
 
 
-    Status Top(std::span<const uint8_t> key);
+    bool Top(std::span<const uint8_t> key);
 
-    Status Down(std::span<const uint8_t> key);
+    bool Down(std::span<const uint8_t> key);
 
     std::pair<PageId, uint16_t>& Front();
 
@@ -117,7 +115,7 @@ public:
     void PathCopy();
 
 
-    CompResult comp_result() const { return comp_result_; }
+    Status status() const { return status_; }
 
 private:
     std::pair<ImmNoder, uint16_t> LeafImmNoder() const;
@@ -133,7 +131,7 @@ private:
 private:
     const BTree* btree_;
     Stack stack_;       // 索引必定是小于等于搜索时key的节点
-    CompResult comp_result_{ CompResult::kInvalid };
+    Status status_{ Status::kInvalid };
 };
 
 } // namespace yudb

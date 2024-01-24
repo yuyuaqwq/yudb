@@ -69,6 +69,17 @@ public:
         return LowerBound(key.data(), key.size());
     }
 
+    void Insert(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
+        btree_.Insert(
+            { reinterpret_cast<const uint8_t*>(key_buf), key_size },
+            { reinterpret_cast<const uint8_t*>(value_buf), value_size }
+        );
+    }
+
+    void Insert(std::string_view key, std::string_view value) {
+        Insert(key.data(), key.size(), value.data(), value.size());
+    }
+
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
         btree_.Put(
             { reinterpret_cast<const uint8_t*>(key_buf), key_size },
@@ -80,10 +91,25 @@ public:
         Put(key.data(), key.size(), value.data(), value.size());
     }
 
+    void Update(Iterator* iter, const void* value_buf, size_t value_size) {
+        btree_.Update(&std::get<BTreeIterator>(iter->iterator_), { reinterpret_cast<const uint8_t*>(value_buf), value_size});
+    }
+
+    void Update(Iterator* iter, std::string_view value) {
+        Update(iter, value.data(), value.size());
+    }
+
     bool Delete(const void* key_buf, size_t key_size) {
         return btree_.Delete({ reinterpret_cast<const uint8_t*>(key_buf), key_size });
     }
 
+    bool Delete(std::string_view key) {
+        Delete(key.data(), key.size());
+    }
+
+    void Delete(Iterator* iter) {
+        btree_.Delete(&std::get<BTreeIterator>(iter->iterator_));
+    }
 
     Bucket& SubBucket(std::string_view key, bool writable);
 
@@ -129,13 +155,6 @@ protected:
     
     uint16_t max_leaf_ele_count_;
     uint16_t max_branch_ele_count_;
-    
-    
 };
-
-
-
-
-
 
 } // namespace yudb

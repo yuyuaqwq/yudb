@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <map>
 
 #include "noncopyable.h"
 #include "tx.h"
@@ -20,12 +21,15 @@ public:
 
     ViewTx View();
 
+
+    void RollBack();
+
+    void RollBack(TxId txid);
+
     void Commit();
 
 
     Tx& CurrentUpdateTx() { return *update_tx_; }
-
-
 
     Pager& pager();
 
@@ -35,6 +39,7 @@ public:
 private:
     Db* db_;
     std::unique_ptr<Tx> update_tx_;
+    std::map<TxId, uint32_t> view_tx_map_;
 };
 
 } // namespace yudb

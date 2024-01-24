@@ -10,73 +10,83 @@ Noder::Noder(const BTree * btree, PageId page_id, bool dirty) :
     btree_{ btree },
     page_ref_{ btree_->bucket().pager().Reference(page_id, dirty) },
     node_{ &page_ref_.page_cache<Node>() },
+    page_spacer_{ &btree_->bucket().pager(), &node_->page_space },
     blocker_{ Blocker{this, &node_->block_info } } {}
 
 Noder::Noder(const BTree* btree, PageReferencer page_ref) :
     btree_{ btree },
     page_ref_{ std::move(page_ref) },
     node_{ &page_ref_.page_cache<Node>() },
+    page_spacer_{ &btree_->bucket().pager(), &node_->page_space },
     blocker_{ Blocker{this, &node_->block_info} } {}
 
 Noder::Noder(Noder&& right) noexcept :
     page_ref_{ std::move(right.page_ref_) },
     btree_{ right.btree_ },
     node_{ right.node_ },
-    blocker_{ std::move(right.blocker_) } {}
+    page_spacer_{ std::move(right.page_spacer_) },
+    blocker_{ std::move(right.blocker_) }
+{
+    blocker_.set_noder(this);
+}
 
 void Noder::operator=(Noder&& right) noexcept {
     page_ref_ = std::move(right.page_ref_);
     btree_ = right.btree_;
     node_ = right.node_;
     blocker_ = std::move(right.blocker_);
+    blocker_.set_noder(this);
 }
 
 
 
 void Noder::CellClear() {
-    blocker_.BlockInfoClear();
+    blocker_.InfoClear();
 }
 
 
-void Noder::FreeSizeInit() {
-    node_->free_size = btree_->bucket().pager().page_size() - (sizeof(Node) - sizeof(Node::body));
+void Noder::PageSpaceInit() {
+    auto& pager = btree_->bucket().pager();
+    PageSpacer spacer{ &pager, &node_->page_space };
+    spacer.Build();
+    spacer.AllocLeft(sizeof(Node) - sizeof(Node::body));
 }
 
 void Noder::LeafAlloc(uint16_t ele_count) {
-    BranchCheck();
-    assert(ele_count * sizeof(Node::LeafElement) <= node_->free_size);
-    node_->free_size -= ele_count * sizeof(Node::LeafElement);
+    LeafCheck();
+    assert(ele_count * sizeof(Node::LeafElement) <= node_->page_space.rest_size);
+    page_spacer_.AllocLeft(ele_count * sizeof(Node::LeafElement));
     node_->element_count += ele_count;
 }
 
 void Noder::LeafFree(uint16_t ele_count) {
-    BranchCheck();
+    LeafCheck();
     assert(node_->element_count >= ele_count);
-    node_->free_size += ele_count * sizeof(Node::LeafElement);
+    page_spacer_.FreeLeft(ele_count * sizeof(Node::LeafElement));
     node_->element_count -= ele_count;
 }
 
 void Noder::BranchAlloc(uint16_t ele_count) {
     BranchCheck();
-    assert(ele_count * sizeof(Node::BranchElement) <= node_->free_size);
-    node_->free_size -= ele_count * sizeof(Node::BranchElement);
+    assert(ele_count * sizeof(Node::BranchElement) <= node_->page_space.rest_size);
+    page_spacer_.AllocLeft(ele_count * sizeof(Node::BranchElement));
     node_->element_count += ele_count;
 }
 
 void Noder::BranchFree(uint16_t ele_count) {
     BranchCheck();
     assert(node_->element_count >= ele_count);
-    node_->free_size += ele_count * sizeof(Node::BranchElement);
+    page_spacer_.FreeLeft(ele_count * sizeof(Node::BranchElement));
     node_->element_count -= ele_count;
 }
 
 
 void Noder::LeafCheck() {
-    assert(btree_->bucket().pager().page_size() == (sizeof(Node) - sizeof(Node::body)) + node_->element_count * sizeof(Node::LeafElement) + node_->free_size);
+    assert(btree_->bucket().pager().page_size() == (sizeof(Node) - sizeof(Node::body)) + node_->element_count * sizeof(Node::LeafElement) + node_->page_space.rest_size);
 }
 
 void Noder::BranchCheck() {
-    assert(btree_->bucket().pager().page_size() == (sizeof(Node) - sizeof(Node::body)) + node_->element_count * sizeof(Node::BranchElement) + node_->free_size);
+    assert(btree_->bucket().pager().page_size() == (sizeof(Node) - sizeof(Node::body)) + node_->element_count * sizeof(Node::BranchElement) + node_->page_space.rest_size);
 }
 
 

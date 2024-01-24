@@ -25,23 +25,27 @@ public:
 
 
     uint32_t NewSubBucket(PageId* root_pgid, bool writable) {
-        sub_bucket_cache_.emplace_back(Bucket{ &pager(), this, root_pgid, writable });
+        sub_bucket_cache_.emplace_back(std::make_unique<Bucket>(&pager(), this, root_pgid, writable));
         return sub_bucket_cache_.size() - 1;
     }
 
     uint32_t NewSubBucket(std::span<const uint8_t> inline_bucket_data, bool writable) {
-        sub_bucket_cache_.emplace_back(Bucket{ &pager(), this, inline_bucket_data, writable });
+        sub_bucket_cache_.emplace_back(std::make_unique<Bucket>(&pager(), this, inline_bucket_data, writable));
         return sub_bucket_cache_.size() - 1;
     }
 
-    Bucket& AsSubBucket(uint32_t index) {
-        return sub_bucket_cache_[index];
+    Bucket& AtSubBucket(uint32_t index) {
+        return *sub_bucket_cache_[index];
     }
 
 
     bool NeedCopy(TxId txid) {
         return txid < this->txid();
     }
+
+    void RollBack();
+
+    void RollBack(TxId view_txid);
 
     void Commit();
 
@@ -52,8 +56,6 @@ public:
 
     Meta& meta() { return meta_; }
 
-
-
 protected:
     friend class Txer;
 
@@ -63,10 +65,7 @@ protected:
     bool writable_;
 
     Bucket root_bucket_;
-    std::vector<Bucket> sub_bucket_cache_;
+    std::vector<std::unique_ptr<Bucket>> sub_bucket_cache_;
 };
-
-
-
 
 } // namespace yudb

@@ -14,36 +14,53 @@ BTree::BTree(Bucket* bucket, PageId* root_pgid, Comparator comparator) :
 
 BTree::Iterator BTree::LowerBound(std::span<const uint8_t> key) const {
     Iterator iter{ this };
-    auto status = iter.Top(key);
-    while (status == Iterator::Status::kDown) {
-        status = iter.Down(key);
+    auto continue_ = iter.Top(key);
+    while (continue_) {
+        continue_ = iter.Down(key);
     }
     return iter;
 }
 
 BTree::Iterator BTree::Get(std::span<const uint8_t> key) const {
     auto iter = LowerBound(key);
-    if (iter.comp_result() != Iterator::CompResult::kEq) {
+    if (iter.status() != Iterator::Status::kEq) {
         return Iterator{ this };
     }
     return iter;
 }
 
+void BTree::Insert(std::span<const uint8_t> key, std::span<const uint8_t> value) {
+    auto iter = LowerBound(key);
+    iter.PathCopy();
+    Put(&iter, key, value, true);
+}
+
 void BTree::Put(std::span<const uint8_t> key, std::span<const uint8_t> value) {
     auto iter = LowerBound(key);
     iter.PathCopy();
-    Put(&iter, key, value);
+    Put(&iter, key, value, false);
+}
+
+void BTree::Update(Iterator* iter, std::span<const uint8_t> value) {
+    auto [pgid, pos] = iter->Front();
+    MutNoder noder{ this, pgid };
+    assert(noder.IsLeaf());
+    auto& node = noder.node();
+    noder.CellFree(std::move(node.body.leaf[pos].value));
+    node.body.leaf[pos].value = noder.CellAlloc(value);
 }
 
 bool BTree::Delete(std::span<const uint8_t> key) {
     auto iter = LowerBound(key);
-    if (iter.comp_result() != Iterator::CompResult::kEq) {
+    if (iter.status() != Iterator::Status::kEq) {
         return false;
     }
     iter.PathCopy();
-    Delete(&iter, key);
+    Delete(&iter);
     return true;
 }
+
+
 
 
 BTree::Iterator BTree::begin() const noexcept {
@@ -84,16 +101,20 @@ void BTree::Print(bool str, PageId pgid, int level) const {
         assert(noder.IsLeaf());
         noder.LeafCheck();
         for (int i = node.element_count - 1; i >= 0; i--) {
-            std::string key;
-            auto [buf, size, ref] = noder.CellLoad(node.body.leaf[i].key);
+            std::string key, value;
+            auto [key_buf, key_size, key_ref] = noder.CellLoad(node.body.leaf[i].key);
+            auto [value_buf, value_size, value_ref] = noder.CellLoad(node.body.leaf[i].value);
             if (str) {
-                std::cout << std::format("{}leaf[{}]::key::{}::level::{}\n", indent, pgid, std::string_view{ reinterpret_cast<const char*>(buf), size }, level);
+                std::cout << std::format("{}leaf[{}]::key::{}::value::{}::level::{}\n", indent, pgid, std::string_view{ reinterpret_cast<const char*>(key_buf), key_size }, std::string_view{ reinterpret_cast<const char*>(value_buf), value_size }, level);
             }
             else {
-                for (int j = 0; j < size; j++) {
-                    key += std::format("{:02x}", buf[j]) + " ";
+                for (int j = 0; j < key_size; j++) {
+                    key += std::format("{:02x}", key_buf[j]) + " ";
                 }
-                std::cout << std::format("{}leaf[{}]::key::{}::level::{}\n", indent, pgid, key, level);
+                for (int j = 0; j < value_size; j++) {
+                    value += std::format("{:02x}", value_buf[j]) + " ";
+                }
+                std::cout << std::format("{}leaf[{}]::key::{}::value::{}::level::{}\n", indent, pgid, key, value, level);
             }
         }
         //noder.BlockPrint(); printf("\n");
@@ -270,7 +291,7 @@ void BTree::Merge(Noder&& left, Noder&& right) {
 /*
 * 叶子节点的删除
 */
-void BTree::Delete(Iterator* iter, std::span<const uint8_t> key) {
+void BTree::Delete(Iterator* iter) {
     auto [pgid, pos] = iter->Front();
     MutNoder noder{ this, pgid };
     auto& node = noder.node();
@@ -504,7 +525,7 @@ Noder BTree::Split(Noder* left, uint16_t insert_pos, std::span<const uint8_t> ke
 /*
 * 叶子节点的插入
 */
-void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value) {
+void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value, bool insert_only) {
     if (iter->Empty()) {
         *root_pgid_ = bucket_->pager().Alloc(1);
         MutNoder noder{ this, *root_pgid_ };
@@ -516,14 +537,14 @@ void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const ui
     auto [pgid, pos] = iter->Front();
     MutNoder noder{ this, pgid };
     auto& node = noder.node();
-    if (iter->comp_result() == Iterator::CompResult::kEq) {
+    if (!insert_only && iter->status() == Iterator::Status::kEq) {
         noder.CellFree(std::move(node.body.leaf[pos].value));
         node.body.leaf[pos].value = noder.CellAlloc(value);
         return;
     }
 
     if (noder.node().element_count < bucket_->max_leaf_ele_count()) {
-        noder.LeafInsert(pos, noder.CellAlloc(key), noder.CellAlloc(key));
+        noder.LeafInsert(pos, noder.CellAlloc(key), noder.CellAlloc(value));
         return;
     }
 
@@ -537,5 +558,7 @@ void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const ui
         &right.node().body.leaf[0].key
     );
 }
+
+
 
 } // namespace yudb

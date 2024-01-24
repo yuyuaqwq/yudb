@@ -30,16 +30,16 @@ public:
     }
 
 
-    void BlockInfoClear();
+    void InfoClear();
 
 
-    PageSize BlockMaxSize();
+    PageSize MaxSize();
 
-    std::pair<uint8_t*, PageReferencer> BlockLoad(uint16_t record_index, PageOffset offset);
+    std::pair<uint8_t*, PageReferencer> Load(uint16_t record_index, PageOffset offset);
 
-    std::optional<std::pair<uint16_t, PageOffset>> BlockAlloc(PageSize size, BlockRecord* record_arr = nullptr);
+    std::optional<std::pair<uint16_t, PageOffset>> Alloc(PageSize size);
 
-    void BlockFree(const std::tuple<uint16_t, PageOffset, uint16_t>& block, BlockRecord* record_element = nullptr);
+    void Free(const std::tuple<uint16_t, PageOffset, uint16_t>& block);
 
 
     void Print();
@@ -48,21 +48,21 @@ public:
     void set_noder(Noder* noder) { noder_ = noder; }
 
 private:
-    void BlockRecordBuild(BlockRecord* record_element, PageReferencer* page, uint16_t init_block_size);
+    void RecordBuild(BlockRecord* record_element, PageReferencer* page);
 
-    void BlockRecordUpdateMaxFreeSize(BlockRecord* record_element, BlockPage* cache);
+    void RecordUpdateMaxFreeSize(BlockRecord* record_element, BlockPage* cache);
 
-    void BlockRecordPageCopy();
-
-
-    void BlockInfoBuild();
+    void RecordPageCopy();
 
 
-    void BlockPageAppend(PageReferencer* record_page);
+    void InfoBuild();
 
-    void BlockPageDelete();
 
-    void BlockPageCopy(BlockRecord* record_element);
+    void PageAppend(PageReferencer* record_page);
+
+    void PageDelete();
+
+    void PageCopy(BlockRecord* record_element);
 
 protected:
     Noder* noder_;

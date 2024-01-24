@@ -30,13 +30,21 @@ void Tx::operator=(Tx&& right) noexcept {
 Pager& Tx::pager() { return txer_->pager(); }
 
 
+void Tx::RollBack() {
+    txer_->RollBack();
+}
+
+void Tx::RollBack(TxId view_txid) {
+    txer_->RollBack(view_txid);
+}
+
 void Tx::Commit() {
     for (auto& iter : root_bucket_.sub_bucket_map_) {
         root_bucket_.Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second));
     }
     for (auto& bucket : sub_bucket_cache_) {
-        for (auto& iter : bucket.sub_bucket_map_) {
-            bucket.Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second));
+        for (auto& iter : bucket->sub_bucket_map_) {
+            bucket->Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second));
         }
     }
     txer_->Commit();

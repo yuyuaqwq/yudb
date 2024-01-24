@@ -43,9 +43,16 @@ public:
 
     Iterator Get(std::span<const uint8_t> key) const;
 
+    void Insert(std::span<const uint8_t> key, std::span<const uint8_t> value);
+
     void Put(std::span<const uint8_t> key, std::span<const uint8_t> value);
 
+    void Update(Iterator* iter, std::span<const uint8_t> value);
+
     bool Delete(std::span<const uint8_t> key);
+
+    void Delete(Iterator* iter);
+
 
     void Print(bool str = false) const;
 
@@ -79,11 +86,6 @@ private:
     */
     void Merge(Noder&& left, Noder&& right);
 
-    /*
-    * 叶子节点的删除
-    */
-    void Delete(Iterator* iter, std::span<const uint8_t> key);
-
 
     /*
     * 分支节点的分裂
@@ -105,7 +107,7 @@ private:
     /*
     * 叶子节点的插入
     */
-    void Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value);
+    void Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value, bool insert_only);
 
 private:
     friend class BTreeIterator;

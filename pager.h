@@ -1,7 +1,8 @@
 #pragma once
 
 #include <memory>
-#include <set>
+#include <map>
+#include <vector>
 
 #include "noncopyable.h"
 #include "page.h"
@@ -32,6 +33,12 @@ public:
 
     void Free(PageId pgid, PageCount count);
 
+    void RollbackPending();
+
+    void CommitPending();
+
+    void ClearPending(TxId min_view_txid);
+
     PageReferencer Copy(const PageReferencer& page_ref) {
         auto new_pgid = Alloc(1);
         auto new_page = Reference(new_pgid, true);
@@ -50,10 +57,9 @@ public:
     PageReferencer Reference(PageId pgid, bool dirty) {
         assert(pgid != kPageInvalidId);
         auto [cache_info, page_cache] = cacher_.Reference(pgid);
-        if (cache_info->dirty != dirty) {
+        if (cache_info->dirty == false && cache_info->dirty != dirty) {
             cache_info->dirty = dirty;
         }
-        cache_info->dirty = true;   // 目前还有问题
         return PageReferencer{ this, page_cache };
     }
 
@@ -73,7 +79,7 @@ private:
     Db* db_;
     PageSize page_size_;
     Cacher cacher_;
-    std::set<PageId> pending_;
+    std::map<TxId, std::vector<std::pair<PageId, PageCount>>> pending_;
     
 };
 
