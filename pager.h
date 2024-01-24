@@ -21,6 +21,22 @@ public:
         page_size_{ page_size },
         cacher_{ this } {}
 
+    Pager(Pager&& right) noexcept : 
+        db_{ right.db_ },
+        page_size_{right.page_size_},
+        cacher_{ std::move(right.cacher_) },
+        pending_{ std::move(right.pending_) }
+    {
+        cacher_.set_pager(this);
+    }
+    void operator=(Pager&& right) noexcept {
+        db_ = right.db_;
+        page_size_ = right.page_size_;
+        cacher_ = std::move(right.cacher_);
+        cacher_.set_pager(this);
+        pending_ = std::move(right.pending_);
+    }
+
 public:
     /*
     * 非线程安全，仅写事务使用

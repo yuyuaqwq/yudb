@@ -12,7 +12,10 @@ Cacher::Cacher(Pager* pager) :
 }
 
 Cacher::~Cacher() {
-    operator delete(page_pool_);
+    if (page_pool_) {
+        operator delete(page_pool_);
+        page_pool_ = nullptr;
+    }
 }
 
 std::pair<CacheInfo*, uint8_t*> Cacher::Reference(PageId pgid) {

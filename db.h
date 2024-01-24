@@ -24,7 +24,7 @@ public:
         if (!db->metaer_.Load()) {
             return {};
         }
-        db->pager_ = std::make_unique<Pager>(db.get(), db->metaer_.meta().page_size);
+        db->pager_ = Pager{ db.get(), db->metaer_.meta().page_size };
         return db;
     }
 
@@ -43,7 +43,7 @@ public:
 
     File file_;
     Metaer metaer_{ this };
-    std::unique_ptr<Pager> pager_;
+    std::optional<Pager> pager_;
     Txer txer_{ this };
 };
 
