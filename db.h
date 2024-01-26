@@ -6,7 +6,7 @@
 
 #include "noncopyable.h"
 #include "file.h"
-#include "metaer.h"
+#include "meta_operator.h"
 #include "pager.h"
 #include "txer.h"
 
@@ -21,10 +21,10 @@ public:
         if (!db->file_.Open(path, false)) {
             return {};
         }
-        if (!db->metaer_.Load()) {
+        if (!db->meta_operator_.Load()) {
             return {};
         }
-        db->pager_ = Pager{ db.get(), db->metaer_.meta().page_size };
+        db->pager_ = Pager{ db.get(), db->meta_operator_.meta().page_size };
         return db;
     }
 
@@ -42,7 +42,7 @@ public:
     friend class Txer;
 
     File file_;
-    Metaer metaer_{ this };
+    MetaOperator meta_operator_{ this };
     std::optional<Pager> pager_;
     Txer txer_{ this };
 };

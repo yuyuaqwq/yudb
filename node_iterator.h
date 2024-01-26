@@ -10,60 +10,60 @@
 
 namespace yudb {
 
-class NoderIterator {
+class NodeIterator {
 public:
     using iterator_category = std::random_access_iterator_tag;
 
     using difference_type = uint16_t;
-    using value_type = NoderIterator;
+    using value_type = NodeIterator;
     using difference_type = uint16_t;
-    using pointer = NoderIterator*;
-    using reference = NoderIterator&;
+    using pointer = NodeIterator*;
+    using reference = NodeIterator&;
 
 public:
-    NoderIterator(Node* node, uint16_t index) : node_{ node }, index_{ index } {}
+    NodeIterator(Node* node, uint16_t index) : node_{ node }, index_{ index } {}
 
-    const NoderIterator& operator*() const {
+    const NodeIterator& operator*() const {
         return *this;
     }
 
-    NoderIterator& operator*() {
+    NodeIterator& operator*() {
         return *this;
     }
 
-    NoderIterator& operator--() noexcept {
+    NodeIterator& operator--() noexcept {
         --index_;
         return *this;
     }
 
-    NoderIterator& operator++() noexcept {
+    NodeIterator& operator++() noexcept {
         ++index_;
         return *this;
     }
 
-    NoderIterator operator+(const difference_type n) const {
-        return NoderIterator{ node_, uint16_t(index_ + n) };
+    NodeIterator operator+(const difference_type n) const {
+        return NodeIterator{ node_, uint16_t(index_ + n) };
     }
 
-    NoderIterator operator-(const difference_type n) const {
-        return NoderIterator{ node_, uint16_t(index_ - n) };
+    NodeIterator operator-(const difference_type n) const {
+        return NodeIterator{ node_, uint16_t(index_ - n) };
     }
 
-    difference_type operator-(const NoderIterator& right) const noexcept {
+    difference_type operator-(const NodeIterator& right) const noexcept {
         return index_ - right.index_;
     }
 
-    NoderIterator& operator-=(const difference_type off) noexcept {
+    NodeIterator& operator-=(const difference_type off) noexcept {
         index_ -= off;
         return *this;
     }
 
-    NoderIterator& operator+=(const difference_type off) noexcept {
+    NodeIterator& operator+=(const difference_type off) noexcept {
         index_ += off;
         return *this;
     }
 
-    bool operator==(const NoderIterator& right) const {
+    bool operator==(const NodeIterator& right) const {
         return node_ == right.node_ && index_ == right.index_;
     }
 

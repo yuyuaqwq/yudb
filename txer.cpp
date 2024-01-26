@@ -11,11 +11,11 @@ Txer::Txer(Db* db) :
 
 UpdateTx Txer::Update() {
     if (!update_tx_) {
-        update_tx_ = std::make_unique<Tx>(this, db_->metaer_.meta(), true);
+        update_tx_ = std::make_unique<Tx>(this, db_->meta_operator_.meta(), true);
     }
     else {
         std::destroy_at(update_tx_.get());
-        std::construct_at(update_tx_.get(), this, db_->metaer_.meta(), true);
+        std::construct_at(update_tx_.get(), this, db_->meta_operator_.meta(), true);
     }
     ++update_tx_->meta_.txid;
     if (update_tx_->meta_.txid == kInvalidTxId) {
@@ -32,14 +32,14 @@ UpdateTx Txer::Update() {
 }
 
 ViewTx Txer::View() {
-    auto iter = view_tx_map_.find(db_->metaer_.meta().txid);
+    auto iter = view_tx_map_.find(db_->meta_operator_.meta().txid);
     if (iter == view_tx_map_.end()) {
-        view_tx_map_.insert({ db_->metaer_.meta().txid , 1});
+        view_tx_map_.insert({ db_->meta_operator_.meta().txid , 1});
     }
     else {
         ++iter->second;
     }
-    return ViewTx{ this, db_->metaer_.meta() };
+    return ViewTx{ this, db_->meta_operator_.meta() };
 }
 
 void Txer::RollBack() {
@@ -58,7 +58,7 @@ void Txer::RollBack(TxId view_txid) {
 
 void Txer::Commit() {
     pager().CommitPending();
-    CopyMeta(&db_->metaer_.meta(), update_tx_->meta_);
+    CopyMeta(&db_->meta_operator_.meta(), update_tx_->meta_);
 }
 
 

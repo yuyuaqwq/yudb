@@ -6,8 +6,8 @@
 
 #include "page.h"
 #include "stack.h"
-#include "noder.h"
-#include "page_referencer.h"
+#include "node_operator.h"
+#include "page_reference.h"
 
 namespace yudb {
 
@@ -118,14 +118,14 @@ public:
     Status status() const { return status_; }
 
 private:
-    std::pair<ImmNoder, uint16_t> LeafImmNoder() const;
+    std::pair<ImmNodeOperator, uint16_t> LeafImmNodeOperator() const;
 
-    std::pair<MutNoder, uint16_t> LeafMutNoder() const;
+    std::pair<MutNodeOperator, uint16_t> LeafMutNodeOperator() const;
 
-    std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
+    std::tuple<const uint8_t*, size_t, std::optional<PageReference>>
     KeyCell() const;
 
-    std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
+    std::tuple<const uint8_t*, size_t, std::optional<PageReference>>
     ValueCell() const;
 
 private:

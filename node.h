@@ -3,7 +3,7 @@
 #include "txid.h"
 #include "page.h"
 #include "cell.h"
-#include "block_info.h"
+#include "block.h"
 #include "page_space.h"
 
 namespace yudb {
@@ -38,7 +38,7 @@ struct Node {
             TxId last_modified_txid;
             Type type : 2;
             uint16_t element_count : 14;
-            BlockInfo block_info;
+            BlockTable block_info;
             PageSpace page_space;
             uint16_t padding;
             union {
@@ -49,7 +49,7 @@ struct Node {
                 LeafElement leaf[1];
             } body;
         };
-        uint8_t full[1];
+        uint8_t page[1];
     };
 };
 #pragma pack(pop)

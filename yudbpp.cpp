@@ -59,14 +59,14 @@ void TestPager(yudb::Db* db) {
         set.insert(pgid);
         auto page_ref = db->pager_->Reference(pgid, true);
         for (auto i = 0; i < db->pager_->page_size(); i+=4) {
-            std::memcpy(&(&page_ref.page_cache<uint8_t>())[i], & pgid, sizeof(pgid));
+            std::memcpy(&(&page_ref.page_content<uint8_t>())[i], & pgid, sizeof(pgid));
         }
         
     }
     for (auto pgid : set) {
         auto page_ref = db->pager_->Reference(pgid, false);
         for (auto i = 0; i < db->pager_->page_size(); i += 4) {
-            assert(std::memcmp(&(&page_ref.page_cache<uint8_t>())[i], &pgid, sizeof(pgid)) == 0);
+            assert(std::memcmp(&(&page_ref.page_content<uint8_t>())[i], &pgid, sizeof(pgid)) == 0);
         }
     }
 }
@@ -278,18 +278,21 @@ void TestBlocker(yudb::Db* db) {
 
     srand(10);
 
-    auto count = 20;
+    auto count = 1000;
     std::vector<std::string> arr(count);
 
 
     for (auto i = 0; i < count; i++) {
-        arr[i] = RandomString(8, 8);
+        arr[i] = RandomString(8, 16);
     }
     auto i = 0;
     for(auto& iter : arr) {
         //printf("%d\n", i);
+        if (i == 114) {
+            DebugBreak();
+        }
         bucket.Put(iter, iter);
-        bucket.Print(true); printf("\n\n\n\n");
+        //bucket.Print(true); printf("\n\n\n\n");
         ++i;
     }
     
@@ -334,9 +337,9 @@ int main() {
 
     //TestPager(db.get());
 
-    TestBlocker(db.get());
+    //TestBlocker(db.get());
 
-    //TestBTree(db.get());
+    TestBTree(db.get());
 
     
     //TestFreer();

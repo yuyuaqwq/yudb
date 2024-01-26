@@ -6,7 +6,7 @@
 
 #include "noncopyable.h"
 #include "page.h"
-#include "page_referencer.h"
+#include "page_reference.h"
 #include "cacher.h"
 #include "bucket.h"
 
@@ -55,28 +55,28 @@ public:
 
     void ClearPending(TxId min_view_txid);
 
-    PageReferencer Copy(const PageReferencer& page_ref) {
+    PageReference Copy(const PageReference& page_ref) {
         auto new_pgid = Alloc(1);
         auto new_page = Reference(new_pgid, true);
-        std::memcpy(&new_page.page_cache<uint8_t>(), &page_ref.page_cache<uint8_t>(), page_size());
+        std::memcpy(&new_page.page_content<uint8_t>(), &page_ref.page_content<uint8_t>(), page_size());
         Free(page_ref.page_id(), 1);    // Pending
         return new_page;
     }
 
-    PageReferencer Copy(PageId pgid) {
+    PageReference Copy(PageId pgid) {
         auto page = Reference(pgid, false);
         return Copy(std::move(page));
     }
 
 
     // 线程安全
-    PageReferencer Reference(PageId pgid, bool dirty) {
+    PageReference Reference(PageId pgid, bool dirty) {
         assert(pgid != kPageInvalidId);
         auto [cache_info, page_cache] = cacher_.Reference(pgid);
         if (cache_info->dirty == false && cache_info->dirty != dirty) {
             cache_info->dirty = dirty;
         }
-        return PageReferencer{ this, page_cache };
+        return PageReference{ this, page_cache };
     }
 
     void Dereference(uint8_t* page_cache) {

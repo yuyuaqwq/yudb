@@ -14,24 +14,31 @@ struct FreeBlock {
     uint16_t size;
 };
 
-struct BlockPage {
-    TxId last_modified_txid;
-    PageSpace page_space;
-    PageOffset first;
-    uint16_t pedding;
-    uint8_t data[1];
+struct BlockTable {
+    PageId pgid;
+    uint16_t entry_index;
+    uint16_t count;
 };
 
-struct BlockRecord {
+struct BlockTableEntry {
     PageId pgid;
     uint16_t max_free_size;
 };
 
-struct BlockInfo {
-    PageId record_pgid;
-    uint16_t record_index;
-    uint16_t record_count;
+struct BlockPage {
+    union {
+        struct {
+            TxId last_modified_txid;
+            PageSpace page_space;
+            PageOffset first;
+            PageSize fragment_size;
+        };
+        uint8_t page[1];
+    };
+    BlockTableEntry record_arr[1];
 };
+
+
 
 /*
 * 极端场景下，每一个span都需要分配一页来存储

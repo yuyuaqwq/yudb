@@ -10,27 +10,26 @@
 
 #include "noncopyable.h"
 #include "node.h"
-#include "noder_iterator.h"
-#include "blocker.h"
-#include "page_referencer.h"
-#include "page_spacer.h"
+#include "node_iterator.h"
+#include "block_manager.h"
+#include "page_reference.h"
+#include "page_space_operator.h"
 
 namespace yudb {
 
 class BTree;
-class Noder;
 
-class Noder : noncopyable {
+class NodeOperator : noncopyable {
 public:
-    using Iterator = NoderIterator;
+    using Iterator = NodeIterator;
 
-    Noder(const BTree* btree, PageId page_id, bool dirty);
+    NodeOperator(const BTree* btree, PageId page_id, bool dirty);
 
-    Noder(const BTree* btree, PageReferencer page_ref);
+    NodeOperator(const BTree* btree, PageReference page_ref);
 
-    Noder(Noder&& right) noexcept;
+    NodeOperator(NodeOperator&& right) noexcept;
 
-    void operator=(Noder&& right) noexcept;
+    void operator=(NodeOperator&& right) noexcept;
 
 
     bool IsLeaf() const {
@@ -46,7 +45,7 @@ public:
     * 实现返回的可能是其中的一段(因为最多返回其中的一页)，需要循环才能读完
     * kPage类型建议另外实现一个传入buff的函数，直接读取到buff中
     */
-    std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
+    std::tuple<const uint8_t*, size_t, std::optional<PageReference>>
     CellLoad(const Cell& cell) {
         if (cell.type == Cell::Type::kEmbed) {
             return { cell.embed.data, cell.embed.size, std::nullopt };
@@ -122,10 +121,10 @@ public:
     /*
     * 将cell移动到新节点
     */
-    Cell CellMove(Noder* new_noder, Cell&& cell) {
+    Cell CellMove(NodeOperator* new_node, Cell&& cell) {
         auto [buf, size, ref] = CellLoad(cell);
         auto bucket_flag = cell.bucket_flag;
-        auto new_cell = new_noder->CellAlloc({ buf, size });
+        auto new_cell = new_node->CellAlloc({ buf, size });
         new_cell.bucket_flag = bucket_flag;
         CellFree(std::move(cell));
         return new_cell;
@@ -134,10 +133,10 @@ public:
     /*
     * 将cell拷贝到新节点
     */
-    Cell CellCopy(Noder* new_noder, const Cell& cell) {
+    Cell CellCopy(NodeOperator* new_node, const Cell& cell) {
         auto [buf, size, ref] = CellLoad(cell);
         auto bucket_flag = cell.bucket_flag;
-        auto new_cell = new_noder->CellAlloc({ buf, size });
+        auto new_cell = new_node->CellAlloc({ buf, size });
         new_cell.bucket_flag = bucket_flag;
         return new_cell;
     }
@@ -148,8 +147,8 @@ public:
 
 
     void BlockInit() {
-        node_->block_info.record_pgid = kPageInvalidId;
-        node_->block_info.record_count = 0;
+        node_->block_info.pgid = kPageInvalidId;
+        node_->block_info.count = 0;
     }
 
     void BlockPrint() {
@@ -304,10 +303,10 @@ public:
     PageId page_id() const { return page_ref_.page_id(); }
 
     template <typename T>
-    const T& page_cache() const { return page_ref_.page_cache<T>(); }
+    const T& page_content() const { return page_ref_.page_content<T>(); }
 
     template <typename T>
-    T& page_cache() { return page_ref_.page_cache<T>(); }
+    T& page_content() { return page_ref_.page_content<T>(); }
 
 
     void LeafCheck();
@@ -321,62 +320,62 @@ protected:
 protected:
     const BTree* btree_;
 
-    PageReferencer page_ref_;
+    PageReference page_ref_;
     Node* node_;
-    PageSpacer page_spacer_;
-    Blocker blocker_;
+    PageSpaceOperator page_spacer_;
+    BlockManager blocker_;
 };
 
-class ImmNoder : Noder {
+class ImmNodeOperator : NodeOperator {
 public:
-    ImmNoder(const BTree* btree, PageId page_id) : Noder{ btree, page_id, false } {}
+    ImmNodeOperator(const BTree* btree, PageId page_id) : NodeOperator{ btree, page_id, false } {}
 
 
-    Iterator begin() { return Noder::begin(); }
+    Iterator begin() { return NodeOperator::begin(); }
 
-    Iterator end() { return Noder::end(); }
+    Iterator end() { return NodeOperator::end(); }
 
 
     bool IsLeaf() const {
-        return Noder::IsLeaf();
+        return NodeOperator::IsLeaf();
     }
 
     bool IsBranch() const {
-        return Noder::IsBranch();
+        return NodeOperator::IsBranch();
     }
 
     void BranchCheck() {
-        Noder::BranchCheck();
+        NodeOperator::BranchCheck();
     }
     void LeafCheck() {
-        Noder::LeafCheck();
+        NodeOperator::LeafCheck();
     }
 
     void BlockPrint() {
-        return Noder::BlockPrint();
+        return NodeOperator::BlockPrint();
     }
 
-    const Node& node() const { return Noder::node(); }
+    const Node& node() const { return NodeOperator::node(); }
 
-    std::tuple<const uint8_t*, size_t, std::optional<PageReferencer>>
+    std::tuple<const uint8_t*, size_t, std::optional<PageReference>>
     CellLoad(const Cell& cell){
-        return Noder::CellLoad(cell);
+        return NodeOperator::CellLoad(cell);
     }
 
     PageId BranchGetLeftChild(uint16_t pos) {
-        return Noder::BranchGetLeftChild(pos);
+        return NodeOperator::BranchGetLeftChild(pos);
     }
 
     PageId BranchGetRightChild(uint16_t pos) {
-        return Noder::BranchGetRightChild(pos);
+        return NodeOperator::BranchGetRightChild(pos);
     }
 };
 
-class MutNoder : public Noder {
+class MutNodeOperator : public NodeOperator {
 public:
-    MutNoder(const BTree* btree, PageId page_id) : Noder{ btree, page_id, true } {}
+    MutNodeOperator(const BTree* btree, PageId page_id) : NodeOperator{ btree, page_id, true } {}
 
-    MutNoder Copy() const;
+    MutNodeOperator Copy() const;
 };
 
 } // namespace yudb

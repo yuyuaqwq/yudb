@@ -1,4 +1,4 @@
-#include "metaer.h"
+#include "meta_operator.h"
 
 #include "version.h"
 #include "db.h"
@@ -6,7 +6,7 @@
 
 namespace yudb {
 
-bool Metaer::Load() {
+bool MetaOperator::Load() {
     db_->file_.Seek(0, File::PointerMode::kDbFilePointerSet);
     auto success = db_->file_.Read(&meta_, sizeof(meta_));
     if (!success) {
@@ -78,7 +78,7 @@ bool Metaer::Load() {
     return true;
 }
 
-void Metaer::Save() {
+void MetaOperator::Save() {
     Crc32 crc32;
     crc32.Append(&meta_, kMetaSize - sizeof(uint32_t));
     meta_.crc32 = crc32.End();

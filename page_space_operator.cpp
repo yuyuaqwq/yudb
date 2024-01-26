@@ -1,15 +1,15 @@
-#include "page_spacer.h"
+#include "page_space_operator.h"
 
 #include "pager.h"
 
 namespace yudb {
 
-void PageSpacer::Build() {
+void PageSpaceOperator::Build() {
     space_->rest_size = pager_->page_size();
     space_->right_size = 0;
 }
 
-std::optional<PageOffset> PageSpacer::AllocLeft(size_t size) {
+std::optional<PageOffset> PageSpaceOperator::AllocLeft(size_t size) {
     if (space_->rest_size < size) {
         return {};
     }
@@ -18,7 +18,7 @@ std::optional<PageOffset> PageSpacer::AllocLeft(size_t size) {
     return left_size;
 }
 
-std::optional<PageOffset> PageSpacer::AllocRight(size_t size) {
+std::optional<PageOffset> PageSpaceOperator::AllocRight(size_t size) {
     if (space_->rest_size < size) {
         return {};
     }
@@ -28,11 +28,11 @@ std::optional<PageOffset> PageSpacer::AllocRight(size_t size) {
     return right_offset;
 }
 
-void PageSpacer::FreeLeft(size_t size) {
+void PageSpaceOperator::FreeLeft(size_t size) {
     space_->rest_size += size;
 }
 
-void PageSpacer::FreeRight(size_t size) {
+void PageSpaceOperator::FreeRight(size_t size) {
     space_->rest_size += size;
     space_->right_size -= size;
 }

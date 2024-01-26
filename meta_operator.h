@@ -9,9 +9,9 @@ namespace yudb {
 
 class Db;
 
-class Metaer : noncopyable {
+class MetaOperator : noncopyable {
 public:
-    Metaer(Db* db) : db_{ db } {};
+    MetaOperator(Db* db) : db_{ db } {};
 
     bool Load();
 

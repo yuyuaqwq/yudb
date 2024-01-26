@@ -9,7 +9,7 @@
 #include "noncopyable.h"
 #include "btree_iterator.h"
 #include "page.h"
-#include "noder.h"
+#include "node_operator.h"
 
 #undef min
 
@@ -67,42 +67,42 @@ public:
     Bucket& bucket() const { return *bucket_; }
 
 private:
-    std::tuple<MutNoder, uint16_t, MutNoder, bool> GetSibling(Iterator* iter);
+    std::tuple<MutNodeOperator, uint16_t, MutNodeOperator, bool> GetSibling(Iterator* iter);
 
     void Print(bool str, PageId pgid, int level) const;
 
     /*
     * 分支节点的合并
     */
-    void Merge(Noder&& left, Noder&& right, Cell&& down_key);
+    void Merge(NodeOperator&& left, NodeOperator&& right, Cell&& down_key);
 
     /*
     * 分支节点的删除
     */
-    void Delete(Iterator* iter, Noder&& noder, uint16_t left_del_pos);
+    void Delete(Iterator* iter, NodeOperator&& node_operator, uint16_t left_del_pos);
 
     /*
     * 叶子节点的合并
     */
-    void Merge(Noder&& left, Noder&& right);
+    void Merge(NodeOperator&& left, NodeOperator&& right);
 
 
     /*
     * 分支节点的分裂
     * 返回左侧节点中末尾上升的元素，新右节点
     */
-    std::tuple<Cell, Noder> Split(Noder* left, uint16_t insert_pos, Cell&& insert_key, PageId insert_right_child);
+    std::tuple<Cell, NodeOperator> Split(NodeOperator* left, uint16_t insert_pos, Cell&& insert_key, PageId insert_right_child);
 
     /*
     * 分支节点的插入
     */
-    void Put(Iterator* iter, Noder&& left, Noder&& right, Cell* key, bool branch_put = false);
+    void Put(Iterator* iter, NodeOperator&& left, NodeOperator&& right, Cell* key, bool branch_put = false);
     
     /*
     * 叶子节点的分裂
     * 返回新右节点
     */
-    Noder Split(Noder* left, uint16_t insert_pos, std::span<const uint8_t> key, std::span<const uint8_t> value);
+    NodeOperator Split(NodeOperator* left, uint16_t insert_pos, std::span<const uint8_t> key, std::span<const uint8_t> value);
 
     /*
     * 叶子节点的插入

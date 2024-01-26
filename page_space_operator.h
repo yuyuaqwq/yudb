@@ -8,9 +8,9 @@ namespace yudb {
 
 class Pager;
 
-class PageSpacer {
+class PageSpaceOperator {
 public:
-    PageSpacer(Pager* pager, PageSpace* space) : pager_{ pager }, space_{ space } {}
+    PageSpaceOperator(Pager* pager, PageSpace* space) : pager_{ pager }, space_{ space } {}
     
     void Build();
 
