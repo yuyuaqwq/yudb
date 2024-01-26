@@ -13,7 +13,8 @@
 #include "lru_list.h"
 #include "log_reader.h"
 #include "log_writer.h"
-#include "freer.h"
+
+#include "db.h"
 
 void TestLru() {
     yudb::LruList<int, int> aa{ 3 };
@@ -49,7 +50,6 @@ void TestLru() {
     assert(k = 400);
 
 }
-
 
 void TestPager(yudb::Db* db) {
     std::unordered_set<yudb::PageId> set;
@@ -255,7 +255,7 @@ std::string RandomString(size_t min_size, size_t max_size) {
     return str;
 }
 
-void TestBlocker(yudb::Db* db) {
+void TestBlock(yudb::Db* db) {
     auto tx = db->Update();
     auto bucket = tx.RootBucket();
 
@@ -288,9 +288,6 @@ void TestBlocker(yudb::Db* db) {
     auto i = 0;
     for(auto& iter : arr) {
         //printf("%d\n", i);
-        if (i == 114) {
-            DebugBreak();
-        }
         bucket.Put(iter, iter);
         //bucket.Print(true); printf("\n\n\n\n");
         ++i;
@@ -337,9 +334,9 @@ int main() {
 
     //TestPager(db.get());
 
-    //TestBlocker(db.get());
+    TestBlock(db.get());
 
-    TestBTree(db.get());
+    //TestBTree(db.get());
 
     
     //TestFreer();

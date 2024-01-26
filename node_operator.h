@@ -322,7 +322,7 @@ protected:
 
     PageReference page_ref_;
     Node* node_;
-    PageSpaceOperator page_spacer_;
+    PageSpaceOperator page_space_oper_;
     BlockManager blocker_;
 };
 

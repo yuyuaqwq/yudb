@@ -12,9 +12,9 @@ namespace yudb {
 
 class Db;
 
-class Txer : noncopyable {
+class TxManager : noncopyable {
 public:
-    Txer(Db* db);
+    TxManager(Db* db);
 
 
     UpdateTx Update();

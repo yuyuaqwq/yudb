@@ -7,7 +7,7 @@ namespace yudb {
 
 class ViewTx {
 public:
-    ViewTx(Txer* txer, const Meta& meta) : tx_{ txer, meta, false } {}
+    ViewTx(TxManager* tx_manager, const Meta& meta) : tx_{ tx_manager, meta, false } {}
 
     ~ViewTx() {
         tx_.RollBack(tx_.txid());

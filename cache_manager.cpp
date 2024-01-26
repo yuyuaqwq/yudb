@@ -1,24 +1,24 @@
-#include "cacher.h"
+#include "cache_manager.h"
 
 #include "pager.h"
 
 namespace yudb {
 
-Cacher::Cacher(Pager* pager) :
+CacheManager::CacheManager(Pager* pager) :
     pager_ { pager },
-    lru_list_{ kCacherPoolPageCount }
+    lru_list_{ kCachePoolPageCount }
 {
-    page_pool_ = reinterpret_cast<uint8_t*>(operator new(kCacherPoolPageCount * pager->page_size()));
+    page_pool_ = reinterpret_cast<uint8_t*>(operator new(kCachePoolPageCount * pager->page_size()));
 }
 
-Cacher::~Cacher() {
+CacheManager::~CacheManager() {
     if (page_pool_) {
         operator delete(page_pool_);
         page_pool_ = nullptr;
     }
 }
 
-std::pair<CacheInfo*, uint8_t*> Cacher::Reference(PageId pgid) {
+std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
     auto [cache_info, cache_id] = lru_list_.Get(pgid);
     if (!cache_info) {
         auto evict = lru_list_.Put(pgid, CacheInfo{0});
@@ -44,7 +44,7 @@ std::pair<CacheInfo*, uint8_t*> Cacher::Reference(PageId pgid) {
     return { cache_info, &page_pool_[cache_id * pager_->page_size()] };
 }
 
-void Cacher::Dereference(uint8_t* page_cache) {
+void CacheManager::Dereference(uint8_t* page_cache) {
     auto diff = page_cache - page_pool_;
     CacheId cache_id = diff / pager_->page_size();
     auto cache_info = &lru_list_.GetNodeByCacheId(cache_id).value;
@@ -53,7 +53,7 @@ void Cacher::Dereference(uint8_t* page_cache) {
 }
 
 
-PageId Cacher::CacheToPageId(uint8_t* page_cache) const {
+PageId CacheManager::CacheToPageId(uint8_t* page_cache) const {
     auto diff = page_cache - page_pool_;
     CacheId cache_id = diff / pager_->page_size();
     auto& cache_info = lru_list_.GetNodeByCacheId(cache_id);

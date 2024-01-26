@@ -13,7 +13,7 @@ class PageReference;
 
 class BlockManager : noncopyable {
 public:
-    BlockManager(NodeOperator* node_operator, BlockTable* block_info) : node_operator_{ node_operator }, block_info_{ block_info } {}
+    BlockManager(NodeOperator* node_operator, BlockTableDescriptor* block_info) : node_operator_{ node_operator }, block_table_descriptor_{ block_info } {}
 
     ~BlockManager() = default;
 
@@ -23,10 +23,10 @@ public:
 
     void operator=(BlockManager&& right) noexcept {
         node_operator_ = right.node_operator_;
-        block_info_ = right.block_info_;
+        block_table_descriptor_ = right.block_table_descriptor_;
         
         right.node_operator_ = nullptr;
-        right.block_info_ = nullptr;
+        right.block_table_descriptor_ = nullptr;
     }
 
 
@@ -35,7 +35,7 @@ public:
 
     PageSize MaxSize();
 
-    std::pair<uint8_t*, PageReference> Load(uint16_t record_index, PageOffset offset);
+    std::pair<uint8_t*, PageReference> Load(uint16_t index, PageOffset pos);
 
     std::optional<std::pair<uint16_t, PageOffset>> Alloc(PageSize size);
 
@@ -48,11 +48,11 @@ public:
     void set_node_operator(NodeOperator* node_operator) { node_operator_ = node_operator; }
 
 private:
-    void RecordBuild(BlockTableEntry* record_element, uint16_t record_index, PageReference* page);
+    void TableEntryBuild(BlockTableEntry* entry, uint16_t index, PageReference* page);
 
-    void RecordUpdateMaxFreeSize(BlockTableEntry* record_element, BlockPage* cache);
+    void TableEntryUpdateMaxFreeSize(BlockTableEntry* entry, BlockPage* block_page);
 
-    void RecordPageCopy();
+    void TablePageCopy();
 
 
     void Build();
@@ -60,15 +60,15 @@ private:
 
     BlockPage& PageBuild(PageReference* page_ref);
 
-    void PageAppend(PageReference* record_page);
+    void PageAppend(PageReference* page_ref);
 
     void PageDelete();
 
-    void PageCopy(BlockTableEntry* record_element);
+    void PageCopy(BlockTableEntry* entry);
 
 protected:
     NodeOperator* node_operator_;
-    BlockTable* block_info_;
+    BlockTableDescriptor* block_table_descriptor_;
 };
 
 } // namespace yudb

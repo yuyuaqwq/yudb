@@ -38,7 +38,7 @@ struct Node {
             TxId last_modified_txid;
             Type type : 2;
             uint16_t element_count : 14;
-            BlockTable block_info;
+            BlockTableDescriptor block_info;
             PageSpace page_space;
             uint16_t padding;
             union {

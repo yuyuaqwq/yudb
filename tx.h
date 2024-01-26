@@ -12,11 +12,11 @@
 
 namespace yudb {
 
-class Txer;
+class TxManager;
 
 class Tx : noncopyable {
 public:
-    Tx(Txer* txer, const Meta& meta, bool writable);
+    Tx(TxManager* tx_manager, const Meta& meta, bool writable);
 
     Tx(Tx&& right) noexcept;
     void operator=(Tx&& right) noexcept;
@@ -57,9 +57,9 @@ public:
     Meta& meta() { return meta_; }
 
 protected:
-    friend class Txer;
+    friend class TxManager;
 
-    Txer* txer_;
+    TxManager* tx_manager_;
     Meta meta_;
 
     bool writable_;

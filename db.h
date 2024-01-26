@@ -8,7 +8,7 @@
 #include "file.h"
 #include "meta_operator.h"
 #include "pager.h"
-#include "txer.h"
+#include "tx_manager.h"
 
 namespace yudb {
 
@@ -29,22 +29,22 @@ public:
     }
 
     UpdateTx Update() {
-        return txer_.Update();
+        return tx_manager_.Update();
     }
 
     ViewTx View() {
-        return txer_.View();
+        return tx_manager_.View();
     }
 
 public:
-    friend class Metaer;
+    friend class MetaManager;
     friend class Pager;
-    friend class Txer;
+    friend class TxManager;
 
     File file_;
     MetaOperator meta_operator_{ this };
     std::optional<Pager> pager_;
-    Txer txer_{ this };
+    TxManager tx_manager_{ this };
 };
 
 }

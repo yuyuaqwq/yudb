@@ -7,7 +7,7 @@
 #include "noncopyable.h"
 #include "page.h"
 #include "page_reference.h"
-#include "cacher.h"
+#include "cache_manager.h"
 #include "bucket.h"
 
 namespace yudb {
@@ -19,21 +19,21 @@ class Pager : noncopyable {
 public:
     Pager(Db* db, PageSize page_size) : db_{ db },
         page_size_{ page_size },
-        cacher_{ this } {}
+        cache_manager_{ this } {}
 
     Pager(Pager&& right) noexcept : 
         db_{ right.db_ },
         page_size_{right.page_size_},
-        cacher_{ std::move(right.cacher_) },
+        cache_manager_{ std::move(right.cache_manager_) },
         pending_{ std::move(right.pending_) }
     {
-        cacher_.set_pager(this);
+        cache_manager_.set_pager(this);
     }
     void operator=(Pager&& right) noexcept {
         db_ = right.db_;
         page_size_ = right.page_size_;
-        cacher_ = std::move(right.cacher_);
-        cacher_.set_pager(this);
+        cache_manager_ = std::move(right.cache_manager_);
+        cache_manager_.set_pager(this);
         pending_ = std::move(right.pending_);
     }
 
@@ -72,7 +72,7 @@ public:
     // 线程安全
     PageReference Reference(PageId pgid, bool dirty) {
         assert(pgid != kPageInvalidId);
-        auto [cache_info, page_cache] = cacher_.Reference(pgid);
+        auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
         if (cache_info->dirty == false && cache_info->dirty != dirty) {
             cache_info->dirty = dirty;
         }
@@ -80,12 +80,12 @@ public:
     }
 
     void Dereference(uint8_t* page_cache) {
-        cacher_.Dereference(page_cache);
+        cache_manager_.Dereference(page_cache);
     }
 
 
     PageId CacheToPageId(uint8_t* page_cache) const {
-        return cacher_.CacheToPageId(page_cache);
+        return cache_manager_.CacheToPageId(page_cache);
     }
 
 
@@ -94,7 +94,7 @@ public:
 private:
     Db* db_;
     PageSize page_size_;
-    Cacher cacher_;
+    CacheManager cache_manager_;
     std::map<TxId, std::vector<std::pair<PageId, PageCount>>> pending_;
     
 };

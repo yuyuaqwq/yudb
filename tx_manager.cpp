@@ -1,4 +1,4 @@
-#include "txer.h"
+#include "tx_manager.h"
 
 #include "db.h"
 
@@ -6,10 +6,10 @@
 
 namespace yudb {
 
-Txer::Txer(Db* db) :
+TxManager::TxManager(Db* db) :
     db_{ db } {}
 
-UpdateTx Txer::Update() {
+UpdateTx TxManager::Update() {
     if (!update_tx_) {
         update_tx_ = std::make_unique<Tx>(this, db_->meta_operator_.meta(), true);
     }
@@ -31,7 +31,7 @@ UpdateTx Txer::Update() {
     return UpdateTx{ update_tx_.get() };
 }
 
-ViewTx Txer::View() {
+ViewTx TxManager::View() {
     auto iter = view_tx_map_.find(db_->meta_operator_.meta().txid);
     if (iter == view_tx_map_.end()) {
         view_tx_map_.insert({ db_->meta_operator_.meta().txid , 1});
@@ -42,11 +42,11 @@ ViewTx Txer::View() {
     return ViewTx{ this, db_->meta_operator_.meta() };
 }
 
-void Txer::RollBack() {
+void TxManager::RollBack() {
     pager().RollbackPending();
 }
 
-void Txer::RollBack(TxId view_txid) {
+void TxManager::RollBack(TxId view_txid) {
     auto iter = view_tx_map_.find(view_txid);
     assert(iter != view_tx_map_.end());
     assert(iter->second > 0);
@@ -56,18 +56,18 @@ void Txer::RollBack(TxId view_txid) {
     }
 }
 
-void Txer::Commit() {
+void TxManager::Commit() {
     pager().CommitPending();
     CopyMeta(&db_->meta_operator_.meta(), update_tx_->meta_);
 }
 
 
-Pager& Txer::pager() {
+Pager& TxManager::pager() {
     return *db_->pager_;
 }
 
 
-void Txer::CopyMeta(Meta* dst, const Meta& src) {
+void TxManager::CopyMeta(Meta* dst, const Meta& src) {
     dst->root = src.root;
     dst->page_count = src.page_count;
     dst->txid = src.txid;

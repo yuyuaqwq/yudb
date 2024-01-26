@@ -9,24 +9,24 @@
 
 namespace yudb {
 
-constexpr size_t kCacherPoolPageCount = 0x1000;
+constexpr size_t kCachePoolPageCount = 0x1000;
 
 class Pager;
 
-class Cacher : noncopyable {
+class CacheManager : noncopyable {
 public:
-    explicit Cacher(Pager* pager);
+    explicit CacheManager(Pager* pager);
 
-    ~Cacher();
+    ~CacheManager();
 
-    Cacher(Cacher&& right) noexcept :
+    CacheManager(CacheManager&& right) noexcept :
         pager_{ right.pager_ },
         lru_list_{ std::move(right.lru_list_) },
         page_pool_{ right.page_pool_ }
     {
         right.page_pool_ = nullptr;
     }
-    void operator=(Cacher&& right) noexcept {
+    void operator=(CacheManager&& right) noexcept {
         pager_ = right.pager_;
         lru_list_ = std::move(right.lru_list_);
         right.page_pool_ = nullptr;

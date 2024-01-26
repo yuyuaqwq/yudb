@@ -22,7 +22,7 @@ void Pager::Write(PageId pgid, void* cache, PageCount count) {
 
 
 PageId Pager::Alloc(PageCount count) {
-    auto& update_tx = db_->txer_.CurrentUpdateTx();
+    auto& update_tx = db_->tx_manager_.CurrentUpdateTx();
     auto& root_bucket = update_tx.RootBucket();
 
     PageId pgid = kPageInvalidId;
@@ -49,20 +49,20 @@ PageId Pager::Alloc(PageCount count) {
         pgid = update_tx.meta().page_count;
         update_tx.meta().page_count += count;
     }
-    auto [cache_info, page_cache] = cacher_.Reference(pgid);
+    auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
     cache_info->dirty = true;
 
     MutNodeOperator node_operator{ &update_tx.RootBucket().btree(), pgid };
     node_operator.node().last_modified_txid = update_tx.txid();
 
-    cacher_.Dereference(page_cache);
+    cache_manager_.Dereference(page_cache);
     printf("alloc:%d\n", pgid);
     return pgid;
 }
 
 void Pager::Free(PageId free_pgid, PageCount free_count) {
     printf("pending:%d\n", free_pgid);
-    auto& update_tx = db_->txer_.CurrentUpdateTx();
+    auto& update_tx = db_->tx_manager_.CurrentUpdateTx();
     auto& root_bucket = update_tx.RootBucket();
 
     auto iter = pending_.find(update_tx.txid());
@@ -75,13 +75,13 @@ void Pager::Free(PageId free_pgid, PageCount free_count) {
 }
 
 void Pager::RollbackPending() {
-    auto& update_tx = db_->txer_.CurrentUpdateTx();
+    auto& update_tx = db_->tx_manager_.CurrentUpdateTx();
     pending_.erase(update_tx.txid());
 }
 
 void Pager::CommitPending() {
     return;// 暂时注释，处理可变长kv
-    auto& update_tx = db_->txer_.CurrentUpdateTx();
+    auto& update_tx = db_->tx_manager_.CurrentUpdateTx();
     auto& root_bucket = update_tx.RootBucket();
     auto& pending_bucket = root_bucket.SubBucket("tx_pd", true);
     auto txid = update_tx.txid();
@@ -92,7 +92,7 @@ void Pager::CommitPending() {
 }
 
 void Pager::ClearPending(TxId min_view_txid) {
-    auto& update_tx = db_->txer_.CurrentUpdateTx();
+    auto& update_tx = db_->tx_manager_.CurrentUpdateTx();
     auto& root_bucket = update_tx.RootBucket();
     auto& free_bucket = root_bucket.SubBucket("fr_pg", true);
     auto& pending_bucket = root_bucket.SubBucket("tx_pd", true);
