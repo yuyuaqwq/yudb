@@ -4,7 +4,7 @@
 
 #include "noncopyable.h"
 #include "cache.h"
-#include "page.h"
+#include "page_format.h"
 #include "lru_list.h"
 
 namespace yudb {

@@ -2,7 +2,7 @@
 
 #include <format>
 
-#include "node_operator.h"
+#include "node.h"
 #include "pager.h"
 
 #include "btree.h"
@@ -11,23 +11,23 @@
 namespace yudb {
 
 PageSize BlockManager::MaxSize() {
-    auto& pager = node_operator_->btree().bucket().pager();
+    auto& pager = node_->btree().bucket().pager();
     auto size = pager.page_size() - (sizeof(BlockPage) - sizeof(BlockPage::block_table));
     return size;
 }
 
 std::pair<uint8_t*, PageReference> BlockManager::Load(uint16_t index, PageOffset pos) {
-    auto& pager = node_operator_->btree().bucket().pager();
+    auto& pager = node_->btree().bucket().pager();
 
     auto page_ref = pager.Reference(block_table_descriptor_->pgid, false);
-    auto& block_page = page_ref.page_content<BlockPage>();
+    auto& block_page = page_ref.content<BlockPage>();
     auto data_page = pager.Reference(block_page.block_table[index].pgid, false);
-    auto& data_cache = data_page.page_content<BlockPage>();
+    auto& data_cache = data_page.content<BlockPage>();
     return { &data_cache.page[pos], std::move(data_page) };
 }
 
 std::optional<std::pair<uint16_t, PageOffset>> BlockManager::Alloc(PageSize size) {
-    auto& pager = node_operator_->btree().bucket().pager();
+    auto& pager = node_->btree().bucket().pager();
 
     assert(size <= MaxSize());
 
@@ -37,15 +37,15 @@ std::optional<std::pair<uint16_t, PageOffset>> BlockManager::Alloc(PageSize size
     TablePageCopy();
 
     auto table_page_ref = pager.Reference(block_table_descriptor_->pgid, true);
-    auto& table_block_page = table_page_ref.page_content<BlockPage>();
+    auto& table_block_page = table_page_ref.content<BlockPage>();
     auto block_table = table_block_page.block_table;
     for (uint16_t i = 0; i < block_table_descriptor_->count; i++) {
         auto& entry = block_table[i];
-        if (entry.pgid == table_page_ref.page_id()) {
+        if (entry.pgid == table_page_ref.id()) {
             // 是reocrd_arr所在的页面，如果空间不足则尝试分配
             if (entry.max_free_size < size) {
-                PageSpaceOperator space_oper{ &pager, &table_block_page.page_space };
-                auto res = space_oper.AllocRight(size);
+                PageArena arena{ &pager, &table_block_page.page_arena_format };
+                auto res = arena.AllocRight(size);
                 if (res) {
                     Free({ i, *res, size});
                 }
@@ -55,7 +55,7 @@ std::optional<std::pair<uint16_t, PageOffset>> BlockManager::Alloc(PageSize size
             PageCopy(&entry);
 
             auto page_ref = pager.Reference(entry.pgid, true);
-            auto& block_page = page_ref.page_content<BlockPage>();
+            auto& block_page = page_ref.content<BlockPage>();
             // 找到足够分配的FreeBlock
             auto prev_pos = kPageInvalidOffset;
             auto cur_pos = block_page.first_block_pos;
@@ -112,17 +112,17 @@ std::optional<std::pair<uint16_t, PageOffset>> BlockManager::Alloc(PageSize size
 void BlockManager::Free(const std::tuple<uint16_t, PageOffset, PageSize>& free_block) {
     TablePageCopy();
 
-    auto& pager = node_operator_->btree().bucket().pager();
+    auto& pager = node_->btree().bucket().pager();
 
     auto [index, free_pos, free_size] = free_block;
 
     auto table_page_ref = pager.Reference(block_table_descriptor_->pgid, true);
-    auto& table_block_page = table_page_ref.page_content<BlockPage>();
+    auto& table_block_page = table_page_ref.content<BlockPage>();
     auto& entry = table_block_page.block_table[index];
 
     PageCopy(&entry);
     auto page_ref = pager.Reference(entry.pgid, true);
-    auto& block_page = page_ref.page_content<BlockPage>();
+    auto& block_page = page_ref.content<BlockPage>();
 
     auto cur_pos = block_page.first_block_pos;
     auto prev_pos = kPageInvalidOffset;
@@ -182,13 +182,13 @@ void BlockManager::Free(const std::tuple<uint16_t, PageOffset, PageSize>& free_b
 }
 
 void BlockManager::Print() {
-    auto& pager = node_operator_->btree().bucket().pager();
+    auto& pager = node_->btree().bucket().pager();
     auto page_ref = pager.Reference(block_table_descriptor_->pgid, false);
-    auto& block_page = page_ref.page_content<BlockPage>();
+    auto& block_page = page_ref.content<BlockPage>();
     auto block_table = block_page.block_table;
     for (uint16_t i = 0; i < block_table_descriptor_->count; i++) {
         auto alloc_page = pager.Reference(block_table[i].pgid, false);
-        auto& alloc_cache = alloc_page.page_content<BlockPage>();
+        auto& alloc_cache = alloc_page.content<BlockPage>();
 
         auto j = 0;
         auto prev_pos = kPageInvalidOffset;
@@ -208,7 +208,7 @@ void BlockManager::Print() {
 
 
 void BlockManager::Build() {
-    auto& pager = node_operator_->btree().bucket().pager();
+    auto& pager = node_->btree().bucket().pager();
 
     block_table_descriptor_->pgid = pager.Alloc(1);
     block_table_descriptor_->entry_index = 0;
@@ -226,9 +226,9 @@ void BlockManager::Clear() {
     }
     TablePageCopy();
 
-    auto& pager = node_operator_->btree().bucket().pager();
+    auto& pager = node_->btree().bucket().pager();
     auto page_ref = pager.Reference(block_table_descriptor_->pgid, true);
-    auto& block_page = page_ref.page_content<BlockPage>();
+    auto& block_page = page_ref.content<BlockPage>();
     for (uint16_t i = 0; i < block_table_descriptor_->count; i++) {
         pager.Free(block_page.block_table[i].pgid, 1);
     }
@@ -237,17 +237,17 @@ void BlockManager::Clear() {
 
 
 void BlockManager::TableEntryBuild(BlockTableEntry* entry, uint16_t index, PageReference* new_page_ref) {
-    auto& pager = node_operator_->btree().bucket().pager();
-    entry->pgid = new_page_ref->page_id();
+    auto& pager = node_->btree().bucket().pager();
+    entry->pgid = new_page_ref->id();
     entry->max_free_size = 0;
-    auto& block_page = new_page_ref->page_content<BlockPage>();
-    PageSpaceOperator space_oper{ &pager, &block_page.page_space };
-    if (entry->pgid == node_operator_->node().block_info.pgid) {
-        space_oper.AllocLeft(sizeof(BlockTableEntry));
+    auto& block_page = new_page_ref->content<BlockPage>();
+    PageArena arena{ &pager, &block_page.page_arena_format };
+    if (entry->pgid == node_->block_table_descriptor().pgid) {
+        arena.AllocLeft(sizeof(BlockTableEntry));
         return;
     }
-    auto rest_size = space_oper.rest_size();
-    auto pos = space_oper.AllocLeft(rest_size);
+    auto rest_size = arena.rest_size();
+    auto pos = arena.AllocLeft(rest_size);
     assert(pos.has_value());
     Free({ index, *pos, rest_size });
 }
@@ -266,18 +266,18 @@ void BlockManager::TableEntryUpdateMaxFreeSize(BlockTableEntry* entry, BlockPage
 }
 
 void BlockManager::TablePageCopy() {
-    auto& bucket = node_operator_->btree().bucket();
+    auto& bucket = node_->btree().bucket();
     auto& pager = bucket.pager();
     auto& tx = bucket.tx();
 
     auto page = pager.Reference(block_table_descriptor_->pgid, false);
-    auto& block_page = page.page_content<BlockPage>();
+    auto& block_page = page.content<BlockPage>();
     if (tx.NeedCopy(block_page.last_modified_txid)) {
         auto new_page_ref = pager.Copy(std::move(page));
-        auto& new_block_page = page.page_content<BlockPage>();
+        auto& new_block_page = page.content<BlockPage>();
         new_block_page.last_modified_txid = tx.txid();
-        block_table_descriptor_->pgid = page.page_id();
-        new_block_page.block_table[block_table_descriptor_->entry_index].pgid = page.page_id();
+        block_table_descriptor_->pgid = page.id();
+        new_block_page.block_table[block_table_descriptor_->entry_index].pgid = page.id();
     }
 }
 
@@ -285,25 +285,25 @@ void BlockManager::TablePageCopy() {
 void BlockManager::PageAppend(PageReference* table_page_ref) {
     assert(sizeof(BlockTableEntry) * (block_table_descriptor_->count + 1) <= MaxSize());
 
-    auto& pager = node_operator_->btree().bucket().pager();
+    auto& pager = node_->btree().bucket().pager();
 
     auto new_pgid = pager.Alloc(1);
     auto new_page = pager.Reference(new_pgid, true);
     auto& new_block_page = PageBuild(&new_page);
     
-    auto* table_block_page = &table_page_ref->page_content<BlockPage>();
-    PageSpaceOperator space_oper{ &pager, &table_block_page->page_space };
+    auto* table_block_page = &table_page_ref->content<BlockPage>();
+    PageArena arena{ &pager, &table_block_page->page_arena_format };
     BlockTableEntry* block_table = table_block_page->block_table;
-    if (!space_oper.AllocLeft(sizeof(BlockTableEntry))) {
+    if (!arena.AllocLeft(sizeof(BlockTableEntry))) {
         // 分配失败的话，将位于Left区间的Table移动到新页中
         BlockTableEntry* new_block_table = new_block_page.block_table;
         auto byte_size = sizeof(BlockTableEntry) * block_table_descriptor_->count;
         std::memcpy(new_block_table, block_table, byte_size);
 
         // 释放Left区间，分配到Right区间
-        space_oper.FreeLeft(byte_size);
-        auto rest_size = space_oper.rest_size();
-        auto res = space_oper.AllocRight(rest_size);
+        arena.FreeLeft(byte_size);
+        auto rest_size = arena.rest_size();
+        auto res = arena.AllocRight(rest_size);
         assert(res.has_value());
 
         // Free使用新的页面
@@ -312,8 +312,8 @@ void BlockManager::PageAppend(PageReference* table_page_ref) {
         block_table_descriptor_->entry_index = block_table_descriptor_->count;
         Free({ old_entry_index, *res, rest_size });
 
-        PageSpaceOperator space_oper{ &pager, &new_block_page.page_space };
-        space_oper.AllocLeft(sizeof(BlockTableEntry) * block_table_descriptor_->count);
+        PageArena arena{ &pager, &new_block_page.page_arena_format };
+        arena.AllocLeft(sizeof(BlockTableEntry) * block_table_descriptor_->count);
         TableEntryBuild(&new_block_table[block_table_descriptor_->count], block_table_descriptor_->count , &new_page);
     }
     else {
@@ -323,29 +323,29 @@ void BlockManager::PageAppend(PageReference* table_page_ref) {
 }
 
 void BlockManager::PageCopy(BlockTableEntry* entry) {
-    auto& bucket = node_operator_->btree().bucket();
+    auto& bucket = node_->btree().bucket();
     auto& pager = bucket.pager();
     auto& tx = bucket.tx();
 
     auto page_ref = pager.Reference(entry->pgid, false);
-    auto& block_page = page_ref.page_content<BlockPage>();
+    auto& block_page = page_ref.content<BlockPage>();
     if (tx.NeedCopy(block_page.last_modified_txid)) {
         auto new_page = pager.Copy(std::move(page_ref));
-        entry->pgid = new_page.page_id();
+        entry->pgid = new_page.id();
     }
 }
 
 BlockPage& BlockManager::PageBuild(PageReference* page_ref) {
-    auto& pager = node_operator_->btree().bucket().pager();
-    auto& block_page = page_ref->page_content<BlockPage>();
+    auto& pager = node_->btree().bucket().pager();
+    auto& block_page = page_ref->content<BlockPage>();
 
-    block_page.last_modified_txid = node_operator_->btree().bucket().tx().txid();
+    block_page.last_modified_txid = node_->btree().bucket().tx().txid();
     block_page.fragment_size = 0;
     block_page.first_block_pos = kPageInvalidOffset;
 
-    PageSpaceOperator space_oper{ &pager, &block_page.page_space };
-    space_oper.Build();
-    space_oper.AllocLeft(sizeof(BlockPage) - sizeof(BlockPage::block_table));
+    PageArena arena{ &pager, &block_page.page_arena_format };
+    arena.Build();
+    arena.AllocLeft(sizeof(BlockPage) - sizeof(BlockPage::block_table));
 
     return block_page;
 }

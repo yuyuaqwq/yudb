@@ -5,7 +5,7 @@
 #include <string_view>
 
 #include "noncopyable.h"
-#include "txid.h"
+#include "tx_format.h"
 #include "meta.h"
 #include "bucket.h"
 #include "bucket_public.h"
@@ -16,7 +16,7 @@ class TxManager;
 
 class Tx : noncopyable {
 public:
-    Tx(TxManager* tx_manager, const Meta& meta, bool writable);
+    Tx(TxManager* tx_manager, const MetaFormat& meta, bool writable);
 
     Tx(Tx&& right) noexcept;
     void operator=(Tx&& right) noexcept;
@@ -54,13 +54,13 @@ public:
 
     Pager& pager();
 
-    Meta& meta() { return meta_; }
+    MetaFormat& meta() { return meta_; }
 
 protected:
     friend class TxManager;
 
     TxManager* tx_manager_;
-    Meta meta_;
+    MetaFormat meta_;
 
     bool writable_;
 

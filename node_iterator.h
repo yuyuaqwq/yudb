@@ -21,7 +21,7 @@ public:
     using reference = NodeIterator&;
 
 public:
-    NodeIterator(Node* node, uint16_t index) : node_{ node }, index_{ index } {}
+    NodeIterator(NodeFormat* node, uint16_t index) : node_{ node }, index_{ index } {}
 
     const NodeIterator& operator*() const {
         return *this;
@@ -70,22 +70,22 @@ public:
     uint16_t index() { return index_; }
 
     Cell& key() const {
-        if (node_->type == Node::Type::kBranch) {
+        if (node_->type == NodeFormat::Type::kBranch) {
             return node_->body.branch[index_].key;
         }
         else {
-            assert(node_->type == Node::Type::kLeaf);
+            assert(node_->type == NodeFormat::Type::kLeaf);
             return node_->body.leaf[index_].key;
         }
     }
 
     Cell& value() const {
-        assert(node_->type == Node::Type::kLeaf);
+        assert(node_->type == NodeFormat::Type::kLeaf);
         return node_->body.leaf[index_].value;
     }
 
 private:
-    Node* node_;
+    NodeFormat* node_;
     uint16_t index_;
 };
 

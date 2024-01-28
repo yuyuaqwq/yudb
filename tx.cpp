@@ -6,7 +6,7 @@
 
 namespace yudb {
 
-Tx::Tx(TxManager* tx_manager, const Meta& meta, bool writable) :
+Tx::Tx(TxManager* tx_manager, const MetaFormat& meta, bool writable) :
     tx_manager_{ tx_manager },
     root_bucket_{ &pager(), this, &meta_.root, writable },
     writable_{ writable }
@@ -49,7 +49,5 @@ void Tx::Commit() {
     }
     tx_manager_->Commit();
 }
-
-
 
 } // yudb

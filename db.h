@@ -6,25 +6,26 @@
 
 #include "noncopyable.h"
 #include "file.h"
-#include "meta_operator.h"
+#include "meta.h"
 #include "pager.h"
 #include "tx_manager.h"
+#include "log_writer.h"
 
 namespace yudb {
 
-class Db : noncopyable {
+class DB : noncopyable {
 public:
-    Db() = default;
+    DB() = default;
 
-    static std::unique_ptr<Db> Open(std::string_view path) {
-        auto db = std::make_unique<Db>();
+    static std::unique_ptr<DB> Open(std::string_view path) {
+        auto db = std::make_unique<DB>();
         if (!db->file_.Open(path, false)) {
             return {};
         }
-        if (!db->meta_operator_.Load()) {
+        if (!db->meta_.Load()) {
             return {};
         }
-        db->pager_ = Pager{ db.get(), db->meta_operator_.meta().page_size };
+        db->pager_ = Pager{ db.get(), db->meta_.meta_format().page_size };
         return db;
     }
 
@@ -42,9 +43,10 @@ public:
     friend class TxManager;
 
     File file_;
-    MetaOperator meta_operator_{ this };
+    Meta meta_{ this };
     std::optional<Pager> pager_;
     TxManager tx_manager_{ this };
+    //log::Writer log_writer_;
 };
 
 }

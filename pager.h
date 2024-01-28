@@ -5,19 +5,19 @@
 #include <vector>
 
 #include "noncopyable.h"
-#include "page.h"
+#include "page_format.h"
 #include "page_reference.h"
 #include "cache_manager.h"
 #include "bucket.h"
 
 namespace yudb {
 
-class Db;
+class DB;
 class UpdateTx;
 
 class Pager : noncopyable {
 public:
-    Pager(Db* db, PageSize page_size) : db_{ db },
+    Pager(DB* db, PageSize page_size) : db_{ db },
         page_size_{ page_size },
         cache_manager_{ this } {}
 
@@ -58,8 +58,8 @@ public:
     PageReference Copy(const PageReference& page_ref) {
         auto new_pgid = Alloc(1);
         auto new_page = Reference(new_pgid, true);
-        std::memcpy(&new_page.page_content<uint8_t>(), &page_ref.page_content<uint8_t>(), page_size());
-        Free(page_ref.page_id(), 1);    // Pending
+        std::memcpy(&new_page.content<uint8_t>(), &page_ref.content<uint8_t>(), page_size());
+        Free(page_ref.id(), 1);    // Pending
         return new_page;
     }
 
@@ -92,7 +92,7 @@ public:
     PageSize page_size() { return page_size_; }
 
 private:
-    Db* db_;
+    DB* db_;
     PageSize page_size_;
     CacheManager cache_manager_;
     std::map<TxId, std::vector<std::pair<PageId, PageCount>>> pending_;

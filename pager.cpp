@@ -1,7 +1,7 @@
 #include "pager.h"
 
 #include "db.h"
-#include "node_operator.h"
+#include "node.h"
 #include "tx.h"
 
 namespace yudb {
@@ -52,8 +52,8 @@ PageId Pager::Alloc(PageCount count) {
     auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
     cache_info->dirty = true;
 
-    MutNodeOperator node_operator{ &update_tx.RootBucket().btree(), pgid };
-    node_operator.node().last_modified_txid = update_tx.txid();
+    MutNode node{ &update_tx.RootBucket().btree(), pgid };
+    node.set_last_modified_txid(update_tx.txid());
 
     cache_manager_.Dereference(page_cache);
     printf("alloc:%d\n", pgid);

@@ -70,6 +70,7 @@ public:
     }
 
     void Insert(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
+        
         btree_.Insert(
             { reinterpret_cast<const uint8_t*>(key_buf), key_size },
             { reinterpret_cast<const uint8_t*>(value_buf), value_size }
@@ -81,6 +82,7 @@ public:
     }
 
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
+        
         btree_.Put(
             { reinterpret_cast<const uint8_t*>(key_buf), key_size },
             { reinterpret_cast<const uint8_t*>(value_buf), value_size }
@@ -92,6 +94,7 @@ public:
     }
 
     void Update(Iterator* iter, const void* value_buf, size_t value_size) {
+
         btree_.Update(&std::get<BTreeIterator>(iter->iterator_), { reinterpret_cast<const uint8_t*>(value_buf), value_size});
     }
 
@@ -100,6 +103,7 @@ public:
     }
 
     bool Delete(const void* key_buf, size_t key_size) {
+
         return btree_.Delete({ reinterpret_cast<const uint8_t*>(key_buf), key_size });
     }
 
@@ -108,6 +112,7 @@ public:
     }
 
     void Delete(Iterator* iter) {
+
         btree_.Delete(&std::get<BTreeIterator>(iter->iterator_));
     }
 
@@ -132,9 +137,9 @@ public:
 
     BTree& btree() { return btree_; }
 
-    uint16_t max_leaf_ele_count() { return max_leaf_ele_count_; }
+    uint16_t max_leaf_ele_count() const { return max_leaf_ele_count_; }
 
-    uint16_t max_branch_ele_count() { return max_branch_ele_count_; }
+    uint16_t max_branch_ele_count() const { return max_branch_ele_count_; }
 
 
     void Print(bool str = false) const { btree_.Print(str); }

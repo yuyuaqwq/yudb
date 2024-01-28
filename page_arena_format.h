@@ -1,10 +1,10 @@
 #pragma once
 
-#include "page.h"
+#include "page_format.h"
 
 namespace yudb {
 
-struct PageSpace {
+struct PageArenaFormat {
     PageSize rest_size;
     PageOffset right_size;
 };

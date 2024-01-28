@@ -4,9 +4,9 @@
 #include <optional>
 #include <variant>
 
-#include "page.h"
+#include "page_format.h"
 #include "stack.h"
-#include "node_operator.h"
+#include "node.h"
 #include "page_reference.h"
 
 namespace yudb {
@@ -118,9 +118,9 @@ public:
     Status status() const { return status_; }
 
 private:
-    std::pair<ImmNodeOperator, uint16_t> LeafImmNodeOperator() const;
+    std::pair<ImmNode, uint16_t> LeafImmNode() const;
 
-    std::pair<MutNodeOperator, uint16_t> LeafMutNodeOperator() const;
+    std::pair<MutNode, uint16_t> LeafMutNode() const;
 
     std::tuple<const uint8_t*, size_t, std::optional<PageReference>>
     KeyCell() const;

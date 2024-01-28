@@ -1,8 +1,8 @@
 #pragma once
 
-#include "page.h"
-#include "txid.h"
-#include "page_space.h"
+#include "page_format.h"
+#include "tx_format.h"
+#include "page_arena.h"
 
 namespace yudb {
 
@@ -29,7 +29,7 @@ struct BlockPage {
     union {
         struct {
             TxId last_modified_txid;
-            PageSpace page_space;
+            PageArenaFormat page_arena_format;
             PageOffset first_block_pos;
             PageSize fragment_size;
         };
@@ -45,7 +45,7 @@ struct BlockPage {
 * 而每个leaf_element都有2个span，leaf_element_size是12字节
 * 
 * 需保证一页能够装入block_table
-* 要求 node_size >= leaf_element_size(12) * 2 = 24 (4个span，4项entry)
+* 要求 node_header_size >= leaf_element_size(12) * 2 = 24 (4个span，4项entry)
 * 即满足 block_page_header_size(16) + entry(6) = 22 所使用的空间 (4项entry)
 */
 

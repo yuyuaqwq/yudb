@@ -8,12 +8,12 @@
 
 namespace yudb {
 
-class NodeOperator;
+class Node;
 class PageReference;
 
 class BlockManager : noncopyable {
 public:
-    BlockManager(NodeOperator* node_operator, BlockTableDescriptor* block_info) : node_operator_{ node_operator }, block_table_descriptor_{ block_info } {}
+    BlockManager(Node* node, BlockTableDescriptor* block_info) : node_{ node }, block_table_descriptor_{ block_info } {}
 
     ~BlockManager() = default;
 
@@ -22,10 +22,10 @@ public:
     }
 
     void operator=(BlockManager&& right) noexcept {
-        node_operator_ = right.node_operator_;
+        node_ = right.node_;
         block_table_descriptor_ = right.block_table_descriptor_;
         
-        right.node_operator_ = nullptr;
+        right.node_ = nullptr;
         right.block_table_descriptor_ = nullptr;
     }
 
@@ -45,7 +45,7 @@ public:
     void Print();
 
 
-    void set_node_operator(NodeOperator* node_operator) { node_operator_ = node_operator; }
+    void set_node(Node* node) { node_ = node; }
 
 private:
     void TableEntryBuild(BlockTableEntry* entry, uint16_t index, PageReference* page);
@@ -67,7 +67,7 @@ private:
     void PageCopy(BlockTableEntry* entry);
 
 protected:
-    NodeOperator* node_operator_;
+    Node* node_;
     BlockTableDescriptor* block_table_descriptor_;
 };
 

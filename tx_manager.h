@@ -10,11 +10,11 @@
 
 namespace yudb {
 
-class Db;
+class DB;
 
 class TxManager : noncopyable {
 public:
-    TxManager(Db* db);
+    TxManager(DB* db);
 
 
     UpdateTx Update();
@@ -34,10 +34,10 @@ public:
     Pager& pager();
 
 public:
-    static void CopyMeta(Meta* dst, const Meta& src);
+    static void CopyMeta(MetaFormat* dst, const MetaFormat& src);
 
 private:
-    Db* db_;
+    DB* db_;
     std::unique_ptr<Tx> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;
 };

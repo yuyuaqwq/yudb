@@ -6,7 +6,7 @@
 
 #include "noncopyable.h"
 #include "inline_bucket_iterator.h"
-#include "page.h"
+#include "page_format.h"
 
 namespace yudb {
     

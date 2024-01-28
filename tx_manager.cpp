@@ -6,16 +6,16 @@
 
 namespace yudb {
 
-TxManager::TxManager(Db* db) :
+TxManager::TxManager(DB* db) :
     db_{ db } {}
 
 UpdateTx TxManager::Update() {
     if (!update_tx_) {
-        update_tx_ = std::make_unique<Tx>(this, db_->meta_operator_.meta(), true);
+        update_tx_ = std::make_unique<Tx>(this, db_->meta_.meta_format(), true);
     }
     else {
         std::destroy_at(update_tx_.get());
-        std::construct_at(update_tx_.get(), this, db_->meta_operator_.meta(), true);
+        std::construct_at(update_tx_.get(), this, db_->meta_.meta_format(), true);
     }
     ++update_tx_->meta_.txid;
     if (update_tx_->meta_.txid == kInvalidTxId) {
@@ -32,14 +32,14 @@ UpdateTx TxManager::Update() {
 }
 
 ViewTx TxManager::View() {
-    auto iter = view_tx_map_.find(db_->meta_operator_.meta().txid);
+    auto iter = view_tx_map_.find(db_->meta_.meta_format().txid);
     if (iter == view_tx_map_.end()) {
-        view_tx_map_.insert({ db_->meta_operator_.meta().txid , 1});
+        view_tx_map_.insert({ db_->meta_.meta_format().txid , 1});
     }
     else {
         ++iter->second;
     }
-    return ViewTx{ this, db_->meta_operator_.meta() };
+    return ViewTx{ this, db_->meta_.meta_format() };
 }
 
 void TxManager::RollBack() {
@@ -58,7 +58,7 @@ void TxManager::RollBack(TxId view_txid) {
 
 void TxManager::Commit() {
     pager().CommitPending();
-    CopyMeta(&db_->meta_operator_.meta(), update_tx_->meta_);
+    CopyMeta(&db_->meta_.meta_format(), update_tx_->meta_);
 }
 
 
@@ -67,7 +67,7 @@ Pager& TxManager::pager() {
 }
 
 
-void TxManager::CopyMeta(Meta* dst, const Meta& src) {
+void TxManager::CopyMeta(MetaFormat* dst, const MetaFormat& src) {
     dst->root = src.root;
     dst->page_count = src.page_count;
     dst->txid = src.txid;

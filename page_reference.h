@@ -6,7 +6,7 @@
 
 
 #include "noncopyable.h"
-#include "page.h"
+#include "page_format.h"
 
 namespace yudb {
 
@@ -33,12 +33,12 @@ public:
     }
 
     template <typename T>
-    const T& page_content() const { return *reinterpret_cast<T*>(page_buff_); }
+    const T& content() const { return *reinterpret_cast<T*>(page_buff_); }
 
     template <typename T>
-    T& page_content() { return *reinterpret_cast<T*>(page_buff_); }
+    T& content() { return *reinterpret_cast<T*>(page_buff_); }
 
-    PageId page_id() const;
+    PageId id() const;
 
 protected:
     void Dereference();

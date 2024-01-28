@@ -22,10 +22,10 @@ Bucket::Bucket(Pager* pager, Tx* tx, PageId* btree_root, bool writable) :
     btree_{ this, btree_root, DefalutComparator },
     writable_{ writable }
 {
-    auto free_size = pager_->page_size() - (sizeof(Node) - sizeof(Node::body));
+    auto free_size = pager_->page_size() - (sizeof(NodeFormat) - sizeof(NodeFormat::body));
 
-    max_leaf_ele_count_ = free_size / sizeof(Node::LeafElement);
-    max_branch_ele_count_ = (free_size - sizeof(PageId)) / sizeof(Node::BranchElement);
+    max_leaf_ele_count_ = free_size / sizeof(NodeFormat::LeafElement);
+    max_branch_ele_count_ = (free_size - sizeof(PageId)) / sizeof(NodeFormat::BranchElement);
 
     inlineable_ = false;
 }
@@ -36,9 +36,9 @@ Bucket::Bucket(Pager* pager, Tx* tx, std::span<const uint8_t> inline_bucket_data
     btree_{ this, nullptr, DefalutComparator },
     writable_{ writable }
 {
-    auto free_size = pager_->page_size() - (sizeof(Node) - sizeof(Node::body));
-    max_leaf_ele_count_ = free_size / sizeof(Node::LeafElement);
-    max_branch_ele_count_ = (free_size - sizeof(PageId)) / sizeof(Node::BranchElement);
+    auto free_size = pager_->page_size() - (sizeof(NodeFormat) - sizeof(NodeFormat::body));
+    max_leaf_ele_count_ = free_size / sizeof(NodeFormat::LeafElement);
+    max_branch_ele_count_ = (free_size - sizeof(PageId)) / sizeof(NodeFormat::BranchElement);
 
     inlineable_ = true;
     inline_bucket_.Deserialize(inline_bucket_data);

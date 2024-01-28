@@ -2,23 +2,27 @@
 
 #include <cstdint>
 
-#include "page.h"
-#include "txid.h"
+#include "noncopyable.h"
+#include "meta_format.h"
 
 namespace yudb {
 
-#pragma pack(push, 1)
-struct Meta {
-    uint32_t sign;
-    uint32_t min_version;
-    PageSize page_size;
-    PageCount page_count;
-    PageId root;
-    TxId txid;
-    uint32_t crc32;
-};
-#pragma pack(pop)
+class DB;
 
-constexpr size_t kMetaSize = sizeof(Meta);
+class Meta : noncopyable {
+public:
+    Meta(DB* db) : db_{ db } {};
+
+    bool Load();
+
+    void Save();
+
+    MetaFormat& meta_format() { return meta_format_; }
+
+private:
+    DB* db_;
+    MetaFormat meta_format_{ 0 };
+    size_t meta_index_{ 0 };
+};
 
 } // namespace yudb

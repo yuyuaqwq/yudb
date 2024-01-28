@@ -51,7 +51,7 @@ void TestLru() {
 
 }
 
-void TestPager(yudb::Db* db) {
+void TestPager(yudb::DB* db) {
     std::unordered_set<yudb::PageId> set;
 
     for (auto i = 0; i < 100000; i++) {
@@ -59,19 +59,19 @@ void TestPager(yudb::Db* db) {
         set.insert(pgid);
         auto page_ref = db->pager_->Reference(pgid, true);
         for (auto i = 0; i < db->pager_->page_size(); i+=4) {
-            std::memcpy(&(&page_ref.page_content<uint8_t>())[i], & pgid, sizeof(pgid));
+            std::memcpy(&(&page_ref.content<uint8_t>())[i], & pgid, sizeof(pgid));
         }
         
     }
     for (auto pgid : set) {
         auto page_ref = db->pager_->Reference(pgid, false);
         for (auto i = 0; i < db->pager_->page_size(); i += 4) {
-            assert(std::memcmp(&(&page_ref.page_content<uint8_t>())[i], &pgid, sizeof(pgid)) == 0);
+            assert(std::memcmp(&(&page_ref.content<uint8_t>())[i], &pgid, sizeof(pgid)) == 0);
         }
     }
 }
 
-void TestBTree(yudb::Db* db) {
+void TestBTree(yudb::DB* db) {
     srand(10);
 
     auto count = 20;
@@ -149,7 +149,7 @@ void TestBTree(yudb::Db* db) {
 
         for (auto i = 0; i < count; i++) {
             auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
-            //bucket.Print(); printf("\n\n\n\n\n");
+            bucket.Print(); printf("\n\n\n\n\n");
             assert(res);
         }
 
@@ -255,7 +255,7 @@ std::string RandomString(size_t min_size, size_t max_size) {
     return str;
 }
 
-void TestBlock(yudb::Db* db) {
+void TestBlock(yudb::DB* db) {
     auto tx = db->Update();
     auto bucket = tx.RootBucket();
 
@@ -278,7 +278,7 @@ void TestBlock(yudb::Db* db) {
 
     srand(10);
 
-    auto count = 1000;
+    auto count = 10000;
     std::vector<std::string> arr(count);
 
 
@@ -326,7 +326,7 @@ int main() {
     //TestLog();
 
 
-    auto db = yudb::Db::Open("Z:/test.ydb");
+    auto db = yudb::DB::Open("Z:/test.ydb");
     if (!db) {
         std::cout << "yudb::Db::Open failed!\n";
         return -1;
