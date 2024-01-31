@@ -7,22 +7,23 @@
 
 namespace yudb {
 
-class DB;
+class DBImpl;
 
 class Meta : noncopyable {
 public:
-    Meta(DB* db) : db_{ db } {};
+    Meta(DBImpl* db) : db_{ db } {};
 
     bool Load();
-
     void Save();
+    void Switch() { meta_index_ = !meta_index_; }
 
-    MetaFormat& meta_format() { return meta_format_; }
+    const auto& meta_format() const { return meta_format_; }
+    auto& meta_format() { return meta_format_; }
 
 private:
-    DB* db_;
+    DBImpl* db_;
     MetaFormat meta_format_{ 0 };
-    size_t meta_index_{ 0 };
+    uint32_t meta_index_{ 0 };
 };
 
 } // namespace yudb

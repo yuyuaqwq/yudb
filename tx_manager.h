@@ -1,44 +1,43 @@
 #pragma once
 
-#include <memory>
+#include <optional>
 #include <map>
 
 #include "noncopyable.h"
 #include "tx.h"
-#include "tx_public.h"
 
 
 namespace yudb {
 
-class DB;
+class DBImpl;
 
 class TxManager : noncopyable {
 public:
-    TxManager(DB* db);
+    TxManager(DBImpl* db);
+    ~TxManager() {
+        if (!view_tx_map_.empty()) {
+            throw std::runtime_error("There are read transactions that have not been exited.");
+        }
+        if (update_tx_.has_value()) {
+            throw std::runtime_error("There are write transactions that have not been exited.");
+        }
+    }
 
-
-    UpdateTx Update();
-
-    ViewTx View();
-
-
-    void RollBack();
-
-    void RollBack(TxId txid);
-
-    void Commit();
-
-
-    Tx& CurrentUpdateTx() { return *update_tx_; }
-
+    const Pager& pager() const;
     Pager& pager();
 
-public:
-    static void CopyMeta(MetaFormat* dst, const MetaFormat& src);
+    UpdateTx Update();
+    ViewTx View();
+
+    void RollBack();
+    void RollBack(TxId txid);
+    void Commit();
+
+    TxImpl& CurrentUpdateTx() { return *update_tx_; }
 
 private:
-    DB* db_;
-    std::unique_ptr<Tx> update_tx_;
+    DBImpl* db_;
+    std::optional<TxImpl> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;
 };
 

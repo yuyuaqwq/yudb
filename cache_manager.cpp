@@ -52,8 +52,7 @@ void CacheManager::Dereference(uint8_t* page_cache) {
     assert(static_cast<int32_t>(cache_info->reference_count) >= 0);
 }
 
-
-PageId CacheManager::CacheToPageId(uint8_t* page_cache) const {
+PageId CacheManager::CacheToPageId(uint8_t* page_cache) {
     auto diff = page_cache - page_pool_;
     CacheId cache_id = diff / pager_->page_size();
     auto& cache_info = lru_list_.GetNodeByCacheId(cache_id);

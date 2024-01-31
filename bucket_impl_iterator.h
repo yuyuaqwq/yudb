@@ -7,13 +7,13 @@
 
 namespace yudb {
 
-class BucketIterator {
+class BucketImplIterator {
 public:
     using iterator_category = std::bidirectional_iterator_tag;
 
-    using value_type = typename BucketIterator;
+    using value_type = typename BucketImplIterator;
     using difference_type = typename std::ptrdiff_t;
-    using pointer = typename BucketIterator*;
+    using pointer = typename BucketImplIterator*;
     using reference = const value_type&;
 
     enum class ValueType {
@@ -23,19 +23,19 @@ public:
     };
 
 public:
-    explicit BucketIterator(const BTreeIterator& iterator_) : iterator_{ iterator_ } {}
-    explicit BucketIterator(const InlineBucketIterator& iterator_) : iterator_{ iterator_ } {}
+    explicit BucketImplIterator(const BTreeIterator& iterator_) : iterator_{ iterator_ } {}
+    explicit BucketImplIterator(const InlineBucketIterator& iterator_) : iterator_{ iterator_ } {}
 
 public:
     reference operator*() const noexcept {
         return *this;
     }
 
-    const BucketIterator* operator->() const noexcept {
+    const BucketImplIterator* operator->() const noexcept {
         return this;
     }
 
-    BucketIterator& operator++() noexcept {
+    BucketImplIterator& operator++() noexcept {
         if (iterator_.index() == kInline) {
             auto& iter = std::get<kInline>(iterator_);
             ++iter;
@@ -47,13 +47,13 @@ public:
         return *this;
     }
 
-    BucketIterator operator++(int) noexcept {
-        BucketIterator tmp = *this;
+    BucketImplIterator operator++(int) noexcept {
+        BucketImplIterator tmp = *this;
         ++tmp;
         return tmp;
     }
 
-    BucketIterator& operator--() noexcept {
+    BucketImplIterator& operator--() noexcept {
         if (iterator_.index() == kInline) {
             auto& iter = std::get<kInline>(iterator_);
             --iter;
@@ -65,13 +65,13 @@ public:
         return *this;
     }
 
-    BucketIterator operator--(int) noexcept {
-        BucketIterator tmp = *this;
+    BucketImplIterator operator--(int) noexcept {
+        BucketImplIterator tmp = *this;
         --tmp;
         return tmp;
     }
 
-    bool operator==(const BucketIterator& right) const noexcept {
+    bool operator==(const BucketImplIterator& right) const noexcept {
         if (iterator_.index() == kInline) {
             auto& iter1 = std::get<kInline>(iterator_);
             auto& iter2 = std::get<kInline>(right.iterator_);
@@ -147,7 +147,6 @@ public:
     }
 
 private:
-
     void set_is_bucket() {
         if (iterator_.index() == kInline) {
 
@@ -181,7 +180,7 @@ private:
 
 
 private:
-    friend class Bucket;
+    friend class BucketImpl;
 
     enum IteratorType{
         kInline = 0,

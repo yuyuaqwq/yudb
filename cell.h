@@ -51,17 +51,14 @@ struct Cell {
             uint8_t record_index_low;
             uint16_t size;
             PageOffset offset;
-
-            uint16_t record_index() const {
+            const uint16_t& record_index() const {
                 return (record_index_high << 8) | record_index_low;
             }
-
             void set_record_index(uint16_t record_index) {
                 assert(record_index < (1 << 13));
                 record_index_high = (record_index << 8) & 0xff;
                 record_index_low = record_index & 0xff;
             }
-
         } block;
     };
 };

@@ -24,7 +24,6 @@ public:
         page_buff_ = nullptr;
         operator=(std::move(right));
     }
-
     void operator=(PageReference&& right) noexcept {
         Dereference();
         pager_ = right.pager_;
@@ -32,11 +31,8 @@ public:
         right.page_buff_ = nullptr;
     }
 
-    template <typename T>
-    const T& content() const { return *reinterpret_cast<T*>(page_buff_); }
-
-    template <typename T>
-    T& content() { return *reinterpret_cast<T*>(page_buff_); }
+    template <typename T> const T& content() const { return *reinterpret_cast<T*>(page_buff_); }
+    template <typename T> T& content() { return *reinterpret_cast<T*>(page_buff_); }
 
     PageId id() const;
 

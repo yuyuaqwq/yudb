@@ -1,32 +1,51 @@
 #include "pager.h"
 
-#include "db.h"
+#include "db_impl.h"
 #include "node.h"
-#include "tx.h"
+#include "tx_impl.h"
 
 namespace yudb {
 
 void Pager::Read(PageId pgid, void* cache, PageCount count) {
-    db_->file_.Seek(pgid * page_size());
-    auto read_size = db_->file_.Read(cache, count * page_size());
+    db_->file().Seek(pgid * page_size());
+    auto read_size = db_->file().Read(cache, count * page_size());
     assert(read_size == 0 || read_size == count * page_size());
     if (read_size == 0) {
         memset(cache, 0, count * page_size());
     }
 }
 
-void Pager::Write(PageId pgid, void* cache, PageCount count) {
-    db_->file_.Seek(pgid * page_size());
-    db_->file_.Write(cache, count * page_size());
+void Pager::Write(PageId pgid, const void* cache, PageCount count) {
+    db_->file().Seek(pgid * page_size());
+    db_->file().Write(cache, count * page_size());
 }
 
+void Pager::SyncAllPage() {
+    std::vector<PageCount> sort_arr;
+    sort_arr.reserve(kCachePoolPageCount);
+    auto& lru_list = cache_manager_.lru_list();
+    for (auto& iter : lru_list) {
+        if (iter.value().dirty) {
+            assert(iter.value().reference_count == 0);
+            sort_arr.push_back(iter.key());
+        }
+    }
+    std::sort(sort_arr.begin(), sort_arr.end());
+    for (auto& pgid : sort_arr) {
+        auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
+        Write(pgid, page_cache, 1);
+        assert(cache_info->dirty);
+        cache_info->dirty = false;
+        cache_manager_.Dereference(page_cache);
+    }
+}
 
 PageId Pager::Alloc(PageCount count) {
-    auto& update_tx = db_->tx_manager_.CurrentUpdateTx();
+    auto& update_tx = db_->tx_manager().CurrentUpdateTx();
     auto& root_bucket = update_tx.RootBucket();
 
     PageId pgid = kPageInvalidId;
-    if (update_tx.meta().root != kPageInvalidId) {
+    if (update_tx.meta_format().root != kPageInvalidId) {
         auto& free_bucket = root_bucket.SubBucket("fr_pg", true);
         for (auto& iter : free_bucket) {
             auto free_count = iter.value<uint32_t>();
@@ -46,8 +65,12 @@ PageId Pager::Alloc(PageCount count) {
         }
     }
     if (pgid == kPageInvalidId) {
-        pgid = update_tx.meta().page_count;
-        update_tx.meta().page_count += count;
+        pgid = update_tx.meta_format().page_count;
+        auto new_pgid = pgid += count;
+        if (new_pgid < pgid) {
+            throw std::runtime_error("Page allocation failed, there are not enough available pages.");
+        }
+        update_tx.meta_format().page_count += count;
     }
     auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
     cache_info->dirty = true;
@@ -62,7 +85,7 @@ PageId Pager::Alloc(PageCount count) {
 
 void Pager::Free(PageId free_pgid, PageCount free_count) {
     printf("pending:%d\n", free_pgid);
-    auto& update_tx = db_->tx_manager_.CurrentUpdateTx();
+    auto& update_tx = db_->tx_manager().CurrentUpdateTx();
     auto& root_bucket = update_tx.RootBucket();
 
     auto iter = pending_.find(update_tx.txid());
@@ -75,13 +98,13 @@ void Pager::Free(PageId free_pgid, PageCount free_count) {
 }
 
 void Pager::RollbackPending() {
-    auto& update_tx = db_->tx_manager_.CurrentUpdateTx();
+    auto& update_tx = db_->tx_manager().CurrentUpdateTx();
     pending_.erase(update_tx.txid());
 }
 
 void Pager::CommitPending() {
     return;// 暂时注释，处理可变长kv
-    auto& update_tx = db_->tx_manager_.CurrentUpdateTx();
+    auto& update_tx = db_->tx_manager().CurrentUpdateTx();
     auto& root_bucket = update_tx.RootBucket();
     auto& pending_bucket = root_bucket.SubBucket("tx_pd", true);
     auto txid = update_tx.txid();
@@ -92,7 +115,7 @@ void Pager::CommitPending() {
 }
 
 void Pager::ClearPending(TxId min_view_txid) {
-    auto& update_tx = db_->tx_manager_.CurrentUpdateTx();
+    auto& update_tx = db_->tx_manager().CurrentUpdateTx();
     auto& root_bucket = update_tx.RootBucket();
     auto& free_bucket = root_bucket.SubBucket("fr_pg", true);
     auto& pending_bucket = root_bucket.SubBucket("tx_pd", true);

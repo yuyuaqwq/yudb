@@ -1,71 +1,57 @@
 #pragma once
+#include <vector>
 
-#include <cstdint>
-#include <memory>
-#include <string_view>
-
-#include "noncopyable.h"
-#include "tx_format.h"
-#include "meta.h"
-#include "bucket.h"
-#include "bucket_public.h"
+#include "tx_impl.h"
 
 namespace yudb {
 
-class TxManager;
-
-class Tx : noncopyable {
+class ViewTx {
 public:
-    Tx(TxManager* tx_manager, const MetaFormat& meta, bool writable);
+    ViewTx(TxManager* tx_manager, const MetaFormat& meta) : tx_{ tx_manager, meta, false } {}
 
-    Tx(Tx&& right) noexcept;
-    void operator=(Tx&& right) noexcept;
-
-    Bucket& RootBucket() { return root_bucket_; }
-
-
-    uint32_t NewSubBucket(PageId* root_pgid, bool writable) {
-        sub_bucket_cache_.emplace_back(std::make_unique<Bucket>(&pager(), this, root_pgid, writable));
-        return sub_bucket_cache_.size() - 1;
+    ~ViewTx() {
+        tx_.RollBack(tx_.txid());
     }
 
-    uint32_t NewSubBucket(std::span<const uint8_t> inline_bucket_data, bool writable) {
-        sub_bucket_cache_.emplace_back(std::make_unique<Bucket>(&pager(), this, inline_bucket_data, writable));
-        return sub_bucket_cache_.size() - 1;
+public:
+    ViewBucket RootBucket() {
+        auto& root_bucket = tx_.RootBucket();
+        return ViewBucket{ &root_bucket.SubBucket("user", false) };
     }
 
-    Bucket& AtSubBucket(uint32_t index) {
-        return *sub_bucket_cache_[index];
+private:
+    TxImpl tx_;
+};
+
+class UpdateTx {
+public:
+    UpdateTx(TxImpl* tx) : tx_{ tx } {}
+
+    ~UpdateTx() {
+        if (tx_) {
+            RollBack();
+        }
     }
 
-
-    bool NeedCopy(TxId txid) {
-        return txid < this->txid();
+public:
+    UpdateBucket RootBucket() {
+        auto& root_bucket = tx_->RootBucket();
+        return UpdateBucket{ &root_bucket.SubBucket("user", true) };
     }
 
-    void RollBack();
+    void RollBack() {
+        assert(tx_ != nullptr);
+        tx_->RollBack();
+        tx_ = nullptr;
+    }
 
-    void RollBack(TxId view_txid);
+    void Commit() {
+        tx_->Commit();
+        tx_ = nullptr;
+    }
 
-    void Commit();
-
-
-    TxId txid() { return meta_.txid; }
-
-    Pager& pager();
-
-    MetaFormat& meta() { return meta_; }
-
-protected:
-    friend class TxManager;
-
-    TxManager* tx_manager_;
-    MetaFormat meta_;
-
-    bool writable_;
-
-    Bucket root_bucket_;
-    std::vector<std::unique_ptr<Bucket>> sub_bucket_cache_;
+private:
+    TxImpl* tx_;
 };
 
 } // namespace yudb

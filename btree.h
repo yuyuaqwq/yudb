@@ -15,7 +15,7 @@
 
 namespace yudb {
 
-class Bucket;
+class BucketImpl;
 
 class BTree : noncopyable {
 public:
@@ -23,48 +23,36 @@ public:
     using Comparator = std::strong_ordering(*)(std::span<const uint8_t> key1, std::span<const uint8_t> key2);
 
 public:
-    BTree(Bucket* bucket, PageId* root_pgid, Comparator comparator);
+    BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator);
 
     ~BTree() = default;
 
     BTree(BTree&& right) noexcept {
         operator=(std::move(right));
     }
-
     void operator=(BTree&& right) noexcept {
-        bucket_ = right.bucket_;
-        root_pgid_ = right.root_pgid_;
+        bucket_ = nullptr;
+        root_pgid_ = nullptr;
         comparator_ = std::move(right.comparator_);
         right.root_pgid_ = nullptr;
     }
 
+    void set_bucket(BucketImpl* bucket) { bucket_ = bucket; }
+    void set_root_pgid(PageId* root_pgid) { root_pgid_ = root_pgid; }
+    BucketImpl& bucket() const { return *bucket_; }
 
-    Iterator LowerBound(std::span<const uint8_t> key) const;
-
-    Iterator Get(std::span<const uint8_t> key) const;
-
+    Iterator LowerBound(std::span<const uint8_t> key);
+    Iterator Get(std::span<const uint8_t> key);
     void Insert(std::span<const uint8_t> key, std::span<const uint8_t> value);
-
     void Put(std::span<const uint8_t> key, std::span<const uint8_t> value);
-
     void Update(Iterator* iter, std::span<const uint8_t> value);
-
     bool Delete(std::span<const uint8_t> key);
-
     void Delete(Iterator* iter);
-
 
     void Print(bool str = false) const;
 
-
     Iterator begin() const noexcept;
-
     Iterator end() const noexcept;
-
-
-    void set_bucket(Bucket* bucket) { bucket_ = bucket; }
-
-    Bucket& bucket() const { return *bucket_; }
 
 private:
     std::tuple<MutNode, uint16_t, MutNode, bool> GetSibling(Iterator* iter);
@@ -112,7 +100,7 @@ private:
 private:
     friend class BTreeIterator;
 
-    Bucket* bucket_;
+    BucketImpl* bucket_;
     PageId* root_pgid_; 
 
     Comparator comparator_;

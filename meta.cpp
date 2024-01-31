@@ -1,14 +1,14 @@
 #include "meta.h"
 
 #include "version.h"
-#include "db.h"
+#include "db_impl.h"
 #include "crc32.h"
 
 namespace yudb {
 
 bool Meta::Load() {
-    db_->file_.Seek(0, File::PointerMode::kDbFilePointerSet);
-    auto success = db_->file_.Read(&meta_format_, sizeof(meta_format_));
+    db_->file().Seek(0, File::PointerMode::kDbFilePointerSet);
+    auto success = db_->file().Read(&meta_format_, sizeof(meta_format_));
     if (!success) {
         // Initialize Meta Information
         meta_format_.sign = YUDB_SIGN;
@@ -22,23 +22,23 @@ bool Meta::Load() {
         auto crc32_value = crc32.End();
         meta_format_.crc32 = crc32_value;
 
-        db_->file_.Seek(0, File::PointerMode::kDbFilePointerSet);
-        db_->file_.Write(&meta_format_, kMetaSize);
+        db_->file().Seek(0, File::PointerMode::kDbFilePointerSet);
+        db_->file().Write(&meta_format_, kMetaSize);
 
         meta_format_.txid = 0;
-        db_->file_.Seek(kPageSize, File::PointerMode::kDbFilePointerSet);
-        db_->file_.Write(&meta_format_, kMetaSize);
+        db_->file().Seek(kPageSize, File::PointerMode::kDbFilePointerSet);
+        db_->file().Write(&meta_format_, kMetaSize);
 
         meta_format_.txid = 1;
         return true;
     }
 
-    // Check Meta information
+    // 校验可用元信息
     MetaFormat meta_list[2];
     std::memcpy(&meta_list[0], &meta_format_, kMetaSize);
 
-    db_->file_.Seek(kPageSize, File::PointerMode::kDbFilePointerSet);
-    if (db_->file_.Read(&meta_list[1], kMetaSize) != kMetaSize) {
+    db_->file().Seek(kPageSize, File::PointerMode::kDbFilePointerSet);
+    if (db_->file().Read(&meta_list[1], kMetaSize) != kMetaSize) {
         return false;
     }
     if (meta_list[0].sign != YUDB_SIGN && meta_list[1].sign != YUDB_SIGN) {
@@ -82,8 +82,8 @@ void Meta::Save() {
     Crc32 crc32;
     crc32.Append(&meta_format_, kMetaSize - sizeof(uint32_t));
     meta_format_.crc32 = crc32.End();
-    db_->file_.Seek(meta_index_ * kPageSize, File::PointerMode::kDbFilePointerSet);
-    db_->file_.Write(&meta_format_, kMetaSize);
+    db_->file().Seek((!meta_index_) * kPageSize, File::PointerMode::kDbFilePointerSet);
+    db_->file().Write(&meta_format_, kMetaSize);
 }
 
 } // namespace yudb

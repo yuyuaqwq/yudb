@@ -11,6 +11,70 @@
 
 namespace yudb {
 
+template<typename LruList, typename K, typename V>
+class LruListIterator {
+public:
+    using iterator_category = std::bidirectional_iterator_tag;
+
+    using value_type = LruListIterator;
+    using difference_type = typename std::ptrdiff_t;
+    using pointer = LruListIterator*;
+    using reference = const value_type&;
+
+    LruListIterator(LruList* list, CacheId id) : list_{ list }, id_{ id } {}
+
+    reference operator*() const noexcept {
+        return *this;
+    }
+
+    pointer operator->() const noexcept {
+        return this;
+    }
+
+    LruListIterator& operator++() noexcept {
+        auto node = list_->LruListGetNode(id_);
+        id_ = node.next;
+        return *this;
+    }
+
+    LruListIterator operator++(int) noexcept {
+        auto node = list_->LruListGetNode(id_);
+        LruListIterator tmp = *this;
+        id_ = node.next;
+        return tmp;
+    }
+
+    LruListIterator& operator--() noexcept {
+        auto node = list_->LruListGetNode(id_);
+        id_ = node.prev;
+        return *this;
+    }
+
+    LruListIterator operator--(int) noexcept {
+        auto node = list_->LruListGetNode(id_);
+        LruListIterator tmp = *this;
+        id_ = node.prev;
+        return tmp;
+    }
+
+    bool operator==(const LruListIterator& right) const noexcept {
+        return id_ == right.id_;
+    }
+
+    const K& key() const {
+        return list_->PoolNode(id_).key;
+    }
+
+    const V& value() const {
+        return list_->PoolNode(id_).value;
+    }
+
+
+private:
+    LruList* list_;
+    CacheId id_;
+};
+
 template<typename K, typename V>
 class LruList {
 private:
@@ -24,8 +88,6 @@ private:
         CacheId tail{ kCacheInvalidId };
     };
 
-    using GetListNodeFunc = List::Node&(LruList::*)(CacheId);
-
     struct Node {
         K key;
         union {
@@ -35,61 +97,11 @@ private:
         List::Node lru_node;
     };
 
-private:
-    class Iterator {
-    public:
-        using iterator_category = std::bidirectional_iterator_tag;
+    using GetListNodeFunc = List::Node&(LruList::*)(CacheId);
 
-        using value_type = typename Node;
-        using difference_type = typename std::ptrdiff_t;
-        using pointer = typename Node*;
-        using reference = const value_type&;
-
-        Iterator(LruList* list, CacheId id) : list_{ list }, id_{ id } {}
-
-        reference operator*() const noexcept {
-            return list_->PoolNode(id_);
-        }
-
-        pointer operator->() const noexcept {
-            return &list_->PoolNode(id_);
-        }
-
-        Iterator& operator++() noexcept {
-            auto node = list_->LruListGetNode(id_);
-            id_ = node.next;
-            return *this;
-        }
-
-        Iterator operator++(int) noexcept {
-            auto node = list_->LruListGetNode(id_);
-            Iterator tmp = *this;
-            id_ = node.next;
-            return tmp;
-        }
-
-        Iterator& operator--() noexcept {
-            auto node = list_->LruListGetNode(id_);
-            id_ = node.prev;
-            return *this;
-        }
-
-        Iterator operator--(int) noexcept {
-            auto node = list_->LruListGetNode(id_);
-            Iterator tmp = *this;
-            id_ = node.prev;
-            return tmp;
-        }
-
-        bool operator==(const Iterator& right) const noexcept {
-            return id_ == right.id_;
-        }
-
-        LruList* list_;
-        CacheId id_;
-    };
-
+    using Iterator = LruListIterator<LruList<K, V>, K, V>;
 public:
+
     LruList(size_t max_count) : pool_(max_count) {
         for (CacheId i = max_count - 1; i > 0; i--) {
             auto& node = PoolNode(i);
@@ -98,7 +110,6 @@ public:
         }
         ListPushFront(free_list_, &LruList::FreeListGetNode, 0);
     }
-
 
     /*
     * 返回被淘汰的对象
@@ -128,7 +139,6 @@ public:
         map_.insert(std::pair{ key, free });
         return evict;
     }
-
     std::pair<V*, CacheId> Get(const K& key, bool put_front = true) {
         auto iter = map_.find(key);
         if (iter == map_.end()) {
@@ -140,7 +150,6 @@ public:
         }
         return { &PoolNode(iter->second).value, iter->second };
     }
-
     bool Del(const K& key) {
         auto iter = map_.find(key);
         if (iter == map_.end()) {
@@ -151,7 +160,6 @@ public:
         map_.erase(iter);
         return true;
     }
-
     V& Front() {
         return PoolNode(ListFront(lru_list_)).value;
     }
@@ -159,7 +167,6 @@ public:
     const Node& GetNodeByCacheId(CacheId cache_id) const {
         return PoolNode(cache_id);
     }
-
     Node& GetNodeByCacheId(CacheId cache_id) {
         return PoolNode(cache_id);
     }
@@ -167,15 +174,14 @@ public:
     Iterator begin() noexcept {
         return Iterator{ this, ListFront(lru_list_) };
     }
-
     Iterator end() noexcept {
         return Iterator{ this, kCacheInvalidId };
     }
 
     void Print() {
         std::cout << "LruList:";
-        for (auto& node : *this) {
-            std::cout << node.key << " ";
+        for (auto& iter : *this) {
+            std::cout << iter.key() << " ";
         }
         std::cout << std::endl;
     }
@@ -184,15 +190,12 @@ private:
     List::Node& FreeListGetNode(CacheId i) {
         return PoolNode(i).free_node;
     }
-
     List::Node& LruListGetNode(CacheId i) {
         return PoolNode(i).lru_node;
     }
-
     Node& PoolNode(CacheId i) {
         return pool_[i];
     }
-
     const Node& PoolNode(CacheId i) const {
         return pool_[i];
     }
@@ -212,7 +215,6 @@ private:
         }
         list.front = i;
     }
-
     void ListDelete(List& list, GetListNodeFunc get_node, CacheId i) {
         assert(i != kCacheInvalidId);
         if (list.front == i && list.tail == i) {
@@ -240,24 +242,22 @@ private:
             list.tail = prev;
         }
     }
-
     void ListPopFront(List& list, GetListNodeFunc get_node) {
         ListDelete(list, get_node, list.front);
     }
-
     void ListPopTail(List& list, GetListNodeFunc get_node) {
         ListDelete(list, get_node, list.tail);
     }
-
     CacheId ListFront(List& list) {
         return list.front;
     }
-
     CacheId ListTail(List& list) {
         return list.tail;
     }
 
 private:
+    friend Iterator;
+
     List free_list_;
     List lru_list_;
 

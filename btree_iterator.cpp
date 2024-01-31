@@ -1,8 +1,8 @@
 #include "btree_iterator.h"
 
 #include "btree.h"
-#include "bucket.h"
-#include "tx.h"
+#include "bucket_impl.h"
+#include "tx_impl.h"
 
 namespace yudb {
 
@@ -292,7 +292,7 @@ void BTreeIterator::PathCopy() {
     for (ptrdiff_t i = stack_.size() - 1; i >= 0; i--) {
         auto& [pgid, index] = stack_[i];
         MutNode node{ btree_, pgid };
-        if (!tx.NeedCopy(node.last_modified_txid())) {
+        if (!tx.IsLegacyTx(node.last_modified_txid())) {
             if (node.IsBranch()) {
                 assert(lower_pgid != kPageInvalidId);
                 node.BranchSetLeftChild(index, lower_pgid);

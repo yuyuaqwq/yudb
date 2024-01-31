@@ -6,9 +6,11 @@
 
 #include <Windows.h>
 
+#include "noncopyable.h"
+
 namespace yudb {
 
-class File {
+class File : noncopyable {
 public:
     enum class PointerMode {
         kDbFilePointerSet = FILE_BEGIN,
@@ -19,12 +21,21 @@ public:
 public:
     File() = default;
     ~File() {
-        if (handle_ != INVALID_HANDLE_VALUE) {
-            CloseHandle(handle_);
-        }
+        Close();
+    }
+
+    File(File&& right) noexcept {
+        operator=(std::move(right));
+    }
+
+    void operator=(File&& right) noexcept {
+        Close();
+        handle_ = right.handle_;
+        right.handle_ = INVALID_HANDLE_VALUE;
     }
 
     bool Open(std::string_view path, bool use_system_buf) {
+        assert(handle_ == INVALID_HANDLE_VALUE);
         if (use_system_buf) {
             handle_ = CreateFileA(path.data(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         }
@@ -69,6 +80,14 @@ public:
     void Sync() {
         if (!FlushFileBuffers(handle_)) {
             throw std::ios_base::failure{ "sync file failed!" };
+        }
+    }
+
+private:
+    void Close() {
+        if (handle_ != INVALID_HANDLE_VALUE) {
+            CloseHandle(handle_);
+            handle_ = INVALID_HANDLE_VALUE;
         }
     }
 

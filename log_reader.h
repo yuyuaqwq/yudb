@@ -13,17 +13,37 @@ namespace log {
 
 class Reader : noncopyable {
 public:
-    Reader(File* file) :
-        file_{ file }, 
+    Reader() :
         eof_{ false },
         size_{ 0 },
-        offset_{ 0 }
-    {
-        buffer_.resize(kBlockSize);
-        file_->Seek(0, File::PointerMode::kDbFilePointerSet);
-    }
+        offset_{ 0 } {}
 
     ~Reader() = default;
+
+
+    Reader(Reader&& right) {
+        operator=(std::move(right));
+    }
+
+    void operator=(Reader&& right) {
+        file_ = std::move(right.file_);
+        buffer_ = std::move(right.buffer_);
+        offset_ = right.offset_;
+        size_ = right.size_;
+        eof_ = right.eof_;
+        right.offset_ = 0;
+        right.size_ = 0;
+        right.eof_ = false;
+    }
+
+
+    void Open(std::string_view path) {
+        file_.Open(path, true);
+        buffer_.resize(kBlockSize);
+        file_.Seek(0, File::PointerMode::kDbFilePointerSet);
+        buffer_.resize(kBlockSize);
+    }
+
 
     std::optional<std::string> ReadRecord() {
         bool in_fragmented_record = false;
@@ -78,7 +98,7 @@ public:
             if (size_ < kHeaderSize) {
                 if (!eof_) {
                     offset_ = 0;
-                    size_ = file_->Read(&buffer_[0], kBlockSize);
+                    size_ = file_.Read(&buffer_[0], kBlockSize);
                     if (size_ == 0) {
                         // 到达文件末尾
                         eof_ = true;
@@ -131,7 +151,7 @@ public:
     }
 
 private:
-    File* file_;
+    File file_;
     std::vector<uint8_t> buffer_;
     size_t size_;
     size_t offset_;

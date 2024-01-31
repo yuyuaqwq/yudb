@@ -1,4 +1,4 @@
-#include "bucket.h"
+#include "bucket_impl.h"
 
 #include "tx_manager.h"
 #include "pager.h"
@@ -16,13 +16,12 @@ std::strong_ordering DefalutComparator(std::span<const uint8_t> key1, std::span<
     }
 }
 
-Bucket::Bucket(Pager* pager, Tx* tx, PageId* btree_root, bool writable) :
-    pager_{ pager },
+BucketImpl::BucketImpl(TxImpl* tx, PageId* root_pgid, bool writable) :
     tx_{ tx },
-    btree_{ this, btree_root, DefalutComparator },
+    btree_{ this, root_pgid, DefalutComparator },
     writable_{ writable }
 {
-    auto free_size = pager_->page_size() - (sizeof(NodeFormat) - sizeof(NodeFormat::body));
+    auto free_size = pager().page_size() - (sizeof(NodeFormat) - sizeof(NodeFormat::body));
 
     max_leaf_ele_count_ = free_size / sizeof(NodeFormat::LeafElement);
     max_branch_ele_count_ = (free_size - sizeof(PageId)) / sizeof(NodeFormat::BranchElement);
@@ -30,13 +29,12 @@ Bucket::Bucket(Pager* pager, Tx* tx, PageId* btree_root, bool writable) :
     inlineable_ = false;
 }
 
-Bucket::Bucket(Pager* pager, Tx* tx, std::span<const uint8_t> inline_bucket_data, bool writable) :
-    pager_{ pager },
+BucketImpl::BucketImpl(TxImpl* tx, std::span<const uint8_t> inline_bucket_data, bool writable) :
     tx_{ tx },
     btree_{ this, nullptr, DefalutComparator },
     writable_{ writable }
 {
-    auto free_size = pager_->page_size() - (sizeof(NodeFormat) - sizeof(NodeFormat::body));
+    auto free_size = pager().page_size() - (sizeof(NodeFormat) - sizeof(NodeFormat::body));
     max_leaf_ele_count_ = free_size / sizeof(NodeFormat::LeafElement);
     max_branch_ele_count_ = (free_size - sizeof(PageId)) / sizeof(NodeFormat::BranchElement);
 
@@ -45,7 +43,30 @@ Bucket::Bucket(Pager* pager, Tx* tx, std::span<const uint8_t> inline_bucket_data
 }
 
 
-Bucket& Bucket::SubBucket(std::string_view key, bool writable) {
+BucketImpl::BucketImpl(BucketImpl&& right) noexcept :
+    tx_{ nullptr },
+    btree_{ std::move(right.btree_) },
+    writable_{ right.writable_ },
+    sub_bucket_map_{ std::move(right.sub_bucket_map_) },
+    inlineable_{ right.inlineable_ },
+    max_branch_ele_count_{ right.max_branch_ele_count_ },
+    max_leaf_ele_count_{ right.max_leaf_ele_count_ }
+{
+    btree_.set_bucket(this);
+}
+
+void BucketImpl::operator=(BucketImpl&& right) noexcept {
+    tx_ = nullptr;
+    btree_ = std::move(right.btree_);
+    btree_.set_bucket(this);
+    writable_ = right.writable_;
+    sub_bucket_map_ = std::move(right.sub_bucket_map_);
+    inlineable_ = right.inlineable_;
+    max_branch_ele_count_ = right.max_branch_ele_count_;
+    max_leaf_ele_count_ = right.max_leaf_ele_count_;
+}
+
+BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
     auto map_iter = sub_bucket_map_.find({ key.data(), key.size() });
     uint32_t index;
     if (map_iter == sub_bucket_map_.end()) {
@@ -80,7 +101,22 @@ Bucket& Bucket::SubBucket(std::string_view key, bool writable) {
     else {
         index = map_iter->second.first;
     }
+
     return tx_->AtSubBucket(index);
 }
+
+
+void BucketImpl::set_tx(TxImpl* tx) {
+    tx_ = tx;
+}
+
+void BucketImpl::set_root_pgid(PageId* root_pgid) {
+    btree_.set_root_pgid(root_pgid);
+}
+
+const Pager& BucketImpl::pager() const { return tx_->pager(); }
+
+Pager& BucketImpl::pager() { return tx_->pager(); }
+
 
 } // namespace yudb

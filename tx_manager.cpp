@@ -1,24 +1,18 @@
 #include "tx_manager.h"
 
-#include "db.h"
-
+#include "db_impl.h"
 
 
 namespace yudb {
 
-TxManager::TxManager(DB* db) :
+TxManager::TxManager(DBImpl* db) :
     db_{ db } {}
 
 UpdateTx TxManager::Update() {
-    if (!update_tx_) {
-        update_tx_ = std::make_unique<Tx>(this, db_->meta_.meta_format(), true);
-    }
-    else {
-        std::destroy_at(update_tx_.get());
-        std::construct_at(update_tx_.get(), this, db_->meta_.meta_format(), true);
-    }
-    ++update_tx_->meta_.txid;
-    if (update_tx_->meta_.txid == kInvalidTxId) {
+    update_tx_ = TxImpl{ this, db_->meta().meta_format(), true };
+    update_tx_->set_tx_manager(this);
+    update_tx_->set_txid(update_tx_->txid() + 1);
+    if (update_tx_->txid() == kInvalidTxId) {
         throw std::runtime_error("TxId overflow.");
     }
     auto iter = view_tx_map_.begin();
@@ -28,22 +22,23 @@ UpdateTx TxManager::Update() {
     else {
         pager().ClearPending(kInvalidTxId);
     }
-    return UpdateTx{ update_tx_.get() };
+    return UpdateTx{ &*update_tx_ };
 }
 
 ViewTx TxManager::View() {
-    auto iter = view_tx_map_.find(db_->meta_.meta_format().txid);
+    auto iter = view_tx_map_.find(db_->meta().meta_format().txid);
     if (iter == view_tx_map_.end()) {
-        view_tx_map_.insert({ db_->meta_.meta_format().txid , 1});
+        view_tx_map_.insert({ db_->meta().meta_format().txid , 1});
     }
     else {
         ++iter->second;
     }
-    return ViewTx{ this, db_->meta_.meta_format() };
+    return ViewTx{ this, db_->meta().meta_format()};
 }
 
 void TxManager::RollBack() {
     pager().RollbackPending();
+    update_tx_ = {};
 }
 
 void TxManager::RollBack(TxId view_txid) {
@@ -58,19 +53,21 @@ void TxManager::RollBack(TxId view_txid) {
 
 void TxManager::Commit() {
     pager().CommitPending();
-    CopyMeta(&db_->meta_.meta_format(), update_tx_->meta_);
+    MetaFormatCopy(&db_->meta().meta_format(), update_tx_->meta_format());
+
+    pager().SyncAllPage();
+    db_->meta().Save();
+    db_->meta().Switch();
+
+    update_tx_ = {};
 }
 
+const Pager& TxManager::pager() const {
+    return db_->pager();
+}
 
 Pager& TxManager::pager() {
-    return *db_->pager_;
-}
-
-
-void TxManager::CopyMeta(MetaFormat* dst, const MetaFormat& src) {
-    dst->root = src.root;
-    dst->page_count = src.page_count;
-    dst->txid = src.txid;
+    return db_->pager();
 }
 
 } // namespace yudb

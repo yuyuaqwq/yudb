@@ -1,18 +1,18 @@
 #include "btree.h"
 
-#include "tx.h"
-#include "bucket.h"
+#include "tx_impl.h"
+#include "bucket_impl.h"
 #include "pager.h"
 
 namespace yudb {
 
-BTree::BTree(Bucket* bucket, PageId* root_pgid, Comparator comparator) :
+BTree::BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator) :
     bucket_{ bucket },
     root_pgid_ { root_pgid },
     comparator_{ comparator } {}
 
 
-BTree::Iterator BTree::LowerBound(std::span<const uint8_t> key) const {
+BTree::Iterator BTree::LowerBound(std::span<const uint8_t> key) {
     Iterator iter{ this };
     auto continue_ = iter.Top(key);
     while (continue_) {
@@ -21,7 +21,7 @@ BTree::Iterator BTree::LowerBound(std::span<const uint8_t> key) const {
     return iter;
 }
 
-BTree::Iterator BTree::Get(std::span<const uint8_t> key) const {
+BTree::Iterator BTree::Get(std::span<const uint8_t> key) {
     auto iter = LowerBound(key);
     if (iter.status() != Iterator::Status::kEq) {
         return Iterator{ this };
@@ -58,7 +58,6 @@ bool BTree::Delete(std::span<const uint8_t> key) {
     Delete(&iter);
     return true;
 }
-
 
 
 
@@ -190,7 +189,7 @@ void BTree::Delete(Iterator* iter, Node&& node, uint16_t left_del_pos) {
 
     auto [parent, parent_pos, sibling, left_sibling] = GetSibling(iter);
     if (left_sibling) --parent_pos;
-    if (bucket_->tx().NeedCopy(sibling.last_modified_txid())) {
+    if (bucket_->tx().IsLegacyTx(sibling.last_modified_txid())) {
         sibling = sibling.Copy();
         if (left_sibling) {
             parent.BranchSetLeftChild(parent_pos, sibling.page_id());
@@ -300,7 +299,7 @@ void BTree::Delete(Iterator* iter) {
     auto [parent, parent_pos, sibling, left_sibling] = GetSibling(iter);
     if (left_sibling) --parent_pos;
 
-    if (bucket_->tx().NeedCopy(sibling.last_modified_txid())) {
+    if (bucket_->tx().IsLegacyTx(sibling.last_modified_txid())) {
         sibling = sibling.Copy();
         if (left_sibling) {
             parent.BranchSetLeftChild(parent_pos, sibling.page_id());

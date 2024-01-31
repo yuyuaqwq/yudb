@@ -13,16 +13,31 @@ namespace log {
 
 class Writer : noncopyable {
 public:
-    Writer(File* file) : 
-        file_{ file }, 
+    Writer() : 
         block_offset_{ 0 },
-        size_{ 0 }
-    {
-        file_->Seek(0, File::PointerMode::kDbFilePointerEnd);
-        buffer_.resize(kBlockSize);
-    }
+        size_{ 0 } {}
 
     ~Writer() = default;
+
+    Writer(Writer&& right) noexcept { 
+        operator=(std::move(right));
+    }
+
+    void operator=(Writer&& right) noexcept {
+        file_ = std::move(right.file_);
+        block_offset_ = right.block_offset_;
+        buffer_ = std::move(right.buffer_);
+        size_ = right.size_;
+        right.block_offset_ = 0;
+        right.size_ = 0;
+    }
+
+
+    void Open(std::string_view path) {
+        file_.Open(path, true);
+        file_.Seek(0, File::PointerMode::kDbFilePointerEnd);
+        buffer_.resize(kBlockSize);
+    }
 
     void AppendRecordToBuffer(std::span<const uint8_t> data) {
         if (size_ + data.size() > kBlockSize) {
@@ -52,8 +67,8 @@ public:
             const size_t leftover = kBlockSize - block_offset_;
             if (leftover < kHeaderSize) {
                 if (leftover > 0) {
-                    file_->Seek(0, File::PointerMode::kDbFilePointerEnd);
-                    file_->Write(kBlockPadding, leftover);
+                    file_.Seek(0, File::PointerMode::kDbFilePointerEnd);
+                    file_.Write(kBlockPadding, leftover);
                 }
                 block_offset_ = 0;
             }
@@ -101,15 +116,14 @@ public:
         crc32.Append(ptr, size);
         record->checksum = crc32.End();
 
-        file_->Write(buf, kHeaderSize);
-        file_->Write(ptr, size);
+        file_.Write(buf, kHeaderSize);
+        file_.Write(ptr, size);
 
         block_offset_ += kHeaderSize + size;
     }
 
-
 private:
-    File* file_;
+    File file_;
     size_t block_offset_;
 
     std::vector<uint8_t> buffer_;

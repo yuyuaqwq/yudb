@@ -6,11 +6,11 @@
 #include "pager.h"
 
 #include "btree.h"
-#include "tx.h"
+#include "tx_impl.h"
 
 namespace yudb {
 
-PageSize BlockManager::MaxSize() {
+PageSize BlockManager::MaxSize() const {
     auto& pager = node_->btree().bucket().pager();
     auto size = pager.page_size() - (sizeof(BlockPage) - sizeof(BlockPage::block_table));
     return size;
@@ -272,7 +272,7 @@ void BlockManager::TablePageCopy() {
 
     auto page = pager.Reference(block_table_descriptor_->pgid, false);
     auto& block_page = page.content<BlockPage>();
-    if (tx.NeedCopy(block_page.last_modified_txid)) {
+    if (tx.IsLegacyTx(block_page.last_modified_txid)) {
         auto new_page_ref = pager.Copy(std::move(page));
         auto& new_block_page = page.content<BlockPage>();
         new_block_page.last_modified_txid = tx.txid();
@@ -329,7 +329,7 @@ void BlockManager::PageCopy(BlockTableEntry* entry) {
 
     auto page_ref = pager.Reference(entry->pgid, false);
     auto& block_page = page_ref.content<BlockPage>();
-    if (tx.NeedCopy(block_page.last_modified_txid)) {
+    if (tx.IsLegacyTx(block_page.last_modified_txid)) {
         auto new_page = pager.Copy(std::move(page_ref));
         entry->pgid = new_page.id();
     }

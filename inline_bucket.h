@@ -10,7 +10,7 @@
 
 namespace yudb {
     
-class Bucket;
+class BucketImpl;
 
 class InlineBucket : noncopyable {
 public:
@@ -38,7 +38,7 @@ public:
 
 
 private:
-    Bucket* bucket_;
+    BucketImpl* bucket_;
     std::map<std::string, std::string> leaf_;
     size_t serialized_size_;
 };

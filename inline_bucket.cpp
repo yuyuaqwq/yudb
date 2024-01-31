@@ -1,6 +1,6 @@
 #include "inline_bucket.h"
 
-#include "bucket.h"
+#include "bucket_impl.h"
 
 namespace yudb {
 

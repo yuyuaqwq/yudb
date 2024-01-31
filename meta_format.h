@@ -21,4 +21,10 @@ struct MetaFormat {
 
 constexpr size_t kMetaSize = sizeof(MetaFormat);
 
+static void MetaFormatCopy(MetaFormat* dst, const MetaFormat& src) {
+    dst->root = src.root;
+    dst->page_count = src.page_count;
+    dst->txid = src.txid;
+}
+
 } // namespace yudb
