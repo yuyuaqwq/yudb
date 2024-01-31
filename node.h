@@ -63,7 +63,7 @@ public:
     * 实现返回的可能是其中的一段(因为最多返回其中的一页)，需要循环才能读完
     * kPage类型建议另外实现一个传入buff的函数，直接读取到buff中
     */
-    std::tuple<const uint8_t*, size_t, std::optional<PageReference>, bool>
+    std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
     CellLoad(const Cell& cell);
     size_t CellSize(const Cell& cell);
     /*
@@ -296,7 +296,7 @@ public:
         return Node::leaf_value(i);
     }
 
-    std::tuple<const uint8_t*, size_t, std::optional<PageReference>, bool>
+    std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
     CellLoad(const Cell& cell){
         return Node::CellLoad(cell);
     }

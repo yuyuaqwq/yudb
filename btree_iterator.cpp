@@ -65,13 +65,31 @@ bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
 
 std::string BTreeIterator::key() const {
     auto [buf, size, ref] = KeyCell();
-    std::string val{ reinterpret_cast<const char*>(buf), size };
-    return val;
+    std::string key;
+    if (ref.has_value()) {
+        auto ref_str = std::get_if<std::string>(&*ref);
+        if (ref_str) {
+            key = std::move(*ref_str);
+        }
+    }
+    if (key.empty()) {
+        key = { reinterpret_cast<const char*>(buf), size };
+    }
+    return key;
 }
 
 std::string BTreeIterator::value() const {
     auto [buf, size, ref] = ValueCell();
-    std::string val{ reinterpret_cast<const char*>(buf), size };
+    std::string val;
+    if (ref.has_value()) {
+        auto ref_str = std::get_if<std::string>(&*ref);
+        if (ref_str) {
+            val = std::move(*ref_str);
+        }
+    }
+    if (val.empty()) {
+        val = { reinterpret_cast<const char*>(buf), size };
+    }
     return val;
 }
 
@@ -119,14 +137,14 @@ std::pair<MutNode, uint16_t> BTreeIterator::LeafMutNode() const {
 }
 
 
-std::tuple<const uint8_t*, size_t, std::optional<PageReference>>
+std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
 BTreeIterator::KeyCell() const {
     auto [node, index] = LeafImmNode();
     auto res = node.CellLoad(node.leaf_key(index));
     return res;
 }
 
-std::tuple<const uint8_t*, size_t, std::optional<PageReference>>
+std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
 BTreeIterator::ValueCell() const {
     auto [node, index] = LeafImmNode();
     auto res = node.CellLoad(node.leaf_value(index));

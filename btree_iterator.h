@@ -122,10 +122,10 @@ private:
 
     std::pair<MutNode, uint16_t> LeafMutNode() const;
 
-    std::tuple<const uint8_t*, size_t, std::optional<PageReference>>
+    std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
     KeyCell() const;
 
-    std::tuple<const uint8_t*, size_t, std::optional<PageReference>>
+    std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
     ValueCell() const;
 
 private:

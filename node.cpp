@@ -38,14 +38,38 @@ void Node::operator=(Node&& right) noexcept {
     block_manager_.set_node(this);
 }
 
-std::tuple<const uint8_t*, size_t, std::optional<PageReference>, bool>
+std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
 Node::CellLoad(const Cell& cell) {
     if (cell.type == Cell::Type::kEmbed) {
-        return { cell.embed.data, cell.embed.size, std::nullopt, true };
+        return { cell.embed.data, cell.embed.size, std::nullopt };
     }
-    else if (cell.type == Cell::Type::kBlock || cell.type == Cell::Type::kPage) {
-        auto [buf, page] = block_manager_.Load(cell.block.record_index(), cell.block.offset);
-        return { buf, cell.block.size, std::move(page), cell.type == Cell::Type::kBlock };
+    else if (cell.type == Cell::Type::kBlock) {
+        auto [buff, page] = block_manager_.Load(cell.block.record_index(), cell.block.offset);
+        return { buff, cell.block.size, std::move(page) };
+    }
+    else if (cell.type == Cell::Type::kPage) {
+        auto [buff, page] = block_manager_.Load(cell.block.record_index(), cell.block.offset);
+        auto page_record = reinterpret_cast<const std::pair<PageId, uint32_t>*>(buff);
+        auto& pager = btree_->bucket().pager();
+        auto page_size = pager.page_size();
+        auto page_count = page_record->second / page_size;
+        if (page_record->second % page_size) ++page_count;
+        auto pgid = pager.Alloc(page_count);
+        uint32_t rem_size = page_record->second;
+        std::string str;
+        str.resize(rem_size, 0);
+        if (page_count <= kMaxCachedPageCount) {
+            for (uint32_t i = 0; i < page_count; i++) {
+                auto page_ref = pager.Reference(pgid + i, true);
+                auto buf = &page_ref.content<uint8_t>();
+                std::memcpy(&str[i * page_size], buf, std::min(static_cast<uint32_t>(page_size), rem_size));
+                rem_size -= page_size;
+            }
+        }
+        else {
+            pager.Read(pgid, str.data(), page_count);
+        }
+        return { buff, cell.block.size, std::move(str) };
     }
     else {
         throw std::runtime_error("unrealized types.");
@@ -59,7 +83,7 @@ size_t Node::CellSize(const Cell& cell) {
         return cell.block.size;
     }
     else if (cell.type == Cell::Type::kPage) {
-        auto [buff, size, ref, continue_flag] = CellLoad(cell);
+        auto [buff, page] = block_manager_.Load(cell.block.record_index(), cell.block.offset);
         auto page_record = reinterpret_cast<const std::pair<PageId, uint32_t>*>(buff);
         return page_record->second;
     }
@@ -121,12 +145,12 @@ void Node::CellFree(Cell&& cell) {
         //printf("free\n"); blocker_.Print(); printf("\n");
     }
     else if (cell.type == Cell::Type::kPage) {
-        auto [buff, size, ref, continue_flag] = CellLoad(cell);
+        auto [buff, page] = block_manager_.Load(cell.block.record_index(), cell.block.offset);
         auto page_record = reinterpret_cast<const std::pair<PageId, uint32_t>*>(buff);
         auto& pager = btree_->bucket().pager();
         auto page_size = pager.page_size();
-        auto page_count = size / page_size;
-        if (size % page_size) ++page_count;
+        auto page_count = page_record->second / page_size;
+        if (page_record->second % page_size) ++page_count;
         pager.Free(page_record->first, page_count);
         CellFree(std::move(cell));
     }
