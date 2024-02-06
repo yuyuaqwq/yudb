@@ -3,7 +3,7 @@
 #include "tx_format.h"
 #include "page_format.h"
 #include "cell.h"
-#include "block.h"
+#include "block_format.h"
 #include "page_arena_format.h"
 
 namespace yudb {

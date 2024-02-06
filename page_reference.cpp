@@ -4,7 +4,7 @@
 
 namespace yudb {
 
-PageId PageReference::id() const {
+PageId PageReference::page_id() const {
     return pager_->CacheToPageId(page_buff_);
 }
 

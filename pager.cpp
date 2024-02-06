@@ -72,19 +72,12 @@ PageId Pager::Alloc(PageCount count) {
         }
         update_tx.meta_format().page_count += count;
     }
-    auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
-    cache_info->dirty = true;
-
-    MutNode node{ &update_tx.RootBucket().btree(), pgid };
-    node.set_last_modified_txid(update_tx.txid());
-
-    cache_manager_.Dereference(page_cache);
-    printf("alloc:%d\n", pgid);
+    //printf("alloc:%d\n", pgid);
     return pgid;
 }
 
 void Pager::Free(PageId free_pgid, PageCount free_count) {
-    printf("pending:%d\n", free_pgid);
+    //printf("pending:%d\n", free_pgid);
     auto& update_tx = db_->tx_manager().CurrentUpdateTx();
     auto& root_bucket = update_tx.RootBucket();
 
@@ -95,6 +88,21 @@ void Pager::Free(PageId free_pgid, PageCount free_count) {
     }
     iter->second.push_back({ free_pgid, free_count });
     assert(free_pgid != kPageInvalidId);
+}
+
+PageReference Pager::Reference(PageId pgid, bool dirty) {
+    assert(pgid != kPageInvalidId);
+    auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
+    if (cache_info->dirty == false && dirty == true) {
+        cache_info->dirty = true;
+        auto& update_tx = db_->tx_manager().CurrentUpdateTx();
+        MutNode node{ &update_tx.RootBucket().btree(), pgid, false };
+        node.set_last_modified_txid(update_tx.txid());
+    }
+    return PageReference{ this, page_cache };
+}
+void Pager::Dereference(uint8_t* page_cache) {
+    cache_manager_.Dereference(page_cache);
 }
 
 void Pager::RollbackPending() {

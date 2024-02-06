@@ -48,7 +48,7 @@ public:
     auto& leaf_value(size_t i) { assert(IsLeaf()); return node_format_->body.leaf[i].value; }
     void set_leaf_value(size_t i, Cell&& value) { assert(IsLeaf()); node_format_->body.leaf[i].value = std::move(value); }
     const auto& block_table_descriptor() const { return node_format_->block_table_descriptor; }
-    PageId page_id() const { return page_ref_.id(); }
+    PageId page_id() const { return page_ref_.page_id(); }
     template <typename T> const T& page_content() const { return page_ref_.content<T>(); }
     template <typename T> T& page_content() { return page_ref_.content<T>(); }
 
@@ -94,17 +94,17 @@ public:
     }
     void CellClear();
 
-
-    void BlockInit() {
+    void BlockBuild() {
         node_format_->block_table_descriptor.pgid = kPageInvalidId;
         node_format_->block_table_descriptor.count = 0;
+        //block_manager_.Build();
     }
     void BlockPrint() {
         block_manager_.Print();
     }
 
     void LeafBuild() {
-        BlockInit();
+        BlockBuild();
         PageSpaceBuild();
         node_format_->type = NodeFormat::Type::kLeaf;
         node_format_->element_count = 0;
@@ -132,7 +132,7 @@ public:
     }
 
     void BranchBuild() {
-        BlockInit();
+        BlockBuild();
         PageSpaceBuild();
         node_format_->type = NodeFormat::Type::kBranch;
         node_format_->element_count = 0;
@@ -217,13 +217,14 @@ public:
         node_format_->body.branch[pos + 1].left_child = right_child;
     }
 
-
     Iterator begin() { return Iterator{ node_format_, 0 }; }
     Iterator end() { return Iterator{ node_format_, node_format_->element_count }; }
 
-
     void LeafCheck();
     void BranchCheck();
+
+    void DefragmentSpace(uint16_t index);
+    void BlockRealloc(BlockPage* new_page, uint16_t index, Cell* cell);
 
 protected:
     void PageSpaceBuild();
@@ -241,20 +242,16 @@ class ImmNode : Node {
 public:
     ImmNode(const BTree* btree, PageId page_id) : Node{ btree, page_id, false } {}
 
-
     Iterator begin() { return Node::begin(); }
-
     Iterator end() { return Node::end(); }
 
 
     bool IsLeaf() const {
         return Node::IsLeaf();
     }
-
     bool IsBranch() const {
         return Node::IsBranch();
     }
-
     void BranchCheck() {
         Node::BranchCheck();
     }
@@ -271,27 +268,21 @@ public:
     TxId last_modified_txid() const {
         return Node::last_modified_txid();
     }
-
     uint16_t element_count() const {
         return Node::element_count();
     }
-
     PageId tail_child() const {
         return Node::tail_child();
     }
-
     const Cell& branch_key(size_t i) const {
         return Node::branch_key(i);
     }
-
     const PageId branch_left_child(size_t i) const {
         return Node::branch_left_child(i);
     }
-
     const Cell& leaf_key(size_t i) const {
         return Node::leaf_key(i);
     }
-
     const Cell& leaf_value(size_t i) const {
         return Node::leaf_value(i);
     }
@@ -304,7 +295,6 @@ public:
     PageId BranchGetLeftChild(uint16_t pos) {
         return Node::BranchGetLeftChild(pos);
     }
-
     PageId BranchGetRightChild(uint16_t pos) {
         return Node::BranchGetRightChild(pos);
     }
@@ -312,9 +302,17 @@ public:
 
 class MutNode : public Node {
 public:
-    MutNode(const BTree* btree, PageId page_id) : Node{ btree, page_id, true } {}
+    MutNode(const BTree* btree, PageId page_id) : MutNode{ btree, page_id, true } {}
+
+    MutNode(const BTree* btree, PageId page_id, bool built) : Node{ btree, page_id, true }
+    {
+        if (built) {
+            block_manager_.TryDefragmentSpace();
+        }
+    }
 
     MutNode Copy() const;
 };
+
 
 } // namespace yudb

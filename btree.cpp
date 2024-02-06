@@ -92,7 +92,7 @@ void BTree::Print(bool str, PageId pgid, int level) const {
             }
             Print(str, node.branch_left_child(i), level + 1);
         }
-        //node.BlockPrint(); printf("\n");
+        node.BlockPrint(); printf("\n");
     }
     else {
         assert(node.IsLeaf());
@@ -114,7 +114,7 @@ void BTree::Print(bool str, PageId pgid, int level) const {
                 std::cout << std::format("{}leaf[{}]::key::{}::value::{}::level::{}\n", indent, pgid, key, value, level);
             }
         }
-        //node.BlockPrint(); printf("\n");
+        node.BlockPrint(); printf("\n");
     }
 }
 
@@ -134,13 +134,11 @@ std::tuple<MutNode, uint16_t, MutNode, bool> BTree::GetSibling(Iterator* iter) {
         // 是父节点中最大的元素，只能选择左兄弟节点
         left_sibling = true;
         sibling_pgid = parent.BranchGetLeftChild(parent_pos - 1);
-    }
-    else {
+    } else {
         sibling_pgid = parent.BranchGetRightChild(parent_pos);
     }
 
     MutNode sibling{ this, sibling_pgid };
-
     iter->Pop();
     return { std::move(parent), parent_pos, std::move(sibling), left_sibling };
 }
@@ -281,7 +279,6 @@ void BTree::Merge(Node&& left, Node&& right) {
 void BTree::Delete(Iterator* iter) {
     auto [pgid, pos] = iter->Front();
     MutNode node{ this, pgid };
-
     node.LeafDelete(pos);
     if (node.element_count() >= (bucket_->max_leaf_ele_count() >> 1)) {
         return;
@@ -354,9 +351,8 @@ void BTree::Delete(Iterator* iter) {
 * 返回左侧节点中末尾上升的元素，新右节点
 */
 std::tuple<Cell, Node> BTree::Split(Node* left, uint16_t insert_pos, Cell&& insert_key, PageId insert_right_child) {
-    MutNode right{ this, bucket_->pager().Alloc(1) };
+    MutNode right{ this, bucket_->pager().Alloc(1), false };
     right.BranchBuild();
-
 
     uint16_t mid = left->element_count() / 2;
     uint16_t right_count = mid + (left->element_count() % 2);
@@ -415,8 +411,7 @@ std::tuple<Cell, Node> BTree::Split(Node* left, uint16_t insert_pos, Cell&& inse
 void BTree::Put(Iterator* iter, Node&& left, Node&& right, Cell* key, bool branch_put) {
     if (iter->Empty()) {
         *root_pgid_ = bucket_->pager().Alloc(1);
-        MutNode node{ this, *root_pgid_ };
-
+        MutNode node{ this, *root_pgid_, false };
         node.BranchBuild();
         node.set_tail_child(left.page_id());
 
@@ -433,12 +428,10 @@ void BTree::Put(Iterator* iter, Node&& left, Node&& right, Cell* key, bool branc
 
     auto [pgid, pos] = iter->Front();
     MutNode node{ this, pgid };
-
     Cell node_key_span;
     if (branch_put) {
         node_key_span = left.CellMove(&node, std::move(*key));
-    }
-    else {
+    } else {
         node_key_span = right.CellCopy(&node, *key);
     }
 
@@ -462,11 +455,13 @@ void BTree::Put(Iterator* iter, Node&& left, Node&& right, Cell* key, bool branc
 * 返回新右节点
 */
 Node BTree::Split(Node* left, uint16_t insert_pos, std::span<const uint8_t> key, std::span<const uint8_t> value) {
-    MutNode right{ this, bucket_->pager().Alloc(1) };
+    MutNode right{ this, bucket_->pager().Alloc(1), false };
     right.LeafBuild();
 
     uint16_t mid = left->element_count() / 2;
     uint16_t right_count = mid + (left->element_count() % 2);
+
+    auto page_id = left->page_id();
 
     int insert_right = 0;
     right.LeafAlloc(right_count);
@@ -507,7 +502,7 @@ Node BTree::Split(Node* left, uint16_t insert_pos, std::span<const uint8_t> key,
 void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value, bool insert_only) {
     if (iter->Empty()) {
         *root_pgid_ = bucket_->pager().Alloc(1);
-        MutNode node{ this, *root_pgid_ };
+        MutNode node{ this, *root_pgid_, false };
         node.LeafBuild();
         node.LeafInsert(0, node.CellAlloc(key), node.CellAlloc(value));
         return;

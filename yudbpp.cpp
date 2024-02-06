@@ -283,7 +283,6 @@ void TestBlock(yudb::DB* db) {
 
     auto count = 10000;
     std::vector<std::string> arr(count);
-    arr.begin();
 
     for (auto i = 0; i < count; i++) {
         arr[i] = RandomString(8, 16);
@@ -296,12 +295,6 @@ void TestBlock(yudb::DB* db) {
         ++i;
     }
     
-}
-
-void TestFreer() {
-    //yudb::Pager pager{ nullptr, 4096 };
-    //yudb::Freer freer{ &pager };
-    //auto test = freer.Alloc(100);
 }
 
 void TestLog() {
@@ -325,6 +318,31 @@ void TestLog() {
     assert(std::string(100000, 'a') == *res);*/
 }
 
+void TestBlockRebuild(yudb::DB* db) {
+
+    srand(10);
+
+    auto count = 10000;
+    std::vector<std::string> arr(count);
+
+    for (auto i = 0; i < count; i++) {
+        arr[i] = RandomString(8, 16);
+    }
+    auto i = 0;
+
+    auto tx = db->Update();
+    auto bucket = tx.RootBucket();
+
+    for (auto& iter : arr) {
+        //printf("%d\n", i);
+        bucket.Put(iter, iter);
+        //bucket.Print(true); printf("\n\n\n\n");
+        ++i;
+    }
+
+
+}
+
 int main() {
     TestLru();
     //TestLog();
@@ -341,8 +359,9 @@ int main() {
 
     //TestBlock(db.get());
 
-    TestBTree(db.get());
+    //TestBTree(db.get());
 
+    TestBlockRebuild(db.get());
     
     //TestFreer();
 

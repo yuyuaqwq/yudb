@@ -16,20 +16,22 @@ struct FreeBlock {
 
 struct BlockTableDescriptor {
     PageId pgid;
-    uint16_t entry_index;
+    uint16_t need_rebuild_page : 1;
+    uint16_t index_of_table : 15;
     uint16_t count;
 };
 
 struct BlockTableEntry {
     PageId pgid;
-    uint16_t max_free_size;
+    uint16_t need_rebuild_page : 1;
+    uint16_t max_free_size : 15;
 };
 
-struct BlockPage {
+struct BlockPageFormat {
     union {
         struct {
             TxId last_modified_txid;
-            PageArenaFormat page_arena_format;
+            PageArenaFormat arena_format;
             PageOffset first_block_pos;
             PageSize fragment_size;
         };
@@ -37,7 +39,6 @@ struct BlockPage {
     };
     BlockTableEntry block_table[1];
 };
-
 
 
 /*

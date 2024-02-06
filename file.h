@@ -38,8 +38,7 @@ public:
         assert(handle_ == INVALID_HANDLE_VALUE);
         if (use_system_buf) {
             handle_ = CreateFileA(path.data(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-        }
-        else {
+        } else {
             handle_ = CreateFileA(path.data(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_FLAG_WRITE_THROUGH, NULL);
         }
         if (handle_ == INVALID_HANDLE_VALUE) {

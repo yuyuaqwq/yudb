@@ -56,7 +56,7 @@ public:
         auto new_pgid = Alloc(1);
         auto new_page = Reference(new_pgid, true);
         std::memcpy(&new_page.content<uint8_t>(), &page_ref.content<uint8_t>(), page_size());
-        Free(page_ref.id(), 1);    // Pending
+        Free(page_ref.page_id(), 1);    // Pending
         return new_page;
     }
     PageReference Copy(PageId pgid) {
@@ -65,17 +65,8 @@ public:
     }
 
     // 线程安全
-    PageReference Reference(PageId pgid, bool dirty) {
-        assert(pgid != kPageInvalidId);
-        auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
-        if (cache_info->dirty == false && cache_info->dirty != dirty) {
-            cache_info->dirty = dirty;
-        }
-        return PageReference{ this, page_cache };
-    }
-    void Dereference(uint8_t* page_cache) {
-        cache_manager_.Dereference(page_cache);
-    }
+    PageReference Reference(PageId pgid, bool dirty);
+    void Dereference(uint8_t* page_cache);
     PageId CacheToPageId(uint8_t* page_cache) {
         return cache_manager_.CacheToPageId(page_cache);
     }

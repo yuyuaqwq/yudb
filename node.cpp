@@ -11,14 +11,12 @@ Node::Node(const BTree * btree, PageId page_id, bool dirty) :
     node_format_{ &page_ref_.content<NodeFormat>() },
     page_arena_{ &btree_->bucket().pager(), &node_format_->page_arena_format },
     block_manager_{ BlockManager{this, &node_format_->block_table_descriptor } } {}
-
 Node::Node(const BTree* btree, PageReference page_ref) :
     btree_{ btree },
     page_ref_{ std::move(page_ref) },
     node_format_{ &page_ref_.content<NodeFormat>() },
     page_arena_{ &btree_->bucket().pager(), &node_format_->page_arena_format },
     block_manager_{ BlockManager{this, &node_format_->block_table_descriptor} } {}
-
 Node::Node(Node&& right) noexcept :
     page_ref_{ std::move(right.page_ref_) },
     btree_{ right.btree_ },
@@ -28,7 +26,6 @@ Node::Node(Node&& right) noexcept :
 {
     block_manager_.set_node(this);
 }
-
 void Node::operator=(Node&& right) noexcept {
     page_ref_ = std::move(right.page_ref_);
     btree_ = right.btree_;
@@ -44,11 +41,11 @@ Node::CellLoad(const Cell& cell) {
         return { cell.embed.data, cell.embed.size, std::nullopt };
     }
     else if (cell.type == Cell::Type::kBlock) {
-        auto [buff, page] = block_manager_.Load(cell.block.record_index(), cell.block.offset);
+        auto [buff, page] = block_manager_.Load(cell.block.entry_index(), cell.block.offset);
         return { buff, cell.block.size, std::move(page) };
     }
     else if (cell.type == Cell::Type::kPage) {
-        auto [buff, page] = block_manager_.Load(cell.block.record_index(), cell.block.offset);
+        auto [buff, page] = block_manager_.Load(cell.block.entry_index(), cell.block.offset);
         auto page_record = reinterpret_cast<const std::pair<PageId, uint32_t>*>(buff);
         auto& pager = btree_->bucket().pager();
         auto page_size = pager.page_size();
@@ -83,7 +80,7 @@ size_t Node::CellSize(const Cell& cell) {
         return cell.block.size;
     }
     else if (cell.type == Cell::Type::kPage) {
-        auto [buff, page] = block_manager_.Load(cell.block.record_index(), cell.block.offset);
+        auto [buff, page] = block_manager_.Load(cell.block.entry_index(), cell.block.offset);
         auto page_record = reinterpret_cast<const std::pair<PageId, uint32_t>*>(buff);
         return page_record->second;
     }
@@ -106,11 +103,11 @@ Cell Node::CellAlloc(std::span<const uint8_t> data) {
         }
         auto [index, offset] = *res;
         cell.type = Cell::Type::kBlock;
-        cell.block.set_record_index(index);
+        cell.block.set_entry_index(index);
         cell.block.offset = offset;
         cell.block.size = data.size();
 
-        auto [buf, page] = block_manager_.Load(cell.block.record_index(), cell.block.offset);
+        auto [buf, page] = block_manager_.Load(cell.block.entry_index(), cell.block.offset);
         std::memcpy(buf, data.data(), data.size());
     }
     else {
@@ -141,11 +138,11 @@ void Node::CellFree(Cell&& cell) {
     if (cell.type == Cell::Type::kInvalid) {}
     else if (cell.type == Cell::Type::kEmbed) {}
     else if (cell.type == Cell::Type::kBlock) {
-        block_manager_.Free({ cell.block.record_index(), cell.block.offset, cell.block.size });
+        block_manager_.Free({ cell.block.entry_index(), cell.block.offset, cell.block.size });
         //printf("free\n"); blocker_.Print(); printf("\n");
     }
     else if (cell.type == Cell::Type::kPage) {
-        auto [buff, page] = block_manager_.Load(cell.block.record_index(), cell.block.offset);
+        auto [buff, page] = block_manager_.Load(cell.block.entry_index(), cell.block.offset);
         auto page_record = reinterpret_cast<const std::pair<PageId, uint32_t>*>(buff);
         auto& pager = btree_->bucket().pager();
         auto page_size = pager.page_size();
@@ -163,7 +160,6 @@ void Node::CellClear() {
     block_manager_.Clear();
 }
 
-
 void Node::PageSpaceBuild() {
     auto& pager = btree_->bucket().pager();
     PageArena arena{ &pager, &node_format_->page_arena_format };
@@ -177,21 +173,18 @@ void Node::LeafAlloc(uint16_t ele_count) {
     page_arena_.AllocLeft(ele_count * sizeof(NodeFormat::LeafElement));
     node_format_->element_count += ele_count;
 }
-
 void Node::LeafFree(uint16_t ele_count) {
     LeafCheck();
     assert(node_format_->element_count >= ele_count);
     page_arena_.FreeLeft(ele_count * sizeof(NodeFormat::LeafElement));
     node_format_->element_count -= ele_count;
 }
-
 void Node::BranchAlloc(uint16_t ele_count) {
     BranchCheck();
     assert(ele_count * sizeof(NodeFormat::BranchElement) <= node_format_->page_arena_format.rest_size);
     page_arena_.AllocLeft(ele_count * sizeof(NodeFormat::BranchElement));
     node_format_->element_count += ele_count;
 }
-
 void Node::BranchFree(uint16_t ele_count) {
     BranchCheck();
     assert(node_format_->element_count >= ele_count);
@@ -203,9 +196,32 @@ void Node::BranchFree(uint16_t ele_count) {
 void Node::LeafCheck() {
     assert(btree_->bucket().pager().page_size() == (sizeof(NodeFormat) - sizeof(NodeFormat::body)) + node_format_->element_count * sizeof(NodeFormat::LeafElement) + node_format_->page_arena_format.rest_size);
 }
-
 void Node::BranchCheck() {
     assert(btree_->bucket().pager().page_size() == (sizeof(NodeFormat) - sizeof(NodeFormat::body)) + node_format_->element_count * sizeof(NodeFormat::BranchElement) + node_format_->page_arena_format.rest_size);
+}
+
+
+void Node::BlockRealloc(BlockPage* new_page, uint16_t entry_index, Cell* cell) {
+    if (cell->type != Cell::Type::kBlock) {
+        return;
+    }
+    if (cell->block.entry_index() != entry_index) {
+        return;
+    }
+    cell->block.offset = block_manager_.PageRebuildAppend(new_page, { entry_index, cell->block.offset, cell->block.size });
+}
+void Node::DefragmentSpace(uint16_t entry_index) {
+    auto new_page = block_manager_.PageRebuildBegin(entry_index);
+    for (uint16_t i = 0; i < node_format_->element_count; i++) {
+        if (IsBranch()) {
+            BlockRealloc(&new_page, entry_index, &node_format_->body.branch[i].key);
+        } else {
+            assert(IsLeaf());
+            BlockRealloc(&new_page, entry_index, &node_format_->body.leaf[i].key);
+            BlockRealloc(&new_page, entry_index, &node_format_->body.leaf[i].value);
+        }
+    }
+    block_manager_.PageRebuildEnd(&new_page, entry_index);
 }
 
 
@@ -213,7 +229,7 @@ MutNode MutNode::Copy() const {
     auto& pager = btree_->bucket().pager();
     pager.Copy(page_ref_);
     auto new_pgid = pager.Alloc(1);
-    MutNode new_node{ btree_, new_pgid };
+    MutNode new_node{ btree_, new_pgid, false };
     std::memcpy(&new_node.page_content<uint8_t>(), &page_content<uint8_t>(), pager.page_size());
     return new_node;
 }

@@ -34,7 +34,7 @@ public:
     template <typename T> const T& content() const { return *reinterpret_cast<T*>(page_buff_); }
     template <typename T> T& content() { return *reinterpret_cast<T*>(page_buff_); }
 
-    PageId id() const;
+    PageId page_id() const;
 
 protected:
     void Dereference();

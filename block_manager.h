@@ -4,7 +4,7 @@
 #include <variant>
 
 #include "noncopyable.h"
-#include "block.h"
+#include "block_page.h"
 
 namespace yudb {
 
@@ -13,7 +13,7 @@ class PageReference;
 
 class BlockManager : noncopyable {
 public:
-    BlockManager(Node* node, BlockTableDescriptor* block_info) : node_{ node }, block_table_descriptor_{ block_info } {}
+    BlockManager(Node* node, BlockTableDescriptor* block_info) : node_{ node }, descriptor_{ block_info } {}
     ~BlockManager() = default;
 
     BlockManager(BlockManager&& right) noexcept {
@@ -21,37 +21,42 @@ public:
     }
     void operator=(BlockManager&& right) noexcept {
         node_ = nullptr;
-        block_table_descriptor_ = right.block_table_descriptor_;
+        descriptor_ = right.descriptor_;
         
         right.node_ = nullptr;
-        right.block_table_descriptor_ = nullptr;
+        right.descriptor_ = nullptr;
     }
 
+    Node& node() { return *node_; }
     void set_node(Node* node) { node_ = node; }
 
     std::pair<uint8_t*, PageReference> Load(uint16_t index, PageOffset pos);
     std::optional<std::pair<uint16_t, PageOffset>> Alloc(PageSize size);
     void Free(const std::tuple<uint16_t, PageOffset, uint16_t>& block);
 
-    void Print();
+    void Build();
     void Clear();
     PageSize MaxSize() const;
 
+    void TryDefragmentSpace();
+    BlockPage PageRebuildBegin(uint16_t index);
+    PageOffset PageRebuildAppend(BlockPage* new_page, const std::tuple<uint16_t, PageOffset, uint16_t>& block);
+    void PageRebuildEnd(BlockPage* new_page, uint16_t index);
+
+    void Print();
+
 private:
-    void TableEntryBuild(BlockTableEntry* entry, uint16_t index, PageReference* page);
-    void TableEntryUpdateMaxFreeSize(BlockTableEntry* entry, BlockPage* block_page);
-    void TablePageCopy();
+    void BuildTableEntry(BlockTableEntry* entry, BlockPage* block_page);
+    void CopyPageOfBlockTable();
 
-    void Build();
+    void AppendPage(BlockPage* page_of_table);
+    void DeletePage();
 
-    BlockPage& PageBuild(PageReference* page_ref);
-    void PageAppend(PageReference* page_ref);
-    void PageDelete();
-    void PageCopy(BlockTableEntry* entry);
+    PageSize MaxFragmentSize();
 
 protected:
     Node* node_;
-    BlockTableDescriptor* block_table_descriptor_;
+    BlockTableDescriptor* descriptor_;
 };
 
 } // namespace yudb

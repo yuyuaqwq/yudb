@@ -11,7 +11,10 @@ using PageSize = uint16_t;
 using PageOffset = int16_t;
 
 constexpr PageSize kPageSize = 128;
-constexpr PageId kPageInvalidId = 0xffffffff;
+
 constexpr PageOffset kPageInvalidOffset = 0xffff;
+constexpr PageSize kPageMaxSize = 0x8000;
+constexpr PageId kPageInvalidId = 0xffffffff;
+constexpr PageCount kPageMaxCount = 0x80000000;
 
 } // namespace yudb
