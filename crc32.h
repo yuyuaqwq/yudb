@@ -77,6 +77,9 @@ static const uint32_t crc32_table[] = {
  
 class Crc32 {
 public:
+    Crc32() = default;
+    ~Crc32() = default;
+
     void Append(const void* buf, size_t size) {
         auto buf_ = reinterpret_cast<const uint8_t*>(buf);
         for (size_t i = 0; i < size; i++) {

@@ -22,6 +22,7 @@ public:
 
 public:
     NodeIterator(NodeFormat* node, uint16_t index) : node_{ node }, index_{ index } {}
+    ~NodeIterator() = default;
 
     const NodeIterator& operator*() const { return *this; }
     NodeIterator& operator*() { return *this; }

@@ -207,7 +207,7 @@ void BTreeIterator::Next() {
 
 void BTreeIterator::Prev() {
     if (Empty()) {
-        Last(*btree_->root_pgid_);
+        Last(btree_->root_pgid_);
         return;
     }
     do {
@@ -233,7 +233,7 @@ bool BTreeIterator::Top(std::span<const uint8_t> key) {
 bool BTreeIterator::Down(std::span<const uint8_t> key) {
     PageId pgid;
     if (stack_.empty()) {
-        pgid = *btree_->root_pgid_;
+        pgid = btree_->root_pgid_;
         if (pgid == kPageInvalidId) {
             return false;
         }
@@ -327,7 +327,7 @@ void BTreeIterator::PathCopy() {
         lower_pgid = new_node.page_id();
         pgid = lower_pgid;
     }
-    *btree_->root_pgid_ = lower_pgid;
+    btree_->root_pgid_ = lower_pgid;
 }
 
 

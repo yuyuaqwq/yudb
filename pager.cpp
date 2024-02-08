@@ -6,9 +6,14 @@
 
 namespace yudb {
 
+Pager::Pager(DBImpl* db, PageSize page_size) : db_{ db },
+    page_size_{ page_size },
+    cache_manager_{ this } {}
+
+
 void Pager::Read(PageId pgid, void* cache, PageCount count) {
     db_->file().Seek(pgid * page_size());
-    auto read_size = db_->file().Read(cache, count * page_size());
+    const auto read_size = db_->file().Read(cache, count * page_size());
     assert(read_size == 0 || read_size == count * page_size());
     if (read_size == 0) {
         memset(cache, 0, count * page_size());
@@ -72,30 +77,42 @@ PageId Pager::Alloc(PageCount count) {
         }
         update_tx.meta_format().page_count += count;
     }
-    //printf("alloc:%d\n", pgid);
     return pgid;
 }
 
 void Pager::Free(PageId free_pgid, PageCount free_count) {
-    //printf("pending:%d\n", free_pgid);
     auto& update_tx = db_->tx_manager().CurrentUpdateTx();
     auto& root_bucket = update_tx.RootBucket();
 
     auto iter = pending_.find(update_tx.txid());
     if (iter == pending_.end()) {
-        auto res = pending_.insert({ update_tx.txid(), {} });
+        const auto res = pending_.insert({ update_tx.txid(), {} });
         iter = res.first;
     }
     iter->second.push_back({ free_pgid, free_count });
     assert(free_pgid != kPageInvalidId);
 }
 
+
+PageReference Pager::Copy(const PageReference& page_ref) {
+    auto new_pgid = Alloc(1);
+    auto new_page = Reference(new_pgid, true);
+    std::memcpy(&new_page.content<uint8_t>(), &page_ref.content<uint8_t>(), page_size_);
+    Free(page_ref.page_id(), 1);    // Pending
+    return new_page;
+}
+PageReference Pager::Copy(PageId pgid) {
+    auto page = Reference(pgid, false);
+    return Copy(std::move(page));
+}
+
+
 PageReference Pager::Reference(PageId pgid, bool dirty) {
     assert(pgid != kPageInvalidId);
     auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
     if (cache_info->dirty == false && dirty == true) {
         cache_info->dirty = true;
-        auto& update_tx = db_->tx_manager().CurrentUpdateTx();
+        const auto& update_tx = db_->tx_manager().CurrentUpdateTx();
         MutNode node{ &update_tx.RootBucket().btree(), pgid, false };
         node.set_last_modified_txid(update_tx.txid());
     }
@@ -105,8 +122,13 @@ void Pager::Dereference(uint8_t* page_cache) {
     cache_manager_.Dereference(page_cache);
 }
 
+PageId Pager::CacheToPageId(uint8_t* page_cache) {
+    return cache_manager_.CacheToPageId(page_cache);
+}
+
+
 void Pager::RollbackPending() {
-    auto& update_tx = db_->tx_manager().CurrentUpdateTx();
+    const auto& update_tx = db_->tx_manager().CurrentUpdateTx();
     pending_.erase(update_tx.txid());
 }
 
@@ -115,8 +137,8 @@ void Pager::CommitPending() {
     auto& update_tx = db_->tx_manager().CurrentUpdateTx();
     auto& root_bucket = update_tx.RootBucket();
     auto& pending_bucket = root_bucket.SubBucket("tx_pd", true);
-    auto txid = update_tx.txid();
-    auto iter = pending_.find(txid);
+    const auto txid = update_tx.txid();
+    const auto iter = pending_.find(txid);
     if (iter != pending_.end()) {
         pending_bucket.Put(&txid, sizeof(txid), &iter->second[0], iter->second.size() * sizeof(iter->second[0]));
     }
@@ -141,7 +163,7 @@ void Pager::ClearPending(TxId min_view_txid) {
         for (auto& [free_pgid, free_count] : iter->second) {
             printf("free:%d\n", free_pgid);
             assert(free_bucket.Get(&free_pgid, free_pgid) == free_bucket.end());
-            auto next_pgid = free_pgid + free_count;
+            const auto next_pgid = free_pgid + free_count;
             auto next_iter = free_bucket.Get(&next_pgid, sizeof(next_pgid));
             if (next_iter != free_bucket.end()) {
                 free_count += next_iter.value<PageCount>();
@@ -150,7 +172,7 @@ void Pager::ClearPending(TxId min_view_txid) {
             bool insert = true;
             if (next_iter != free_bucket.begin()) {
                 auto prev_iter = next_iter--;
-                auto prev_pgid = prev_iter.key<PageId>();
+                const auto prev_pgid = prev_iter.key<PageId>();
                 if (prev_pgid == free_pgid - free_count) {
                     insert = false;
                     free_count += prev_iter.value<PageCount>();

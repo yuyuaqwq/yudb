@@ -13,6 +13,7 @@ class PageArena : noncopyable {
 public:
     PageArena(Pager* pager, PageArenaFormat* arena_format) : 
         pager_{ pager }, format_{ arena_format } {}
+    ~PageArena() = default;
 
     auto& rest_size() const { return format_->rest_size; }
     auto& format() { return *format_; }

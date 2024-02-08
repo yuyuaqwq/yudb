@@ -8,7 +8,7 @@ namespace yudb {
 
 BTree::BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator) :
     bucket_{ bucket },
-    root_pgid_ { root_pgid },
+    root_pgid_ { *root_pgid },
     comparator_{ comparator } {}
 
 
@@ -63,7 +63,7 @@ bool BTree::Delete(std::span<const uint8_t> key) {
 
 BTree::Iterator BTree::begin() const noexcept {
     Iterator iter { this };
-    iter.First(*root_pgid_);
+    iter.First(root_pgid_);
     return iter;
 }
 
@@ -119,7 +119,7 @@ void BTree::Print(bool str, PageId pgid, int level) const {
 }
 
 void BTree::Print(bool str) const {
-    Print(str, *root_pgid_, 0);
+    Print(str, root_pgid_, 0);
 }
 
 
@@ -176,8 +176,8 @@ void BTree::Delete(Iterator* iter, Node&& node, uint16_t left_del_pos) {
         // 如果没有父节点
         // 判断是否没有任何子节点了，是则变更余下最后一个子节点为根节点
         if (node.element_count() == 0) {
-            auto old_root = *root_pgid_;
-            *root_pgid_ = node.tail_child();
+            auto old_root = root_pgid_;
+            root_pgid_ = node.tail_child();
             bucket_->pager().Free(old_root, 1);
         }
         return;
@@ -410,8 +410,8 @@ std::tuple<Cell, Node> BTree::Split(Node* left, uint16_t insert_pos, Cell&& inse
 */
 void BTree::Put(Iterator* iter, Node&& left, Node&& right, Cell* key, bool branch_put) {
     if (iter->Empty()) {
-        *root_pgid_ = bucket_->pager().Alloc(1);
-        MutNode node{ this, *root_pgid_, false };
+        root_pgid_ = bucket_->pager().Alloc(1);
+        MutNode node{ this, root_pgid_, false };
         node.BranchBuild();
         node.set_tail_child(left.page_id());
 
@@ -501,8 +501,8 @@ Node BTree::Split(Node* left, uint16_t insert_pos, std::span<const uint8_t> key,
 */
 void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value, bool insert_only) {
     if (iter->Empty()) {
-        *root_pgid_ = bucket_->pager().Alloc(1);
-        MutNode node{ this, *root_pgid_, false };
+        root_pgid_ = bucket_->pager().Alloc(1);
+        MutNode node{ this, root_pgid_, false };
         node.LeafBuild();
         node.LeafInsert(0, node.CellAlloc(key), node.CellAlloc(value));
         return;

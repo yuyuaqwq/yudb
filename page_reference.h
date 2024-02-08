@@ -17,7 +17,6 @@ public:
     PageReference(Pager* pager, uint8_t* page_buff) :
         pager_{ pager },
         page_buff_{ page_buff } {}
-
     ~PageReference();
 
     PageReference(PageReference&& right) noexcept {

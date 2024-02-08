@@ -8,6 +8,15 @@ namespace yudb {
 TxManager::TxManager(DBImpl* db) :
     db_{ db } {}
 
+TxManager::~TxManager() {
+    if (!view_tx_map_.empty()) {
+        throw std::runtime_error("There are read transactions that have not been exited.");
+    }
+    if (update_tx_.has_value()) {
+        throw std::runtime_error("There are write transactions that have not been exited.");
+    }
+}
+
 UpdateTx TxManager::Update() {
     update_tx_.emplace(this, db_->meta().meta_format(), true);
     update_tx_->set_txid(update_tx_->txid() + 1);

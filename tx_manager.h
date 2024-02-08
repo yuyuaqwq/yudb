@@ -6,25 +6,14 @@
 #include "noncopyable.h"
 #include "tx.h"
 
-
 namespace yudb {
 
 class DBImpl;
 
 class TxManager : noncopyable {
 public:
-    TxManager(DBImpl* db);
-    ~TxManager() {
-        if (!view_tx_map_.empty()) {
-            throw std::runtime_error("There are read transactions that have not been exited.");
-        }
-        if (update_tx_.has_value()) {
-            throw std::runtime_error("There are write transactions that have not been exited.");
-        }
-    }
-
-    const Pager& pager() const;
-    Pager& pager();
+    explicit TxManager(DBImpl* db);
+    ~TxManager();
 
     UpdateTx Update();
     ViewTx View();
@@ -34,6 +23,9 @@ public:
     void Commit();
 
     TxImpl& CurrentUpdateTx() { return *update_tx_; }
+
+    const Pager& pager() const;
+    Pager& pager();
 
 private:
     DBImpl* const db_;

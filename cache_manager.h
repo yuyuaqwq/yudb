@@ -18,12 +18,12 @@ public:
     explicit CacheManager(Pager* pager);
     ~CacheManager();
 
-    const auto& lru_list() const { return lru_list_; }
-    auto& lru_list() { return lru_list_; }
-
     std::pair<CacheInfo*, uint8_t*> Reference(PageId pgid);
     void Dereference(uint8_t* page_cache);
     PageId CacheToPageId(uint8_t* page_cache);
+
+    auto& lru_list() const { return lru_list_; }
+    auto& lru_list() { return lru_list_; }
 
 private:
     Pager* const pager_;

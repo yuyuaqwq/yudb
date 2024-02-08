@@ -15,7 +15,18 @@ TxImpl::TxImpl(TxManager* tx_manager, const MetaFormat& meta, bool writable) :
 }
 
 
-Pager& TxImpl::pager() { return tx_manager_->pager(); }
+
+uint32_t TxImpl::NewSubBucket(PageId* root_pgid, bool writable) {
+    sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, root_pgid, writable));
+    return sub_bucket_cache_.size() - 1;
+}
+uint32_t TxImpl::NewSubBucket(std::span<const uint8_t> inline_bucket_data, bool writable) {
+    sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, inline_bucket_data, writable));
+    return sub_bucket_cache_.size() - 1;
+}
+BucketImpl& TxImpl::AtSubBucket(uint32_t index) {
+    return *sub_bucket_cache_[index];
+}
 
 
 void TxImpl::RollBack() {
@@ -38,5 +49,13 @@ void TxImpl::Commit() {
     }
     tx_manager_->Commit();
 }
+
+bool TxImpl::IsLegacyTx(TxId txid) const {
+    return txid < this->txid();
+}
+
+
+Pager& TxImpl::pager() { return tx_manager_->pager(); }
+
 
 } // yudb

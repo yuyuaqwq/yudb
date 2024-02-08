@@ -19,31 +19,22 @@ public:
     TxImpl(TxManager* tx_manager, const MetaFormat& meta, bool writable);
     ~TxImpl() = default;
 
+    BucketImpl& RootBucket() { return root_bucket_; }
+    const BucketImpl& RootBucket() const { return root_bucket_; }
+    uint32_t NewSubBucket(PageId* root_pgid, bool writable);
+    uint32_t NewSubBucket(std::span<const uint8_t> inline_bucket_data, bool writable);
+    BucketImpl& AtSubBucket(uint32_t index);
+
+    void RollBack();
+    void Commit();
+
+    bool IsLegacyTx(TxId txid) const;
+
     auto& txid() const { return meta_format_.txid; }
     void set_txid(TxId txid) { meta_format_.txid = txid; }
     Pager& pager();
     auto& meta_format() const { return meta_format_; }
     auto& meta_format() { return meta_format_; }
-
-    BucketImpl& RootBucket() { return root_bucket_; }
-    uint32_t NewSubBucket(PageId* root_pgid, bool writable) {
-        sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, root_pgid, writable));
-        return sub_bucket_cache_.size() - 1;
-    }
-    uint32_t NewSubBucket(std::span<const uint8_t> inline_bucket_data, bool writable) {
-        sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, inline_bucket_data, writable));
-        return sub_bucket_cache_.size() - 1;
-    }
-    BucketImpl& AtSubBucket(uint32_t index) {
-        return *sub_bucket_cache_[index];
-    }
-
-    void RollBack();
-    void Commit();
-
-    bool IsLegacyTx(TxId txid) const {
-        return txid < this->txid();
-    }
 
 protected:
     TxManager* const tx_manager_;

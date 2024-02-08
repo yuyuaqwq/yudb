@@ -6,9 +6,11 @@
 
 namespace yudb {
 
+Meta::Meta(DBImpl* db) : db_{ db } {};
+
 bool Meta::Load() {
     db_->file().Seek(0, File::PointerMode::kDbFilePointerSet);
-    auto success = db_->file().Read(&meta_format_, sizeof(meta_format_));
+    const auto success = db_->file().Read(&meta_format_, sizeof(meta_format_));
     if (!success) {
         // Initialize Meta Information
         meta_format_.sign = YUDB_SIGN;
@@ -84,6 +86,10 @@ void Meta::Save() {
     meta_format_.crc32 = crc32.End();
     db_->file().Seek((!meta_index_) * kPageSize, File::PointerMode::kDbFilePointerSet);
     db_->file().Write(&meta_format_, kMetaSize);
+}
+
+void Meta::Switch() { 
+    meta_index_ = !meta_index_;
 }
 
 } // namespace yudb

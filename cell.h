@@ -20,6 +20,7 @@ struct Cell {
     };
 
     Cell() = default;
+    ~Cell() = default;
 
     Cell(const Cell&) = delete;
     void operator=(const Cell&) = delete;
@@ -27,7 +28,6 @@ struct Cell {
     Cell(Cell&& right) noexcept {
         operator=(std::move(right));
     }
-
     void operator=(Cell&& right) noexcept {
         std::memcpy(this, &right, sizeof(Cell));
         right.type = Type::kInvalid;

@@ -87,8 +87,8 @@ private:
 private:
     friend class BTreeIterator;
 
-    BucketImpl* bucket_;
-    PageId* root_pgid_; 
+    BucketImpl* const bucket_;
+    PageId& root_pgid_;
 
     Comparator comparator_;
 };

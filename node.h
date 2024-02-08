@@ -28,6 +28,8 @@ public:
 
     Node(const BTree* btree, PageId page_id, bool dirty);
     Node(const BTree* btree, PageReference page_ref);
+    ~Node() = default;
+
     Node(Node&& right) noexcept;
     void operator=(Node&& right) noexcept;
 

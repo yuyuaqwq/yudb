@@ -11,11 +11,12 @@ class DBImpl;
 
 class Meta : noncopyable {
 public:
-    Meta(DBImpl* db) : db_{ db } {};
+    Meta(DBImpl* db);
+    ~Meta() = default;
 
     bool Load();
     void Save();
-    void Switch() { meta_index_ = !meta_index_; }
+    void Switch();
 
     const auto& meta_format() const { return meta_format_; }
     auto& meta_format() { return meta_format_; }

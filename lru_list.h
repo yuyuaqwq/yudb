@@ -110,6 +110,7 @@ public:
         }
         ListPushFront(free_list_, &LruList::FreeListGetNode, 0);
     }
+    ~LruList() = default;
 
     /*
     * 返回被淘汰的对象

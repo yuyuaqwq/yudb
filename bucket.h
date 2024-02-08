@@ -8,7 +8,8 @@ class ViewBucket : noncopyable {
 public:
     using Iterator = BucketImplIterator;
 public:
-    ViewBucket(BucketImpl* bucket) : bucket_{ bucket } {};
+    explicit ViewBucket(BucketImpl* bucket) : bucket_{ bucket } {};
+    ~ViewBucket() = default;
 
     ViewBucket SubViewBucket(std::string_view key) {
         return ViewBucket{ &bucket_->SubBucket(key, false) };
@@ -52,6 +53,8 @@ protected:
 class UpdateBucket : public ViewBucket {
 public:
     using ViewBucket::ViewBucket;
+    UpdateBucket() = delete;
+    ~UpdateBucket() = default;
 
     UpdateBucket SubUpdateBucket(std::string_view key) {
         return UpdateBucket{ &bucket_->SubBucket(key, true) };
