@@ -16,22 +16,7 @@ public:
     Writer() : 
         block_offset_{ 0 },
         size_{ 0 } {}
-
     ~Writer() = default;
-
-    Writer(Writer&& right) noexcept { 
-        operator=(std::move(right));
-    }
-
-    void operator=(Writer&& right) noexcept {
-        file_ = std::move(right.file_);
-        block_offset_ = right.block_offset_;
-        buffer_ = std::move(right.buffer_);
-        size_ = right.size_;
-        right.block_offset_ = 0;
-        right.size_ = 0;
-    }
-
 
     void Open(std::string_view path) {
         file_.Open(path, true);

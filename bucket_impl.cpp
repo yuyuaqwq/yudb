@@ -43,29 +43,6 @@ BucketImpl::BucketImpl(TxImpl* tx, std::span<const uint8_t> inline_bucket_data, 
 }
 
 
-BucketImpl::BucketImpl(BucketImpl&& right) noexcept :
-    tx_{ nullptr },
-    btree_{ std::move(right.btree_) },
-    writable_{ right.writable_ },
-    sub_bucket_map_{ std::move(right.sub_bucket_map_) },
-    inlineable_{ right.inlineable_ },
-    max_branch_ele_count_{ right.max_branch_ele_count_ },
-    max_leaf_ele_count_{ right.max_leaf_ele_count_ }
-{
-    btree_.set_bucket(this);
-}
-
-void BucketImpl::operator=(BucketImpl&& right) noexcept {
-    tx_ = nullptr;
-    btree_ = std::move(right.btree_);
-    btree_.set_bucket(this);
-    writable_ = right.writable_;
-    sub_bucket_map_ = std::move(right.sub_bucket_map_);
-    inlineable_ = right.inlineable_;
-    max_branch_ele_count_ = right.max_branch_ele_count_;
-    max_leaf_ele_count_ = right.max_leaf_ele_count_;
-}
-
 BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
     auto map_iter = sub_bucket_map_.find({ key.data(), key.size() });
     uint32_t index;
@@ -103,15 +80,6 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
     }
 
     return tx_->AtSubBucket(index);
-}
-
-
-void BucketImpl::set_tx(TxImpl* tx) {
-    tx_ = tx;
-}
-
-void BucketImpl::set_root_pgid(PageId* root_pgid) {
-    btree_.set_root_pgid(root_pgid);
 }
 
 const Pager& BucketImpl::pager() const { return tx_->pager(); }

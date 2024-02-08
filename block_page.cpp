@@ -14,18 +14,7 @@ BlockPage::BlockPage(BlockManager* block_manager, PageReference page_ref, BlockT
     table_entry_{ table_entry },
     format_{ &page_ref_.content<BlockPageFormat>() },
     arena_ { &block_manager_->node().btree().bucket().pager(), &format_->arena_format } {}
-BlockPage::BlockPage(BlockManager* block_manager, PageId pgid, BlockTableEntry* table_entry) : 
-    BlockPage{ block_manager, block_manager->node().btree().bucket().pager().Reference(pgid, true), table_entry} {}
-BlockPage::BlockPage(BlockManager* block_manager, PageReference page_ref, uint16_t page_index_of_block_table) :
-    BlockPage{ block_manager, std::move(page_ref), nullptr}
-{
-    table_entry_ = &format_->block_table[page_index_of_block_table];
-}
-BlockPage::BlockPage(BlockManager* block_manager, PageId pgid, uint16_t page_index_of_block_table) :
-    BlockPage{ block_manager, pgid, nullptr }
-{
-    table_entry_ = &format_->block_table[page_index_of_block_table];
-}
+
 
 void BlockPage::Build() {
     auto& node = block_manager_->node();
@@ -188,6 +177,45 @@ void BlockPage::UpdateMaxFreeSize() {
         cur_pos = free_block->next;
     }
     table_entry_->max_free_size = max_free_size;
+}
+
+
+
+ImmBlockPage::ImmBlockPage(BlockManager* block_manager, PageReference page_ref, const BlockTableEntry* table_entry) :
+    BlockPage{ block_manager, std::move(page_ref), const_cast<BlockTableEntry*>(table_entry) } {}
+
+ImmBlockPage::ImmBlockPage(BlockManager* block_manager, PageReference page_ref, uint16_t page_index_of_block_table) :
+    BlockPage{ block_manager, std::move(page_ref), nullptr }
+{
+    table_entry_ = &format_->block_table[page_index_of_block_table];
+}
+
+ImmBlockPage::ImmBlockPage(BlockManager* block_manager, PageId pgid, const BlockTableEntry* table_entry) :
+    ImmBlockPage{ block_manager, block_manager->node().btree().bucket().pager().Reference(pgid, false), table_entry } {}
+
+ImmBlockPage::ImmBlockPage(BlockManager* block_manager, PageId pgid, uint16_t page_index_of_block_table) :
+    ImmBlockPage{ block_manager, pgid, nullptr }
+{
+    table_entry_ = &format_->block_table[page_index_of_block_table];
+}
+
+
+MutBlockPage::MutBlockPage(BlockManager* block_manager, PageReference page_ref, BlockTableEntry* table_entry) :
+    BlockPage{ block_manager, std::move(page_ref), table_entry } {}
+
+MutBlockPage::MutBlockPage(BlockManager* block_manager, PageReference page_ref, uint16_t page_index_of_block_table) :
+    BlockPage{ block_manager, std::move(page_ref), nullptr }
+{
+    table_entry_ = &format_->block_table[page_index_of_block_table];
+}
+
+MutBlockPage::MutBlockPage(BlockManager* block_manager, PageId pgid, BlockTableEntry* table_entry) :
+    BlockPage{ block_manager, block_manager->node().btree().bucket().pager().Reference(pgid, true), table_entry } {}
+
+MutBlockPage::MutBlockPage(BlockManager* block_manager, PageId pgid, uint16_t page_index_of_block_table) :
+    MutBlockPage{ block_manager, pgid, nullptr }
+{
+    table_entry_ = &format_->block_table[page_index_of_block_table];
 }
 
 } // namespace yudb

@@ -30,7 +30,8 @@ public:
     Node& node() { return *node_; }
     void set_node(Node* node) { node_ = node; }
 
-    std::pair<uint8_t*, PageReference> Load(uint16_t index, PageOffset pos);
+    std::pair<const uint8_t*, PageReference> Load(uint16_t index, PageOffset pos);
+    std::pair<uint8_t*, PageReference> MutLoad(uint16_t index, PageOffset pos);
     std::optional<std::pair<uint16_t, PageOffset>> Alloc(PageSize size);
     void Free(const std::tuple<uint16_t, PageOffset, uint16_t>& block);
 

@@ -22,17 +22,13 @@ Node::Node(Node&& right) noexcept :
     btree_{ right.btree_ },
     node_format_{ right.node_format_ },
     page_arena_{ &btree_->bucket().pager(), &node_format_->page_arena_format },
-    block_manager_{ std::move(right.block_manager_) }
-{
-    block_manager_.set_node(this);
-}
+    block_manager_{ std::move(right.block_manager_) } {}
 void Node::operator=(Node&& right) noexcept {
     page_ref_ = std::move(right.page_ref_);
     btree_ = right.btree_;
     node_format_ = right.node_format_;
     page_arena_.set_arena_format(&node_format_->page_arena_format);
     block_manager_ = std::move(right.block_manager_);
-    block_manager_.set_node(this);
 }
 
 std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
@@ -107,7 +103,7 @@ Cell Node::CellAlloc(std::span<const uint8_t> data) {
         cell.block.offset = offset;
         cell.block.size = data.size();
 
-        auto [buf, page] = block_manager_.Load(cell.block.entry_index(), cell.block.offset);
+        auto [buf, page] = block_manager_.MutLoad(cell.block.entry_index(), cell.block.offset);
         std::memcpy(buf, data.data(), data.size());
     }
     else {
@@ -210,18 +206,18 @@ void Node::BlockRealloc(BlockPage* new_page, uint16_t entry_index, Cell* cell) {
     }
     cell->block.offset = block_manager_.PageRebuildAppend(new_page, { entry_index, cell->block.offset, cell->block.size });
 }
-void Node::DefragmentSpace(uint16_t entry_index) {
-    auto new_page = block_manager_.PageRebuildBegin(entry_index);
+void Node::DefragmentSpace(uint16_t index) {
+    auto new_page = block_manager_.PageRebuildBegin(index);
     for (uint16_t i = 0; i < node_format_->element_count; i++) {
         if (IsBranch()) {
-            BlockRealloc(&new_page, entry_index, &node_format_->body.branch[i].key);
+            BlockRealloc(&new_page, index, &node_format_->body.branch[i].key);
         } else {
             assert(IsLeaf());
-            BlockRealloc(&new_page, entry_index, &node_format_->body.leaf[i].key);
-            BlockRealloc(&new_page, entry_index, &node_format_->body.leaf[i].value);
+            BlockRealloc(&new_page, index, &node_format_->body.leaf[i].key);
+            BlockRealloc(&new_page, index, &node_format_->body.leaf[i].value);
         }
     }
-    block_manager_.PageRebuildEnd(&new_page, entry_index);
+    block_manager_.PageRebuildEnd(&new_page, index);
 }
 
 
@@ -233,6 +229,5 @@ MutNode MutNode::Copy() const {
     std::memcpy(&new_node.page_content<uint8_t>(), &page_content<uint8_t>(), pager.page_size());
     return new_node;
 }
-
 
 } // namespace yudb

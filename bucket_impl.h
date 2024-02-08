@@ -19,20 +19,6 @@ public:
     BucketImpl(TxImpl* tx, PageId* root_pgid, bool writable);
     BucketImpl(TxImpl* tx, std::span<const uint8_t> inline_bucket_data, bool writable);
 
-    BucketImpl(BucketImpl&& right) noexcept;
-    void operator=(BucketImpl&& right) noexcept;
-
-    const Pager& pager() const;
-    Pager& pager();
-    const auto& tx() const { return *tx_; }
-    void set_tx(TxImpl* tx);
-    void set_root_pgid(PageId* root_pgid);
-    const auto& writable() const { return writable_; }
-    const auto& btree() const { return btree_; }
-    const auto& max_leaf_ele_count() const { return max_leaf_ele_count_; }
-    const auto& max_branch_ele_count() const { return max_branch_ele_count_; }
-    const auto& sub_bucket_map() const { return sub_bucket_map_; }
-
     Iterator Get(const void* key_buf, size_t key_size) {
         if (inlineable_) {
             return Iterator{ inline_bucket_.Get(key_buf, key_size) };
@@ -96,6 +82,15 @@ public:
     }
 
     void Print(bool str = false) const { btree_.Print(str); }
+
+    const Pager& pager() const;
+    Pager& pager();
+    auto& tx() const { return *tx_; }
+    auto& writable() const { return writable_; }
+    auto& btree() const { return btree_; }
+    auto& max_leaf_ele_count() const { return max_leaf_ele_count_; }
+    auto& max_branch_ele_count() const { return max_branch_ele_count_; }
+    auto& sub_bucket_map() const { return sub_bucket_map_; }
 
 protected:
     TxImpl* tx_;

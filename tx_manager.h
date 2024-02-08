@@ -30,13 +30,13 @@ public:
     ViewTx View();
 
     void RollBack();
-    void RollBack(TxId txid);
+    void RollBack(TxId view_txid);
     void Commit();
 
     TxImpl& CurrentUpdateTx() { return *update_tx_; }
 
 private:
-    DBImpl* db_;
+    DBImpl* const db_;
     std::optional<TxImpl> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;
 };

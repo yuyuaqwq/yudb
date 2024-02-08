@@ -23,52 +23,38 @@ public:
 public:
     NodeIterator(NodeFormat* node, uint16_t index) : node_{ node }, index_{ index } {}
 
-    const NodeIterator& operator*() const {
-        return *this;
-    }
-
-    NodeIterator& operator*() {
-        return *this;
-    }
-
+    const NodeIterator& operator*() const { return *this; }
+    NodeIterator& operator*() { return *this; }
     NodeIterator& operator--() noexcept {
         --index_;
         return *this;
     }
-
     NodeIterator& operator++() noexcept {
         ++index_;
         return *this;
     }
-
     NodeIterator operator+(const difference_type n) const {
         return NodeIterator{ node_, uint16_t(index_ + n) };
     }
-
     NodeIterator operator-(const difference_type n) const {
         return NodeIterator{ node_, uint16_t(index_ - n) };
     }
-
     difference_type operator-(const NodeIterator& right) const noexcept {
         return index_ - right.index_;
     }
-
     NodeIterator& operator-=(const difference_type off) noexcept {
         index_ -= off;
         return *this;
     }
-
     NodeIterator& operator+=(const difference_type off) noexcept {
         index_ += off;
         return *this;
     }
-
     bool operator==(const NodeIterator& right) const {
         return node_ == right.node_ && index_ == right.index_;
     }
 
     uint16_t index() { return index_; }
-
     Cell& key() const {
         if (node_->type == NodeFormat::Type::kBranch) {
             return node_->body.branch[index_].key;
@@ -78,7 +64,6 @@ public:
             return node_->body.leaf[index_].key;
         }
     }
-
     Cell& value() const {
         assert(node_->type == NodeFormat::Type::kLeaf);
         return node_->body.leaf[index_].value;

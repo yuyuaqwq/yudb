@@ -27,7 +27,6 @@ public:
     File(File&& right) noexcept {
         operator=(std::move(right));
     }
-
     void operator=(File&& right) noexcept {
         Close();
         handle_ = right.handle_;
@@ -46,13 +45,11 @@ public:
         }
         return true;
     }
-
     void Seek(int64_t offset, PointerMode fromwhere = PointerMode::kDbFilePointerSet) {
         if (!SetFilePointerEx(handle_, *reinterpret_cast<LARGE_INTEGER*>(&offset), NULL, static_cast<DWORD>(fromwhere))) {
             throw std::ios_base::failure{ "set file pointer failed!" };
         }
     }
-
     int64_t Tell() {
         LARGE_INTEGER liCurrentPosition;
         liCurrentPosition.QuadPart = 0;
@@ -61,21 +58,18 @@ public:
         }
         return liCurrentPosition.QuadPart;
     }
-
     size_t Read(void* buf, size_t size) {
         DWORD ret_len;
-        BOOL success = ReadFile(handle_, buf, size, &ret_len, NULL);
+        const BOOL success = ReadFile(handle_, buf, size, &ret_len, NULL);
         if (!success) return 0;
         return ret_len;
     }
-
     void Write(const void* buf, size_t size) {
         DWORD len;
         if (!WriteFile(handle_, buf, size, &len, NULL)) {
             throw std::ios_base::failure{ "write file failed!" };
         }
     }
-
     void Sync() {
         if (!FlushFileBuffers(handle_)) {
             throw std::ios_base::failure{ "sync file failed!" };

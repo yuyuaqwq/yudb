@@ -259,8 +259,6 @@ std::string RandomString(size_t min_size, size_t max_size) {
 }
 
 void TestBlock(yudb::DB* db) {
-    auto tx = db->Update();
-    auto bucket = tx.RootBucket();
 
     //bucket.Put("hello world!", "Cpp yyds!");
     //bucket.Put("This is yudb", "value!");
@@ -277,24 +275,38 @@ void TestBlock(yudb::DB* db) {
     //    std::cout << value << std::endl;
     //}
 
-    
-
     srand(10);
 
     auto count = 10000;
     std::vector<std::string> arr(count);
 
+
     for (auto i = 0; i < count; i++) {
         arr[i] = RandomString(8, 16);
     }
-    auto i = 0;
-    for(auto& iter : arr) {
-        //printf("%d\n", i);
-        bucket.Put(iter, iter);
-        //bucket.Print(true); printf("\n\n\n\n");
-        ++i;
+
+    {
+        auto tx = db->Update();
+        auto bucket = tx.RootBucket();
+
+        auto i = 0;
+        for (auto& iter : arr) {
+            //printf("%d\n", i);
+            bucket.Put(iter, iter);
+            //bucket.Print(true); printf("\n\n\n\n");
+            ++i;
+        }
+        tx.Commit();
     }
-    
+    {
+        auto tx = db->View();
+        auto bucket = tx.RootBucket();
+        for (auto& iter : arr) {
+            auto res = bucket.Get(iter.c_str(), iter.size()); assert(res != bucket.end());
+            //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+            //bucket.Print(); printf("\n\n\n\n\n");
+        }
+    }
 }
 
 void TestLog() {
@@ -318,31 +330,6 @@ void TestLog() {
     assert(std::string(100000, 'a') == *res);*/
 }
 
-void TestBlockRebuild(yudb::DB* db) {
-
-    srand(10);
-
-    auto count = 10000;
-    std::vector<std::string> arr(count);
-
-    for (auto i = 0; i < count; i++) {
-        arr[i] = RandomString(8, 16);
-    }
-    auto i = 0;
-
-    auto tx = db->Update();
-    auto bucket = tx.RootBucket();
-
-    for (auto& iter : arr) {
-        //printf("%d\n", i);
-        bucket.Put(iter, iter);
-        //bucket.Print(true); printf("\n\n\n\n");
-        ++i;
-    }
-
-
-}
-
 int main() {
     TestLru();
     //TestLog();
@@ -361,7 +348,7 @@ int main() {
 
     //TestBTree(db.get());
 
-    TestBlockRebuild(db.get());
+    TestBlock(db.get());
     
     //TestFreer();
 

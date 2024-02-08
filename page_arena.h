@@ -14,7 +14,7 @@ public:
     PageArena(Pager* pager, PageArenaFormat* arena_format) : 
         pager_{ pager }, format_{ arena_format } {}
 
-    const auto& rest_size() const { return format_->rest_size; }
+    auto& rest_size() const { return format_->rest_size; }
     auto& format() { return *format_; }
     void set_arena_format(PageArenaFormat* arena_format) { format_ = arena_format; }
 

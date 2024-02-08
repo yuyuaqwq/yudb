@@ -17,25 +17,7 @@ public:
         eof_{ false },
         size_{ 0 },
         offset_{ 0 } {}
-
     ~Reader() = default;
-
-
-    Reader(Reader&& right) {
-        operator=(std::move(right));
-    }
-
-    void operator=(Reader&& right) {
-        file_ = std::move(right.file_);
-        buffer_ = std::move(right.buffer_);
-        offset_ = right.offset_;
-        size_ = right.size_;
-        eof_ = right.eof_;
-        right.offset_ = 0;
-        right.size_ = 0;
-        right.eof_ = false;
-    }
-
 
     void Open(std::string_view path) {
         file_.Open(path, true);
@@ -43,7 +25,6 @@ public:
         file_.Seek(0, File::PointerMode::kDbFilePointerSet);
         buffer_.resize(kBlockSize);
     }
-
 
     std::optional<std::string> ReadRecord() {
         bool in_fragmented_record = false;

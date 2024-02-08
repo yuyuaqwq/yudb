@@ -22,24 +22,25 @@ public:
         }
     }
 
-    const auto& file() const { return file_; }
-    auto& file() { return file_; }
-    const auto& meta() const { return meta_; }
-    auto& meta() { return meta_; }
-    const auto& pager() const { assert(pager_.has_value()); return *pager_; }
-    auto& pager() { assert(pager_.has_value()); return *pager_; }
-    void set_pager(Pager&& pager) { pager_ = std::move(pager); pager_->set_db(this); }
-    const auto& tx_manager() const { return tx_manager_; }
-    auto& tx_manager() { return tx_manager_; }
-    const auto& log_writer() const { return log_writer_; }
-    auto& log_writer() { return log_writer_; }
-
     UpdateTx Update() override {
         return tx_manager_.Update();
     }
     ViewTx View() override {
         return tx_manager_.View();
     }
+
+    void BuildPager(DBImpl* db, PageSize page_size) { pager_.emplace(db, page_size); }
+
+    auto& file() const { return file_; }
+    auto& file() { return file_; }
+    auto& meta() const { return meta_; }
+    auto& meta() { return meta_; }
+    auto& pager() const { assert(pager_.has_value()); return *pager_; }
+    auto& pager() { assert(pager_.has_value()); return *pager_; }
+    auto& tx_manager() const { return tx_manager_; }
+    auto& tx_manager() { return tx_manager_; }
+    auto& log_writer() const { return log_writer_; }
+    auto& log_writer() { return log_writer_; }
 
 private:
     File file_;

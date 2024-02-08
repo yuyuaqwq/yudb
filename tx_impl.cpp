@@ -14,37 +14,20 @@ TxImpl::TxImpl(TxManager* tx_manager, const MetaFormat& meta, bool writable) :
     MetaFormatCopy(&meta_format_, meta);
 }
 
-TxImpl::TxImpl(TxImpl&& right) noexcept :
-    tx_manager_{ nullptr },
-    root_bucket_{ std::move(right.root_bucket_) },
-    writable_{ right.writable_ }
-{
-    root_bucket_.set_tx(this);
-    root_bucket_.set_root_pgid(&meta_format_.root);
-    MetaFormatCopy(&meta_format_, right.meta_format_);
-}
-
-void TxImpl::operator=(TxImpl&& right) noexcept {
-    tx_manager_ = nullptr;
-    root_bucket_ = std::move(right.root_bucket_);
-    writable_ = right.writable_;
-    root_bucket_.set_tx(this);
-    root_bucket_.set_root_pgid(&meta_format_.root);
-    MetaFormatCopy(&meta_format_, right.meta_format_);
-}
 
 Pager& TxImpl::pager() { return tx_manager_->pager(); }
 
 
 void TxImpl::RollBack() {
-    tx_manager_->RollBack();
-}
-
-void TxImpl::RollBack(TxId view_txid) {
-    tx_manager_->RollBack(view_txid);
+    if (writable_) {
+        tx_manager_->RollBack();
+    } else {
+        tx_manager_->RollBack(txid());
+    }
 }
 
 void TxImpl::Commit() {
+    assert(writable_);
     for (auto& iter : root_bucket_.sub_bucket_map()) {
         root_bucket_.Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second));
     }

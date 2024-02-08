@@ -19,14 +19,10 @@ public:
     TxImpl(TxManager* tx_manager, const MetaFormat& meta, bool writable);
     ~TxImpl() = default;
 
-    TxImpl(TxImpl&& right) noexcept;
-    void operator=(TxImpl&& right) noexcept;
-
-    const auto& txid() const { return meta_format_.txid; }
+    auto& txid() const { return meta_format_.txid; }
     void set_txid(TxId txid) { meta_format_.txid = txid; }
-    void set_tx_manager(TxManager* tx_manager) { tx_manager_ = tx_manager; }
     Pager& pager();
-    const auto& meta_format() const { return meta_format_; }
+    auto& meta_format() const { return meta_format_; }
     auto& meta_format() { return meta_format_; }
 
     BucketImpl& RootBucket() { return root_bucket_; }
@@ -43,7 +39,6 @@ public:
     }
 
     void RollBack();
-    void RollBack(TxId view_txid);
     void Commit();
 
     bool IsLegacyTx(TxId txid) const {
@@ -51,10 +46,10 @@ public:
     }
 
 protected:
-    TxManager* tx_manager_;
+    TxManager* const tx_manager_;
     MetaFormat meta_format_;
 
-    bool writable_;
+    const bool writable_;
 
     BucketImpl root_bucket_;
     std::vector<std::unique_ptr<BucketImpl>> sub_bucket_cache_;

@@ -20,25 +20,9 @@ public:
     Pager(DBImpl* db, PageSize page_size) : db_{ db },
         page_size_{ page_size },
         cache_manager_{ this } {}
-    Pager(Pager&& right) noexcept : 
-        db_{ nullptr },
-        page_size_{right.page_size_},
-        cache_manager_{ std::move(right.cache_manager_) },
-        pending_{ std::move(right.pending_) }
-    {
-        cache_manager_.set_pager(this);
-    }
-    void operator=(Pager&& right) noexcept {
-        db_ = nullptr;
-        page_size_ = right.page_size_;
-        cache_manager_ = std::move(right.cache_manager_);
-        pending_ = std::move(right.pending_);
-        cache_manager_.set_pager(this);
-    }
 
-    const auto& page_size() const { return page_size_; }
-    const auto& db() const { return *db_; }
-    void set_db(DBImpl* db) { db_ = db; }
+    auto& page_size() const { return page_size_; }
+    auto& db() const { return *db_; }
 
     /*
     * 非线程安全，仅写事务使用
@@ -72,8 +56,8 @@ public:
     }
 
 private:
-    DBImpl* db_;
-    PageSize page_size_;
+    DBImpl* const db_;
+    const PageSize page_size_;
     CacheManager cache_manager_;
     std::map<TxId, std::vector<std::pair<PageId, PageCount>>> pending_;
     

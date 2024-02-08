@@ -9,28 +9,25 @@ TxManager::TxManager(DBImpl* db) :
     db_{ db } {}
 
 UpdateTx TxManager::Update() {
-    update_tx_ = TxImpl{ this, db_->meta().meta_format(), true };
-    update_tx_->set_tx_manager(this);
+    update_tx_.emplace(this, db_->meta().meta_format(), true);
     update_tx_->set_txid(update_tx_->txid() + 1);
     if (update_tx_->txid() == kInvalidTxId) {
-        throw std::runtime_error("TxId overflow.");
+        throw std::runtime_error("txid overflow.");
     }
-    auto iter = view_tx_map_.begin();
+    const auto iter = view_tx_map_.cbegin();
     if (iter != view_tx_map_.end()) {
         pager().ClearPending(iter->first);
-    }
-    else {
+    } else {
         pager().ClearPending(kInvalidTxId);
     }
     return UpdateTx{ &*update_tx_ };
 }
 
 ViewTx TxManager::View() {
-    auto iter = view_tx_map_.find(db_->meta().meta_format().txid);
+    const auto iter = view_tx_map_.find(db_->meta().meta_format().txid);
     if (iter == view_tx_map_.end()) {
         view_tx_map_.insert({ db_->meta().meta_format().txid , 1});
-    }
-    else {
+    } else {
         ++iter->second;
     }
     return ViewTx{ this, db_->meta().meta_format()};
@@ -38,11 +35,11 @@ ViewTx TxManager::View() {
 
 void TxManager::RollBack() {
     pager().RollbackPending();
-    update_tx_ = {};
+    update_tx_ = std::nullopt;
 }
 
 void TxManager::RollBack(TxId view_txid) {
-    auto iter = view_tx_map_.find(view_txid);
+    const auto iter = view_tx_map_.find(view_txid);
     assert(iter != view_tx_map_.end());
     assert(iter->second > 0);
     --iter->second;
@@ -59,7 +56,7 @@ void TxManager::Commit() {
     db_->meta().Save();
     db_->meta().Switch();
 
-    update_tx_ = {};
+    update_tx_ = std::nullopt;
 }
 
 const Pager& TxManager::pager() const {

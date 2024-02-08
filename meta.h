@@ -21,7 +21,7 @@ public:
     auto& meta_format() { return meta_format_; }
 
 private:
-    DBImpl* db_;
+    DBImpl* const db_;
     MetaFormat meta_format_{ 0 };
     uint32_t meta_index_{ 0 };
 };

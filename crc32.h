@@ -83,7 +83,6 @@ public:
             value_ = crc32_table[(value_ ^ buf_[i]) & 0xff] ^ (value_ >> 8);
         }
     }
-
     uint32_t End() {
         auto res = value_ ^ 0xffffffff;
         value_ = 0xffffffff;

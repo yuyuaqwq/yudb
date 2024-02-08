@@ -10,7 +10,7 @@ std::unique_ptr<DB> DB::Open(std::string_view path) {
     if (!db->meta().Load()) {
         return {};
     }
-    db->set_pager(Pager{ db.get(), db->meta().meta_format().page_size });
+    db->BuildPager(db.get(), db->meta().meta_format().page_size);
     return db;
 }
 

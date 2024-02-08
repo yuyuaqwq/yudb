@@ -24,22 +24,7 @@ public:
 
 public:
     BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator);
-
     ~BTree() = default;
-
-    BTree(BTree&& right) noexcept {
-        operator=(std::move(right));
-    }
-    void operator=(BTree&& right) noexcept {
-        bucket_ = nullptr;
-        root_pgid_ = nullptr;
-        comparator_ = std::move(right.comparator_);
-        right.root_pgid_ = nullptr;
-    }
-
-    void set_bucket(BucketImpl* bucket) { bucket_ = bucket; }
-    void set_root_pgid(PageId* root_pgid) { root_pgid_ = root_pgid; }
-    BucketImpl& bucket() const { return *bucket_; }
 
     Iterator LowerBound(std::span<const uint8_t> key);
     Iterator Get(std::span<const uint8_t> key);
@@ -53,6 +38,8 @@ public:
 
     Iterator begin() const noexcept;
     Iterator end() const noexcept;
+
+    auto& bucket() const { return *bucket_; }
 
 private:
     std::tuple<MutNode, uint16_t, MutNode, bool> GetSibling(Iterator* iter);
