@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+
+#include <array>
 #include <memory>
 #include <string_view>
 
@@ -9,6 +11,8 @@
 #include "meta.h"
 #include "bucket_impl.h"
 #include "bucket.h"
+
+#include "tx_log_format.h"
 
 namespace yudb {
 
@@ -21,18 +25,23 @@ public:
 
     BucketImpl& RootBucket() { return root_bucket_; }
     const BucketImpl& RootBucket() const { return root_bucket_; }
-    uint32_t NewSubBucket(PageId* root_pgid, bool writable);
-    uint32_t NewSubBucket(std::span<const uint8_t> inline_bucket_data, bool writable);
-    BucketImpl& AtSubBucket(uint32_t index);
+    BucketId NewSubBucket(PageId* root_pgid, bool writable);
+    BucketId NewSubBucket(std::span<const uint8_t> inline_bucket_data, bool writable);
+    BucketImpl& AtSubBucket(BucketId bucket_id);
 
     void RollBack();
     void Commit();
 
     bool IsLegacyTx(TxId txid) const;
 
+    void AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
+    void AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
+    void AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key);
+
     auto& txid() const { return meta_format_.txid; }
     void set_txid(TxId txid) { meta_format_.txid = txid; }
     Pager& pager();
+    auto& tx_manager() const { return *tx_manager_; }
     auto& meta_format() const { return meta_format_; }
     auto& meta_format() { return meta_format_; }
 

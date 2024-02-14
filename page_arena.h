@@ -11,26 +11,25 @@ class Pager;
 
 class PageArena : noncopyable {
 public:
-    PageArena(Pager* pager, PageArenaFormat* arena_format) : 
-        pager_{ pager }, format_{ arena_format } {}
-    ~PageArena() = default;
+    PageArena(Pager* pager, PageArenaFormat* format);
+    ~PageArena();
+
+    void Build();
+    std::optional<PageOffset> AllocLeft(PageSize size);
+    std::optional<PageOffset> AllocRight(PageSize size);
+    void FreeLeft(PageSize size);
+    void FreeRight(PageSize size);
 
     auto& rest_size() const { return format_->rest_size; }
     auto& format() { return *format_; }
-    void set_arena_format(PageArenaFormat* arena_format) { format_ = arena_format; }
-
-    void Build();
-    std::optional<PageOffset> AllocLeft(size_t size);
-    std::optional<PageOffset> AllocRight(size_t size);
-    void FreeLeft(size_t size);
-    void FreeRight(size_t size);
+    void set_format(PageArenaFormat* format) { format_ = format; }
 
 private:
     PageOffset left_size();
     PageOffset right_size();
 
 private:
-    Pager* pager_;
+    Pager* const pager_;
     PageArenaFormat* format_;
 };
 

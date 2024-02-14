@@ -5,6 +5,7 @@
 #include <ios>
 
 #include <Windows.h>
+#undef min
 
 #include "noncopyable.h"
 

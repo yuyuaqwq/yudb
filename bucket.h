@@ -6,7 +6,7 @@ namespace yudb {
 
 class ViewBucket : noncopyable {
 public:
-    using Iterator = BucketImplIterator;
+    using Iterator = BucketIterator;
 public:
     explicit ViewBucket(BucketImpl* bucket) : bucket_{ bucket } {};
     ~ViewBucket() = default;

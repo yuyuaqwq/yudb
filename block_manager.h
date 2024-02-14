@@ -2,38 +2,25 @@
 
 #include <optional>
 #include <variant>
+#include <span>
 
 #include "noncopyable.h"
 #include "block_page.h"
 
 namespace yudb {
 
-class Node;
-class PageReference;
+class NodeImpl;
+class Page;
 
 class BlockManager : noncopyable {
 public:
-    BlockManager(Node* node, BlockTableDescriptor* block_info) : node_{ node }, descriptor_{ block_info } {}
+    BlockManager(NodeImpl* node, BlockTableDescriptor* block_info) : node_{ node }, descriptor_{ block_info } {}
     ~BlockManager() = default;
 
-    BlockManager(BlockManager&& right) noexcept {
-        operator=(std::move(right));
-    }
-    void operator=(BlockManager&& right) noexcept {
-        node_ = nullptr;
-        descriptor_ = right.descriptor_;
-        
-        right.node_ = nullptr;
-        right.descriptor_ = nullptr;
-    }
-
-    Node& node() { return *node_; }
-    void set_node(Node* node) { node_ = node; }
-
-    std::pair<const uint8_t*, PageReference> Load(uint16_t index, PageOffset pos);
-    std::pair<uint8_t*, PageReference> MutLoad(uint16_t index, PageOffset pos);
     std::optional<std::pair<uint16_t, PageOffset>> Alloc(PageSize size);
     void Free(const std::tuple<uint16_t, PageOffset, uint16_t>& block);
+    std::pair<const uint8_t*, ConstPage> ConstLoad(uint16_t index, PageOffset pos);
+    std::pair<uint8_t*, Page> Load(uint16_t index, PageOffset pos);
 
     void Build();
     void Clear();
@@ -46,17 +33,20 @@ public:
 
     void Print();
 
+    auto& node() { return *node_; }
+    void set_descriptor(BlockTableDescriptor* descriptor) { descriptor_ = descriptor; }
+
 private:
-    void BuildTableEntry(BlockTableEntry* entry, BlockPage* block_page);
+    void BuildTableEntry(BlockTableEntry* entry, BlockPageImpl* block_page);
     void CopyPageOfBlockTable();
 
-    void AppendPage(BlockPage* page_of_table);
+    void AppendPage(BlockPageImpl* page_of_table);
     void DeletePage();
 
     PageSize MaxFragmentSize();
 
 protected:
-    Node* node_;
+    NodeImpl* const node_;
     BlockTableDescriptor* descriptor_;
 };
 

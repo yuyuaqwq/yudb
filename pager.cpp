@@ -10,6 +10,8 @@ Pager::Pager(DBImpl* db, PageSize page_size) : db_{ db },
     page_size_{ page_size },
     cache_manager_{ this } {}
 
+Pager::~Pager() = default;
+
 
 void Pager::Read(PageId pgid, void* cache, PageCount count) {
     db_->file().Seek(pgid * page_size());
@@ -94,29 +96,28 @@ void Pager::Free(PageId free_pgid, PageCount free_count) {
 }
 
 
-PageReference Pager::Copy(const PageReference& page_ref) {
+Page Pager::Copy(const Page& page) {
     auto new_pgid = Alloc(1);
     auto new_page = Reference(new_pgid, true);
-    std::memcpy(&new_page.content<uint8_t>(), &page_ref.content<uint8_t>(), page_size_);
-    Free(page_ref.page_id(), 1);    // Pending
+    std::memcpy(&new_page.content<uint8_t>(), &page.content<uint8_t>(), page_size_);
+    Free(page.page_id(), 1);    // Pending
     return new_page;
 }
-PageReference Pager::Copy(PageId pgid) {
+Page Pager::Copy(PageId pgid) {
     auto page = Reference(pgid, false);
     return Copy(std::move(page));
 }
 
-
-PageReference Pager::Reference(PageId pgid, bool dirty) {
+Page Pager::Reference(PageId pgid, bool dirty) {
     assert(pgid != kPageInvalidId);
     auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
     if (cache_info->dirty == false && dirty == true) {
         cache_info->dirty = true;
-        const auto& update_tx = db_->tx_manager().CurrentUpdateTx();
-        MutNode node{ &update_tx.RootBucket().btree(), pgid, false };
+        auto& update_tx = db_->tx_manager().CurrentUpdateTx();
+        Node node{ &update_tx.RootBucket().btree(), pgid, false };
         node.set_last_modified_txid(update_tx.txid());
     }
-    return PageReference{ this, page_cache };
+    return Page{ this, page_cache };
 }
 void Pager::Dereference(uint8_t* page_cache) {
     cache_manager_.Dereference(page_cache);

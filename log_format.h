@@ -19,12 +19,12 @@ struct LogRecord {
     uint32_t checksum;
     uint16_t size;
     RecordType type;
-    uint8_t data[];
+    uint8_t data[1];
 };
 #pragma pack(pop)
 
 static constexpr size_t kBlockSize = 32 * 1024;
-static constexpr size_t kHeaderSize = sizeof(LogRecord);
+static constexpr size_t kHeaderSize = sizeof(LogRecord) - sizeof(LogRecord::data);
 static const char* kBlockPadding = "\x00\x00\x00\x00\x00\x00";
 
 } // namespace log

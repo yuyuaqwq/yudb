@@ -4,38 +4,43 @@
 
 namespace yudb {
 
+PageArena::PageArena(Pager* pager, PageArenaFormat* format) : 
+    pager_{ pager }, format_{ format } {}
+
+PageArena::~PageArena() = default;
+
 void PageArena::Build() {
     format_->rest_size = pager_->page_size();
     format_->right_size = 0;
 }
 
-std::optional<PageOffset> PageArena::AllocLeft(size_t size) {
+std::optional<PageOffset> PageArena::AllocLeft(PageSize size) {
     assert(pager_->page_size() == rest_size() + left_size() + right_size());
     if (format_->rest_size < size) {
         return {};
     }
-    auto left_offset = left_size();
+    const auto left_offset = left_size();
     format_->rest_size -= size;
     return left_offset;
 }
 
-std::optional<PageOffset> PageArena::AllocRight(size_t size) {
+std::optional<PageOffset> PageArena::AllocRight(PageSize size) {
     assert(pager_->page_size() == rest_size() + left_size() + right_size());
     if (format_->rest_size < size) {
         return {};
     }
     format_->right_size += size;
-    auto right_offset = pager_->page_size() - format_->right_size;
+    const auto right_offset = pager_->page_size() - format_->right_size;
     format_->rest_size -= size;
     return right_offset;
 }
 
-void PageArena::FreeLeft(size_t size) {
+void PageArena::FreeLeft(PageSize size) {
     assert(pager_->page_size() == rest_size() + left_size() + right_size());
     format_->rest_size += size;
 }
 
-void PageArena::FreeRight(size_t size) {
+void PageArena::FreeRight(PageSize size) {
     assert(pager_->page_size() == rest_size() + left_size() + right_size());
     format_->rest_size += size;
     format_->right_size -= size;

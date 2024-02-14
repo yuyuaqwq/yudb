@@ -8,24 +8,25 @@ namespace yudb {
 
 TxImpl::TxImpl(TxManager* tx_manager, const MetaFormat& meta, bool writable) :
     tx_manager_{ tx_manager },
-    root_bucket_{ this, &meta_format_.root, writable },
+    root_bucket_{ this, kRootBucketId, &meta_format_.root, writable },
     writable_{ writable }
 {
     MetaFormatCopy(&meta_format_, meta);
 }
 
 
-
-uint32_t TxImpl::NewSubBucket(PageId* root_pgid, bool writable) {
-    sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, root_pgid, writable));
-    return sub_bucket_cache_.size() - 1;
+BucketId TxImpl::NewSubBucket(PageId* root_pgid, bool writable) {
+    BucketId new_bucket_id = sub_bucket_cache_.size();
+    sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, new_bucket_id, root_pgid, writable));
+    return new_bucket_id;
 }
-uint32_t TxImpl::NewSubBucket(std::span<const uint8_t> inline_bucket_data, bool writable) {
-    sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, inline_bucket_data, writable));
-    return sub_bucket_cache_.size() - 1;
+BucketId TxImpl::NewSubBucket(std::span<const uint8_t> inline_bucket_data, bool writable) {
+    BucketId new_bucket_id = sub_bucket_cache_.size();
+    sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, new_bucket_id, inline_bucket_data, writable));
+    return new_bucket_id;
 }
-BucketImpl& TxImpl::AtSubBucket(uint32_t index) {
-    return *sub_bucket_cache_[index];
+BucketImpl& TxImpl::AtSubBucket(BucketId bucket_id) {
+    return *sub_bucket_cache_[bucket_id];
 }
 
 
@@ -52,6 +53,16 @@ void TxImpl::Commit() {
 
 bool TxImpl::IsLegacyTx(TxId txid) const {
     return txid < this->txid();
+}
+
+void TxImpl::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
+    tx_manager_->AppendPutLog(bucket_id, key, value);
+}
+void TxImpl::AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
+    tx_manager_->AppendInsertLog(bucket_id, key, value);
+}
+void TxImpl::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {
+    tx_manager_->AppendDeleteLog(bucket_id, key);
 }
 
 

@@ -25,7 +25,6 @@ public:
         file_.Seek(0, File::PointerMode::kDbFilePointerSet);
         buffer_.resize(kBlockSize);
     }
-
     std::optional<std::string> ReadRecord() {
         bool in_fragmented_record = false;
         std::string res;
@@ -73,6 +72,7 @@ public:
         } while (true);
     }
 
+private:
     const LogRecord* ReadPhysicalRecord() {
         const LogRecord* record = nullptr;
         do {
@@ -84,14 +84,12 @@ public:
                         // 到达文件末尾
                         eof_ = true;
                         return nullptr;
-                    }
-                    else if (size_ < kBlockSize) {
+                    } else if (size_ < kBlockSize) {
                         // 到达文件末尾，但仍有数据，继续循环处理
                         eof_ = true;
                     }
                     continue;
-                }
-                else {
+                } else {
                     // 可能是写header时crash
                     size_ = 0;
                     return nullptr;

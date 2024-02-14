@@ -29,10 +29,6 @@ struct NodeFormat {
     NodeFormat(const NodeFormat&) = delete;
     void operator=(const NodeFormat&) = delete;
 
-    // 当分配第二页时，同时在第二页前部分创建一个最大溢出页面大小的空间管理(最大溢出)，负责分配空闲空间
-    // 管理溢出页面的页号、最大剩余空间，其他溢出的数据页就各自管理各自的页内空闲空间即可
-    // 空间管理动态扩展，在溢出页中分配新的
-
     union {
         struct {
             TxId last_modified_txid;

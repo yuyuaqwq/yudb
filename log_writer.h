@@ -1,7 +1,8 @@
 #pragma once
 
-#include <span>
 #include <cassert>
+
+#include <span>
 
 #include "noncopyable.h"
 #include "crc32.h"
@@ -19,31 +20,42 @@ public:
     ~Writer() = default;
 
     void Open(std::string_view path) {
-        file_.Open(path, true);
+        if (!file_.Open(path, true)) {
+            throw std::runtime_error("failed to open log file.");
+        }
         file_.Seek(0, File::PointerMode::kDbFilePointerEnd);
         buffer_.resize(kBlockSize);
     }
-
     void AppendRecordToBuffer(std::span<const uint8_t> data) {
-        if (size_ + data.size() > kBlockSize) {
+        if (kBlockSize - size_ < kHeaderSize + data.size()) {
             FlushBuffer();
-            AppendRecord(data);
-            return;
+            if (kHeaderSize + data.size() > kBlockSize) {
+                AppendRecord(data);
+                return;
+            }
         }
+        uint8_t buf[kHeaderSize];
+        auto record = reinterpret_cast<LogRecord*>(buf);
+        record->type = RecordType::kFullType;
+        record->size = data.size();
+        Crc32 crc32;
+        crc32.Append(&record->size, kHeaderSize - sizeof(record->checksum));
+        crc32.Append(data.data(), data.size());
+        record->checksum = crc32.End();
+        std::memcpy(&buffer_[size_], buf, kHeaderSize);
+        size_ += kHeaderSize;
         std::memcpy(&buffer_[size_], data.data(), data.size());
         size_ += data.size();
     }
-
     void AppendRecordToBuffer(std::string_view str) {
-        AppendRecordToBuffer(std::span<const uint8_t>{ reinterpret_cast<const uint8_t*>(str.data()), str.size() });
+        AppendRecordToBuffer(std::span{ reinterpret_cast<const uint8_t*>(str.data()), str.size() });
     }
-
     void FlushBuffer() {
         if (size_ > 0) {
-            AppendRecord(std::span<const uint8_t>{ buffer_.data(), buffer_.size() });
+            file_.Write(buffer_.data(), buffer_.size());
+            size_ = 0;
         }
     }
-
     void AppendRecord(std::span<const uint8_t> data) {
         auto ptr = data.data();
         auto left = data.size();
@@ -65,14 +77,11 @@ public:
             const bool end = (left == fragment_length);
             if (begin && end) {
                 type = RecordType::kFullType;
-            }
-            else if (begin) {
+            } else if (begin) {
                 type = RecordType::kFirstType;
-            }
-            else if (end) {
+            } else if (end) {
                 type = RecordType::kLastType;
-            }
-            else {
+            } else {
                 type = RecordType::kMiddleType;
             }
 
@@ -82,11 +91,11 @@ public:
             begin = false;
         } while (left > 0);
     }
-
     void AppendRecord(std::string_view str) {
         AppendRecord(std::span<const uint8_t>{ reinterpret_cast<const uint8_t*>(str.data()), str.size() });
     }
 
+private:
     void EmitPhysicalRecord(RecordType type, const uint8_t* ptr, size_t size) {
         assert(size < 0xffff);
         assert(block_offset_ + kHeaderSize + size <= kBlockSize);
@@ -110,7 +119,6 @@ public:
 private:
     File file_;
     size_t block_offset_;
-
     std::vector<uint8_t> buffer_;
     size_t size_;
 };

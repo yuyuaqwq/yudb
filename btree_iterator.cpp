@@ -6,36 +6,38 @@
 
 namespace yudb {
 
+BTreeIterator::BTreeIterator(BTree* btree) : btree_{ btree } {}
+BTreeIterator::BTreeIterator(const BTreeIterator& right) = default;
+void BTreeIterator::operator=(const BTreeIterator& right) {
+    assert(btree_ == right.btree_);
+    stack_ = right.stack_;
+    status_ = right.status_;
+}
+
 BTreeIterator::reference BTreeIterator::operator*() const noexcept {
     return *this;
 }
-
 const BTreeIterator* BTreeIterator::operator->() const noexcept {
     return this;
 }
-
 BTreeIterator& BTreeIterator::operator++() noexcept {
     Next();
     return *this;
 }
-
 BTreeIterator BTreeIterator::operator++(int) noexcept {
     BTreeIterator tmp = *this;
     tmp.Next();
     return tmp;
 }
-
 BTreeIterator& BTreeIterator::operator--() noexcept {
     Prev();
     return *this;
 }
-
 BTreeIterator BTreeIterator::operator--(int) noexcept {
     BTreeIterator tmp = *this;
     tmp.Prev();
     return tmp;
 }
-
 bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
     if (btree_ != right.btree_) {
         return false;
@@ -48,8 +50,7 @@ bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
             if (right.status() == Status::kInvalid) {
                 return true;
             }
-        }
-        else if (right.Empty()) {
+        } else if (right.Empty()) {
             if (status() == Status::kInvalid) {
                 return true;
             }
@@ -60,8 +61,6 @@ bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
     auto& [pgid2, index2] = right.Front();
     return pgid == pgid2 && index == index2;
 }
-
-
 
 std::string BTreeIterator::key() const {
     auto [buf, size, ref] = KeyCell();
@@ -77,7 +76,6 @@ std::string BTreeIterator::key() const {
     }
     return key;
 }
-
 std::string BTreeIterator::value() const {
     auto [buf, size, ref] = ValueCell();
     std::string val;
@@ -94,63 +92,55 @@ std::string BTreeIterator::value() const {
 }
 
 bool BTreeIterator::is_bucket() const {
-    auto [node, index] = LeafImmNode();
+    auto [node, index] = LeafConstNode();
     return node.leaf_key(index).bucket_flag;
 }
-
 void BTreeIterator::set_is_bucket() {
-    auto [node, index] = LeafMutNode();
+    auto [node, index] = LeafNode();
     node.leaf_key(index).bucket_flag = 1;
 }
-
 bool BTreeIterator::is_inline_bucket() const {
-    auto [node, index] = LeafImmNode();
+    auto [node, index] = LeafConstNode();
     return node.leaf_value(index).bucket_flag;
 }
-
 void BTreeIterator::set_is_inline_bucket() {
-    auto [node, index] = LeafMutNode();
+    auto [node, index] = LeafNode();
     node.leaf_value(index).bucket_flag = 1;
 }
 
-
-std::pair<ImmNode, uint16_t> BTreeIterator::LeafImmNode() const {
+std::pair<ConstNode, uint16_t> BTreeIterator::LeafConstNode() const {
     if (*this == btree_->end()) {
         throw std::runtime_error("invalid iterator.");
     }
     auto& [pgid, index] = Front();
-    ImmNode node{ btree_, pgid };
+    ConstNode node{ btree_, pgid };
+    assert(*this != btree_->end());
+    assert(node.IsLeaf());
+    return { std::move(node), index };
+}
+std::pair<Node, uint16_t> BTreeIterator::LeafNode() const {
+    if (*this == btree_->end()) {
+        throw std::runtime_error("invalid iterator.");
+    }
+    auto& [pgid, index] = Front();
+    Node node{ btree_, pgid };
     assert(*this != btree_->end());
     assert(node.IsLeaf());
     return { std::move(node), index };
 }
 
-std::pair<MutNode, uint16_t> BTreeIterator::LeafMutNode() const {
-    if (*this == btree_->end()) {
-        throw std::runtime_error("invalid iterator.");
-    }
-    auto& [pgid, index] = Front();
-    MutNode node{ btree_, pgid };
-    assert(*this != btree_->end());
-    assert(node.IsLeaf());
-    return { std::move(node), index };
-}
-
-
-std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
+std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<ConstPage, std::string>>>
 BTreeIterator::KeyCell() const {
-    auto [node, index] = LeafImmNode();
+    auto [node, index] = LeafConstNode();
     auto res = node.CellLoad(node.leaf_key(index));
     return res;
 }
-
-std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
+std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<ConstPage, std::string>>>
 BTreeIterator::ValueCell() const {
-    auto [node, index] = LeafImmNode();
+    auto [node, index] = LeafConstNode();
     auto res = node.CellLoad(node.leaf_value(index));
     return res;
 }
-
 
 void BTreeIterator::First(PageId pgid) {
     if (pgid == kPageInvalidId) {
@@ -158,7 +148,7 @@ void BTreeIterator::First(PageId pgid) {
     }
     status_ = Status::kIter;
     do {
-        ImmNode node{ btree_, pgid };
+        ConstNode node{ btree_, pgid };
         if (node.IsLeaf()) {
             break;
         }
@@ -168,11 +158,10 @@ void BTreeIterator::First(PageId pgid) {
     } while (true);
     stack_.push_back({ pgid, 0 });
 }
-
 void BTreeIterator::Last(PageId pgid) {
     status_ = Status::kIter;
     do {
-        ImmNode node{ btree_, pgid };
+        ConstNode node{ btree_, pgid };
         if (node.IsLeaf()) {
             break;
         }
@@ -180,15 +169,14 @@ void BTreeIterator::Last(PageId pgid) {
         assert(node.element_count() > 0);
         pgid = node.branch_left_child(node.element_count() - 1);
     } while (true);
-    ImmNode node{ btree_, pgid };
+    ConstNode node{ btree_, pgid };
     stack_.push_back({ pgid, node.element_count() - 1 });
 }
-
 void BTreeIterator::Next() {
     assert(!Empty());
     do {
         auto& [pgid, index] = Front();
-        ImmNode node{ btree_, pgid };
+        ConstNode node{ btree_, pgid };
 
         if (++index < node.element_count()) {
             if (node.IsLeaf()) {
@@ -204,7 +192,6 @@ void BTreeIterator::Next() {
         Pop();
     } while (!Empty());
 }
-
 void BTreeIterator::Prev() {
     if (Empty()) {
         Last(btree_->root_pgid_);
@@ -212,7 +199,7 @@ void BTreeIterator::Prev() {
     }
     do {
         auto& [pgid, index] = Front();
-        ImmNode node{ btree_, pgid };
+        ConstNode node{ btree_, pgid };
         if (index > 0) {
             --index;
             if (node.IsLeaf()) {
@@ -225,11 +212,9 @@ void BTreeIterator::Prev() {
     } while (!Empty());
 }
 
-
 bool BTreeIterator::Top(std::span<const uint8_t> key) {
     return Down(key);
 }
-
 bool BTreeIterator::Down(std::span<const uint8_t> key) {
     PageId pgid;
     if (stack_.empty()) {
@@ -240,13 +225,13 @@ bool BTreeIterator::Down(std::span<const uint8_t> key) {
     }
     else {
         auto [parent_pgid, pos] = stack_.front();
-        ImmNode parent{ btree_, parent_pgid };
+        ConstNode parent{ btree_, parent_pgid };
         if (parent.IsLeaf()) {
             return false;
         }
         pgid = parent.BranchGetLeftChild(pos);
     }
-    ImmNode node{ btree_, pgid };
+    ConstNode node{ btree_, pgid };
 
     // 在节点中进行二分查找
     uint16_t index;
@@ -280,26 +265,18 @@ bool BTreeIterator::Down(std::span<const uint8_t> key) {
     stack_.push_back(std::pair{ pgid, index });
     return true;
 }
-
-
 std::pair<PageId, uint16_t>& BTreeIterator::Front() {
     return stack_.front();
 }
-
 const std::pair<PageId, uint16_t>& BTreeIterator::Front() const {
     return stack_.front();
 }
-
-
 void BTreeIterator::Pop() {
     stack_.pop_back();
 }
-
 bool BTreeIterator::Empty() const {
     return stack_.empty();
 }
-
-
 
 void BTreeIterator::PathCopy() {
     if (Empty()) {
@@ -309,7 +286,7 @@ void BTreeIterator::PathCopy() {
     auto lower_pgid = kPageInvalidId;
     for (ptrdiff_t i = stack_.size() - 1; i >= 0; i--) {
         auto& [pgid, index] = stack_[i];
-        MutNode node{ btree_, pgid };
+        Node node{ btree_, pgid };
         if (!tx.IsLegacyTx(node.last_modified_txid())) {
             if (node.IsBranch()) {
                 assert(lower_pgid != kPageInvalidId);
@@ -318,7 +295,7 @@ void BTreeIterator::PathCopy() {
             return;
         }
 
-        Node new_node = node.Copy();
+        NodeImpl new_node = node.Copy();
         new_node.set_last_modified_txid(tx.txid());
         if (new_node.IsBranch()) {
             assert(lower_pgid != kPageInvalidId);
@@ -329,6 +306,5 @@ void BTreeIterator::PathCopy() {
     }
     btree_->root_pgid_ = lower_pgid;
 }
-
 
 } // namespace yudb

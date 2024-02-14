@@ -7,7 +7,6 @@
 #include "page_format.h"
 #include "stack.h"
 #include "node.h"
-#include "page_reference.h"
 
 namespace yudb {
 
@@ -35,35 +34,19 @@ public:
     };
 
 public:
-    BTreeIterator(const BTree* btree) : btree_{ btree } {}
-
+    explicit BTreeIterator(BTree* btree);
+    BTreeIterator(const BTreeIterator& right);
+    void operator=(const BTreeIterator& right);
 
     reference operator*() const noexcept;
-
     const BTreeIterator* operator->() const noexcept;
-
     BTreeIterator& operator++() noexcept;
-
     BTreeIterator operator++(int) noexcept;
-
     BTreeIterator& operator--() noexcept;
-
     BTreeIterator operator--(int) noexcept;
-
     bool operator==(const BTreeIterator& right) const noexcept;
 
-    
-    bool is_bucket() const;
-
-    void set_is_bucket();
-
-    bool is_inline_bucket() const;
-
-    void set_is_inline_bucket();
-
-
-    template <class KeyT>
-    KeyT key() const {
+    template <class KeyT> KeyT key() const {
         auto [buf, size, ref] = KeyCell();
         if (size != sizeof(KeyT)) {
             throw std::runtime_error("The size of the key does not match.");
@@ -72,9 +55,7 @@ public:
         std::memcpy(&key, buf, size);
         return key;
     }
-
-    template <class ValueT>
-    ValueT value() const {
+    template <class ValueT> ValueT value() const {
         auto [buf, size, ref] = ValueCell();
         if (size != sizeof(ValueT)) {
             throw std::runtime_error("The size of the value does not match.");
@@ -83,53 +64,38 @@ public:
         std::memcpy(&value, buf, size);
         return value;
     }
-
     std::string key() const;
-
     std::string value() const;
-
-
-
-    void First(PageId pgid);
-
-    void Last(PageId pgid);
-
-    void Next();
-
-    void Prev();
-
-
-    bool Top(std::span<const uint8_t> key);
-
-    bool Down(std::span<const uint8_t> key);
-
-    std::pair<PageId, uint16_t>& Front();
-
-    const std::pair<PageId, uint16_t>& Front() const;
-
-    void Pop();
-
-    bool Empty() const;
-
-
-    void PathCopy();
-
-
+    bool is_bucket() const;
+    void set_is_bucket();
+    bool is_inline_bucket() const;
+    void set_is_inline_bucket();
     Status status() const { return status_; }
 
+    void First(PageId pgid);
+    void Last(PageId pgid);
+    void Next();
+    void Prev();
+
+    bool Empty() const;
+    bool Top(std::span<const uint8_t> key);
+    bool Down(std::span<const uint8_t> key);
+    std::pair<PageId, uint16_t>& Front();
+    const std::pair<PageId, uint16_t>& Front() const;
+    void Pop();
+
+    void PathCopy();
 private:
-    std::pair<ImmNode, uint16_t> LeafImmNode() const;
+    std::pair<ConstNode, uint16_t> LeafConstNode() const;
+    std::pair<Node, uint16_t> LeafNode() const;
 
-    std::pair<MutNode, uint16_t> LeafMutNode() const;
-
-    std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
+    std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<ConstPage, std::string>>>
     KeyCell() const;
-
-    std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<PageReference, std::string>>>
+    std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<ConstPage, std::string>>>
     ValueCell() const;
 
 private:
-    const BTree* btree_;
+    BTree* const btree_;
     Stack stack_;       // 索引必定是小于等于搜索时key的节点
     Status status_{ Status::kInvalid };
 };

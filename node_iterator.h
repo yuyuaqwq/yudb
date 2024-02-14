@@ -5,8 +5,7 @@
 
 #include <iterator>
 
-#include "node.h"
-
+#include "node_format.h"
 
 namespace yudb {
 
@@ -21,57 +20,29 @@ public:
     using reference = NodeIterator&;
 
 public:
-    NodeIterator(NodeFormat* node, uint16_t index) : node_{ node }, index_{ index } {}
-    ~NodeIterator() = default;
+    NodeIterator(NodeFormat* node, uint16_t index);
+    ~NodeIterator();
 
-    const NodeIterator& operator*() const { return *this; }
-    NodeIterator& operator*() { return *this; }
-    NodeIterator& operator--() noexcept {
-        --index_;
-        return *this;
-    }
-    NodeIterator& operator++() noexcept {
-        ++index_;
-        return *this;
-    }
-    NodeIterator operator+(const difference_type n) const {
-        return NodeIterator{ node_, uint16_t(index_ + n) };
-    }
-    NodeIterator operator-(const difference_type n) const {
-        return NodeIterator{ node_, uint16_t(index_ - n) };
-    }
-    difference_type operator-(const NodeIterator& right) const noexcept {
-        return index_ - right.index_;
-    }
-    NodeIterator& operator-=(const difference_type off) noexcept {
-        index_ -= off;
-        return *this;
-    }
-    NodeIterator& operator+=(const difference_type off) noexcept {
-        index_ += off;
-        return *this;
-    }
-    bool operator==(const NodeIterator& right) const {
-        return node_ == right.node_ && index_ == right.index_;
-    }
+    NodeIterator(const NodeIterator& right);
+    void operator=(const NodeIterator& right);
+
+    const NodeIterator& operator*() const;
+    NodeIterator& operator*();
+    NodeIterator& operator--() noexcept;
+    NodeIterator& operator++() noexcept;
+    NodeIterator operator+(const difference_type n) const;
+    NodeIterator operator-(const difference_type n) const;
+    difference_type operator-(const NodeIterator& right) const noexcept;
+    NodeIterator& operator-=(const difference_type off) noexcept;
+    NodeIterator& operator+=(const difference_type off) noexcept;
+    bool operator==(const NodeIterator& right) const;
 
     uint16_t index() { return index_; }
-    Cell& key() const {
-        if (node_->type == NodeFormat::Type::kBranch) {
-            return node_->body.branch[index_].key;
-        }
-        else {
-            assert(node_->type == NodeFormat::Type::kLeaf);
-            return node_->body.leaf[index_].key;
-        }
-    }
-    Cell& value() const {
-        assert(node_->type == NodeFormat::Type::kLeaf);
-        return node_->body.leaf[index_].value;
-    }
+    Cell& key() const;
+    Cell& value() const;
 
 private:
-    NodeFormat* node_;
+    NodeFormat* const node_;
     uint16_t index_;
 };
 

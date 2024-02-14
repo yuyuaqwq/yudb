@@ -5,7 +5,7 @@
 
 #include "btree.h"
 #include "inline_bucket.h"
-#include "bucket_impl_iterator.h"
+#include "bucket_iterator.h"
 
 namespace yudb {
 
@@ -13,11 +13,11 @@ class TxImpl;
 
 class BucketImpl : noncopyable {
 public:
-    using Iterator = BucketImplIterator;
+    using Iterator = BucketIterator;
 
 public:
-    BucketImpl(TxImpl* tx, PageId* root_pgid, bool writable);
-    BucketImpl(TxImpl* tx, std::span<const uint8_t> inline_bucket_data, bool writable);
+    BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable);
+    BucketImpl(TxImpl* tx, BucketId bucket_id, std::span<const uint8_t> inline_bucket_data, bool writable);
 
     Iterator Get(const void* key_buf, size_t key_size);
     Iterator Get(std::string_view key);
@@ -38,12 +38,12 @@ public:
     Iterator begin() noexcept;
     Iterator end() noexcept;
 
-    void Print(bool str = false) const;
+    void Print(bool str = false);
 
-    const Pager& pager() const;
-    Pager& pager();
+    Pager& pager() const;
     auto& tx() const { return *tx_; }
     auto& writable() const { return writable_; }
+    auto& btree() { assert(btree_.has_value()); return *btree_; }
     auto& btree() const { assert(btree_.has_value()); return *btree_; }
     auto& max_leaf_ele_count() const { return max_leaf_ele_count_; }
     auto& max_branch_ele_count() const { return max_branch_ele_count_; }
@@ -51,6 +51,8 @@ public:
 
 protected:
     TxImpl* const tx_;
+
+    BucketId bucket_id_;
 
     const bool writable_;
     const bool inlineable_;

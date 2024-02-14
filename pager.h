@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "noncopyable.h"
-#include "page_reference.h"
+#include "page.h"
 #include "tx_format.h"
 #include "cache_manager.h"
 
@@ -17,11 +17,9 @@ class UpdateTx;
 class Pager : noncopyable {
 public:
     Pager(DBImpl* db, PageSize page_size);
-    ~Pager() = default;
+    ~Pager();
 
-    /*
-    * 非线程安全，仅写事务使用
-    */
+    // 非线程安全函数，仅写事务使用
     void Read(PageId pgid, void* cache, PageCount count);
     void Write(PageId pgid, const void* cache, PageCount count);
     void SyncAllPage();
@@ -31,14 +29,15 @@ public:
     void RollbackPending();
     void CommitPending();
     void ClearPending(TxId min_view_txid);
-    PageReference Copy(const PageReference& page_ref);
-    PageReference Copy(PageId pgid);
+    Page Copy(const Page& page_ref);
+    Page Copy(PageId pgid);
 
-    // 线程安全
-    PageReference Reference(PageId pgid, bool dirty);
+    // 线程安全函数
+    Page Reference(PageId pgid, bool dirty);
     void Dereference(uint8_t* page_cache);
     PageId CacheToPageId(uint8_t* page_cache);
 
+    auto& db() const { return *db_; }
     auto& page_size() const { return page_size_; }
 
 private:
@@ -46,7 +45,6 @@ private:
     const PageSize page_size_;
     CacheManager cache_manager_;
     std::map<TxId, std::vector<std::pair<PageId, PageCount>>> pending_;
-    
 };
 
 } // namespace yudb

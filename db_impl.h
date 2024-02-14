@@ -9,27 +9,18 @@
 #include "meta.h"
 #include "pager.h"
 #include "tx_manager.h"
-#include "log_writer.h"
 
 namespace yudb {
 
 class DBImpl : public DB {
 public:
     DBImpl() = default;
-    ~DBImpl() override {
-        if (pager_.has_value()) {
-            //pager_->SyncAllPage();
-        }
-    }
+    ~DBImpl() override;
 
-    UpdateTx Update() override {
-        return tx_manager_.Update();
-    }
-    ViewTx View() override {
-        return tx_manager_.View();
-    }
+    UpdateTx Update() override;
+    ViewTx View() override;
 
-    void BuildPager(DBImpl* db, PageSize page_size) { pager_.emplace(db, page_size); }
+    void BuildPager(DBImpl* db, PageSize page_size);
 
     auto& file() const { return file_; }
     auto& file() { return file_; }
@@ -47,6 +38,7 @@ private:
     Meta meta_{ this };
     std::optional<Pager> pager_;
     TxManager tx_manager_{ this };
+
     log::Writer log_writer_;
 };
 

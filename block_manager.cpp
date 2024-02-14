@@ -8,9 +8,6 @@
 #include "btree.h"
 #include "tx_impl.h"
 
-#include <windows.h>
-#undef min
-
 namespace yudb {
 
 PageSize BlockManager::MaxSize() const {
@@ -19,22 +16,8 @@ PageSize BlockManager::MaxSize() const {
     return size;
 }
 
-std::pair<const uint8_t*, PageReference> BlockManager::Load(uint16_t index, PageOffset pos) {
-    auto& pager = node_->btree().bucket().pager();
-    ImmBlockPage block_page{ this, descriptor_->pgid, descriptor_->index_of_table };
-    ImmBlockPage data_block_page{ this, block_page.block_table()[index].pgid, &block_page.block_table()[index] };
-    return { data_block_page.content(pos), data_block_page.ReleasePageReference() };
-}
-
-std::pair<uint8_t*, PageReference> BlockManager::MutLoad(uint16_t index, PageOffset pos) {
-    auto& pager = node_->btree().bucket().pager();
-    MutBlockPage block_page{ this, descriptor_->pgid, descriptor_->index_of_table };
-    MutBlockPage data_block_page{ this, block_page.block_table()[index].pgid, &block_page.block_table()[index] };
-    return { data_block_page.content(pos), data_block_page.ReleasePageReference() };
-}
-
 std::optional<std::pair<uint16_t, PageOffset>> BlockManager::Alloc(PageSize size) {
-    auto& pager = node_->btree().bucket().pager();
+    const auto& pager = node_->btree().bucket().pager();
     assert(size <= MaxSize());
 
     if (descriptor_->pgid == kPageInvalidId) {
@@ -42,7 +25,7 @@ std::optional<std::pair<uint16_t, PageOffset>> BlockManager::Alloc(PageSize size
     }
     CopyPageOfBlockTable();
 
-    MutBlockPage page_of_table{ this, descriptor_->pgid, descriptor_->index_of_table };
+    BlockPage page_of_table{ this, descriptor_->pgid, descriptor_->index_of_table };
     auto block_table = page_of_table.block_table();
     for (uint16_t i = 0; i < descriptor_->count; i++) {
         auto& entry = block_table[i];
@@ -57,7 +40,7 @@ std::optional<std::pair<uint16_t, PageOffset>> BlockManager::Alloc(PageSize size
             }
         }
         if (entry.max_free_size >= size) {
-            MutBlockPage block_page{ this, entry.pgid, &block_table[i] };
+            BlockPage block_page{ this, entry.pgid, &block_table[i] };
             if (entry.need_rebuild_page == 0 && block_page.fragment_size() > MaxFragmentSize()) {
                 descriptor_->need_rebuild_page = 1;
                 entry.need_rebuild_page = 1;
@@ -71,23 +54,130 @@ std::optional<std::pair<uint16_t, PageOffset>> BlockManager::Alloc(PageSize size
     AppendPage(&page_of_table);
     return Alloc(size);
 }
+
 void BlockManager::Free(const std::tuple<uint16_t, PageOffset, PageSize>& free_block) {
     CopyPageOfBlockTable();
-    auto& pager = node_->btree().bucket().pager();
-    auto [index, free_pos, free_size] = free_block;
+    const auto& pager = node_->btree().bucket().pager();
+    const auto& [index, free_pos, free_size] = free_block;
 
-    MutBlockPage table_block_page{ this, descriptor_->pgid, descriptor_->index_of_table };
+    BlockPage table_block_page{ this, descriptor_->pgid, descriptor_->index_of_table };
     auto& entry = table_block_page.block_table()[index];
-    MutBlockPage block_page{ this, entry.pgid, &entry };
+    BlockPage block_page{ this, entry.pgid, &entry };
     block_page.Free(free_pos, free_size);
 }
 
-void BlockManager::Print() {
+std::pair<const uint8_t*, ConstPage> BlockManager::ConstLoad(uint16_t index, PageOffset pos) {
+    const auto& pager = node_->btree().bucket().pager();
+    ConstBlockPage block_page{ this, descriptor_->pgid, descriptor_->index_of_table };
+    ConstBlockPage data_block_page{ this, block_page.block_table()[index].pgid, &block_page.block_table()[index] };
+    return { data_block_page.content(pos), data_block_page.Release() };
+}
+
+std::pair<uint8_t*, Page> BlockManager::Load(uint16_t index, PageOffset pos) {
+    const auto& pager = node_->btree().bucket().pager();
+    BlockPage block_page{ this, descriptor_->pgid, descriptor_->index_of_table };
+    BlockPage data_block_page{ this, block_page.block_table()[index].pgid, &block_page.block_table()[index] };
+    return { data_block_page.content(pos), data_block_page.Release() };
+}
+
+void BlockManager::Build() {
     auto& pager = node_->btree().bucket().pager();
-    ImmBlockPage table_page{ this, descriptor_->pgid , descriptor_->index_of_table };
-    auto table = table_page.block_table();
+
+    descriptor_->pgid = pager.Alloc(1);
+    descriptor_->need_rebuild_page = 0;
+    descriptor_->index_of_table = 0;
+    descriptor_->count = 1;
+
+    BlockPage page_of_table{ this, descriptor_->pgid, nullptr };
+    page_of_table.Build();
+    BuildTableEntry(&page_of_table.block_table()[0], &page_of_table);
+}
+
+void BlockManager::Clear() {
+    if (descriptor_->pgid == kPageInvalidId) {
+        return;
+    }
+    CopyPageOfBlockTable();
+
+    auto& pager = node_->btree().bucket().pager();
+    const auto page_ref = pager.Reference(descriptor_->pgid, true);
+    auto& block_page = page_ref.content<BlockPageFormat>();
     for (uint16_t i = 0; i < descriptor_->count; i++) {
-        ImmBlockPage page{ this, table[i].pgid, &table[i] };
+        pager.Free(block_page.block_table[i].pgid, 1);
+    }
+    descriptor_->pgid = kPageInvalidId;
+}
+
+void BlockManager::TryDefragmentSpace() {
+    const auto& pager = node_->btree().bucket().pager();
+    if (descriptor_->need_rebuild_page == 0 || descriptor_->pgid == kPageInvalidId) {
+        return;
+    }
+    BlockPage page_of_table{ this, descriptor_->pgid, descriptor_->index_of_table };
+    auto block_table = page_of_table.block_table();
+    for (uint16_t i = 0; i < descriptor_->count; i++) {
+        auto& entry = block_table[i];
+        if (entry.need_rebuild_page == 1) {
+            BlockPage page{ this, entry.pgid, &entry };
+            node_->DefragmentSpace(i);
+            entry.need_rebuild_page = 0;
+        }
+    }
+    descriptor_->need_rebuild_page = 0;
+}
+
+BlockPage BlockManager::PageRebuildBegin(uint16_t index) {
+    auto& pager = node_->btree().bucket().pager();
+    const auto pgid = pager.Alloc(1);
+    BlockPage page{ this, pgid, nullptr };
+    page.Build();
+    return BlockPage{ this, std::move(page.Release()), nullptr };
+}
+
+PageOffset BlockManager::PageRebuildAppend(BlockPage* new_page, const std::tuple<uint16_t, PageOffset, uint16_t>& block) {
+    const auto& pager = node_->btree().bucket().pager();
+    const auto& [index, pos, size] = block;
+    const auto& [src_buff, src_ref] = Load(index, pos);
+    const auto new_pos = new_page->arena().AllocRight(size);
+    assert(new_pos.has_value());
+    uint8_t* const dst_buff = new_page->Load(*new_pos);
+    std::memcpy(dst_buff, src_buff, size);
+    return *new_pos;
+}
+
+void BlockManager::PageRebuildEnd(BlockPage* new_page, uint16_t index) {
+    auto& pager = node_->btree().bucket().pager();
+    BlockPage page_of_table{ this, descriptor_->pgid, descriptor_->index_of_table };
+    BlockTableEntry* table = page_of_table.block_table();
+    if (index == descriptor_->index_of_table) {
+        const auto byte_size = sizeof(BlockTableEntry) * descriptor_->count;
+        const auto res = new_page->arena().AllocLeft(byte_size);
+        assert(res.has_value());
+        std::memcpy(new_page->block_table(), page_of_table.block_table(), byte_size);
+        table = new_page->block_table();
+        descriptor_->pgid = new_page->page_id();
+    }
+    const auto old_pgid = table[index].pgid;
+    auto& entry = table[index];
+    entry.pgid = new_page->page_id();
+    if (index == descriptor_->index_of_table) {
+        entry.max_free_size = 0;
+    } else {
+        auto& arena = new_page->arena();
+        auto rest_size = arena.rest_size();
+        auto pos = arena.AllocLeft(rest_size); assert(pos.has_value());
+        new_page->set_table_entry(&entry);
+        new_page->Free(*pos, rest_size);
+    }
+    pager.Free(old_pgid, 1);
+}
+
+void BlockManager::Print() {
+    const auto& pager = node_->btree().bucket().pager();
+    BlockPage table_page{ this, descriptor_->pgid , descriptor_->index_of_table };
+    const auto table = table_page.block_table();
+    for (uint16_t i = 0; i < descriptor_->count; i++) {
+        BlockPage page{ this, table[i].pgid, &table[i] };
 
         auto j = 0;
         auto prev_pos = kPageInvalidOffset;
@@ -106,96 +196,8 @@ void BlockManager::Print() {
     }
 }
 
-void BlockManager::Build() {
-    auto& pager = node_->btree().bucket().pager();
-
-    descriptor_->pgid = pager.Alloc(1);
-    descriptor_->need_rebuild_page = 0;
-    descriptor_->index_of_table = 0;
-    descriptor_->count = 1;
-
-    MutBlockPage page_of_table{ this, descriptor_->pgid, nullptr };
-    page_of_table.Build();
-    BuildTableEntry(&page_of_table.block_table()[0], &page_of_table);
-}
-void BlockManager::Clear() {
-    if (descriptor_->pgid == kPageInvalidId) {
-        return;
-    }
-    CopyPageOfBlockTable();
-
-    auto& pager = node_->btree().bucket().pager();
-    auto page_ref = pager.Reference(descriptor_->pgid, true);
-    auto& block_page = page_ref.content<BlockPageFormat>();
-    for (uint16_t i = 0; i < descriptor_->count; i++) {
-        pager.Free(block_page.block_table[i].pgid, 1);
-    }
-    descriptor_->pgid = kPageInvalidId;
-}
-
-void BlockManager::TryDefragmentSpace() {
-    auto& pager = node_->btree().bucket().pager();
-    if (descriptor_->need_rebuild_page == 0 || descriptor_->pgid == kPageInvalidId) {
-        return;
-    }
-    MutBlockPage page_of_table{ this, descriptor_->pgid, descriptor_->index_of_table };
-    auto block_table = page_of_table.block_table();
-    for (uint16_t i = 0; i < descriptor_->count; i++) {
-        auto& entry = block_table[i];
-        if (entry.need_rebuild_page == 1) {
-            MutBlockPage page{ this, entry.pgid, &entry };
-            node_->DefragmentSpace(i);
-            entry.need_rebuild_page = 0;
-        }
-    }
-    descriptor_->need_rebuild_page = 0;
-}
-BlockPage BlockManager::PageRebuildBegin(uint16_t index) {
-    auto& pager = node_->btree().bucket().pager();
-    auto pgid = pager.Alloc(1);
-    MutBlockPage page{ this, pgid, nullptr };
-    page.Build();
-    return BlockPage{ this, page.ReleasePageReference(), nullptr };
-}
-PageOffset BlockManager::PageRebuildAppend(BlockPage* new_page, const std::tuple<uint16_t, PageOffset, uint16_t>& block) {
-    auto& pager = node_->btree().bucket().pager();
-    auto [index, pos, size] = block;
-    auto [src_buff, src_ref] = Load(index, pos);
-    auto new_pos = new_page->arena().AllocRight(size);
-    assert(new_pos.has_value());
-    auto dst_buff = new_page->Load(*new_pos);
-    std::memcpy(dst_buff, src_buff, size);
-    return *new_pos;
-}
-void BlockManager::PageRebuildEnd(BlockPage* new_page, uint16_t index) {
-    auto& pager = node_->btree().bucket().pager();
-    MutBlockPage page_of_table{ this, descriptor_->pgid, descriptor_->index_of_table };
-    BlockTableEntry* table = page_of_table.block_table();
-    if (index == descriptor_->index_of_table) {
-        auto byte_size = sizeof(BlockTableEntry) * descriptor_->count;
-        auto res = new_page->arena().AllocLeft(byte_size);
-        assert(res.has_value());
-        std::memcpy(new_page->block_table(), page_of_table.block_table(), byte_size);
-        table = new_page->block_table();
-        descriptor_->pgid = new_page->page_id();
-    }
-    auto old_pgid = table[index].pgid;
-    auto& entry = table[index];
-    entry.pgid = new_page->page_id();
-    if (index == descriptor_->index_of_table) {
-        entry.max_free_size = 0;
-    } else {
-        auto& arena = new_page->arena();
-        auto rest_size = arena.rest_size();
-        auto pos = arena.AllocLeft(rest_size); assert(pos.has_value());
-        new_page->set_table_entry(&entry);
-        new_page->Free(*pos, rest_size);
-    }
-    pager.Free(old_pgid, 1);
-}
-
-void BlockManager::BuildTableEntry(BlockTableEntry* entry, BlockPage* block_page) {
-    auto& pager = node_->btree().bucket().pager();
+void BlockManager::BuildTableEntry(BlockTableEntry* entry, BlockPageImpl* block_page) {
+    const auto& pager = node_->btree().bucket().pager();
     block_page->set_table_entry(entry);
     entry->pgid = block_page->page_id();
     entry->max_free_size = 0;
@@ -208,21 +210,23 @@ void BlockManager::BuildTableEntry(BlockTableEntry* entry, BlockPage* block_page
     auto pos = arena.AllocLeft(rest_size); assert(pos.has_value());
     block_page->Free(*pos, rest_size);
 }
+
 void BlockManager::CopyPageOfBlockTable() {
-    MutBlockPage block_page{ this, descriptor_->pgid, descriptor_->index_of_table };
+    BlockPage block_page{ this, descriptor_->pgid, descriptor_->index_of_table };
     if (block_page.Copy()) {
         descriptor_->pgid = block_page.page_id();
     }
 }
-void BlockManager::AppendPage(BlockPage* page_of_table) {
+
+void BlockManager::AppendPage(BlockPageImpl* page_of_table) {
     assert(sizeof(BlockTableEntry) * (descriptor_->count + 1) <= MaxSize());
     auto& pager = node_->btree().bucket().pager();
 
     BlockTableEntry* table = page_of_table->block_table();
     auto& arena_of_table = page_of_table->arena();
 
-    auto new_pgid = pager.Alloc(1);
-    MutBlockPage new_page{this, new_pgid, nullptr }; // new_block_table[block_table_descriptor_->count]
+    const auto new_pgid = pager.Alloc(1);
+    BlockPage new_page{this, new_pgid, nullptr }; // new_block_table[block_table_descriptor_->count]
     new_page.Build();
     if (!arena_of_table.AllocLeft(sizeof(BlockTableEntry))) {
         // 分配失败的话，将位于Left区间的Table移动到新页中
@@ -250,8 +254,9 @@ void BlockManager::AppendPage(BlockPage* page_of_table) {
     }
     ++descriptor_->count;
 }
+
 PageSize BlockManager::MaxFragmentSize() {
-    auto& pager = node_->btree().bucket().pager();
+    const auto& pager = node_->btree().bucket().pager();
     return pager.page_size() / 16;
 }
 

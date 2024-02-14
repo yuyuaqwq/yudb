@@ -17,7 +17,6 @@ public:
     using Iterator = InlineBucketIterator;
 
     size_t SerializedSize();
-
     void Deserialize(std::span<const uint8_t>) {
 
     }
@@ -25,17 +24,12 @@ public:
     Iterator Get(const void* key_buf, size_t key_size) const {
         return leaf_.find(reinterpret_cast<const char*>(key_buf));
     }
-
-
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
         leaf_.insert({});
     }
-
-
     bool Delete(const void* key_buf, size_t key_size) {
         
     }
-
 
 private:
     BucketImpl* bucket_;
