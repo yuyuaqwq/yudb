@@ -4,6 +4,7 @@
 #include <optional>
 #include <memory>
 
+#include "options.h"
 #include "db.h"
 #include "file.h"
 #include "meta.h"
@@ -20,8 +21,8 @@ public:
     UpdateTx Update() override;
     ViewTx View() override;
 
-    void BuildPager(DBImpl* db, PageSize page_size);
-
+    auto& options() const { return options_; }
+    auto& options() { return options_; }
     auto& file() const { return file_; }
     auto& file() { return file_; }
     auto& meta() const { return meta_; }
@@ -34,6 +35,10 @@ public:
     auto& log_writer() { return log_writer_; }
 
 private:
+    friend class DB;
+
+    std::optional<const Options> options_;
+
     File file_;
     Meta meta_{ this };
     std::optional<Pager> pager_;

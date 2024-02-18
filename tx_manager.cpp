@@ -65,13 +65,15 @@ void TxManager::Commit() {
     MetaFormatCopy(&db_->meta().meta_format(), update_tx_->meta_format());
 
     //pager().SyncAllPage();
-    db_->meta().Save();
-    db_->meta().Switch();
+    // 不应该在这里保存元数据，也不应该交换元页面
+    //db_->meta().Save();
+    //db_->meta().Switch();
 
     update_tx_ = std::nullopt;
 }
 
 TxImpl& TxManager::CurrentUpdateTx() {
+    assert(update_tx_.has_value());
     return *update_tx_;
 }
 
@@ -108,7 +110,7 @@ void TxManager::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key
 }
 
 
-Pager& TxManager::pager() {
+Pager& TxManager::pager() const {
     return db_->pager();
 }
 

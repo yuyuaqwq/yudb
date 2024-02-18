@@ -38,44 +38,45 @@ public:
     Iterator end() noexcept;
 
     auto& bucket() const { return *bucket_; }
+    auto& comparator() const { return comparator_;  }
 
 private:
-    std::tuple<Node, uint16_t, Node, bool> GetSibling(Iterator* iter);
+    std::tuple<BranchNode, SlotId, PageId, bool> GetSibling(Iterator* iter);
 
     void Print(bool str, PageId pgid, int level);
 
     /*
     * 分支节点的合并
     */
-    void Merge(NodeImpl&& left, NodeImpl&& right, Cell&& down_key);
+    void Merge(BranchNode&& left, BranchNode&& right, std::span<const uint8_t> down_key);
 
     /*
     * 分支节点的删除
     */
-    void Delete(Iterator* iter, NodeImpl&& node, uint16_t left_del_pos);
+    void Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id);
 
     /*
     * 叶子节点的合并
     */
-    void Merge(NodeImpl&& left, NodeImpl&& right);
+    void Merge(LeafNode&& left, LeafNode&& right);
 
 
     /*
     * 分支节点的分裂
     * 返回左侧节点中末尾上升的元素，新右节点
     */
-    std::tuple<Cell, NodeImpl> Split(NodeImpl* left, uint16_t insert_pos, Cell&& insert_key, PageId insert_right_child);
+    std::tuple<std::span<const uint8_t>, BranchNode> Split(BranchNode* left, SlotId insert_pos, std::span<const uint8_t> key, PageId insert_right_child);
 
     /*
     * 分支节点的插入
     */
-    void Put(Iterator* iter, NodeImpl&& left, NodeImpl&& right, Cell* key, bool branch_put = false);
+    void Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8_t> key, bool branch_put = false);
     
     /*
     * 叶子节点的分裂
     * 返回新右节点
     */
-    NodeImpl Split(NodeImpl* left, uint16_t insert_pos, std::span<const uint8_t> key, std::span<const uint8_t> value);
+    LeafNode Split(LeafNode* left, SlotId insert_slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
 
     /*
     * 叶子节点的插入

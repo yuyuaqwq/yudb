@@ -24,7 +24,7 @@ public:
     using pointer = typename BTreeIterator*;
     using reference = const value_type&;
 
-    using Stack = detail::Stack<std::pair<PageId, uint16_t>, 8>;
+    using Stack = detail::Stack<std::pair<PageId, SlotId>, 8>;
 
     enum class Status {
         kInvalid,
@@ -47,29 +47,29 @@ public:
     bool operator==(const BTreeIterator& right) const noexcept;
 
     template <class KeyT> KeyT key() const {
-        auto [buf, size, ref] = KeyCell();
-        if (size != sizeof(KeyT)) {
+        auto [span, ref] = KeySlot();
+        if (span.size() != sizeof(KeyT)) {
             throw std::runtime_error("The size of the key does not match.");
         }
         KeyT key;
-        std::memcpy(&key, buf, size);
+        std::memcpy(&key, span.data(), sizeof(KeyT));
         return key;
     }
     template <class ValueT> ValueT value() const {
-        auto [buf, size, ref] = ValueCell();
-        if (size != sizeof(ValueT)) {
+        auto [span, ref] = ValueSlot();
+        if (span.size() != sizeof(ValueT)) {
             throw std::runtime_error("The size of the value does not match.");
         }
         ValueT value;
-        std::memcpy(&value, buf, size);
+        std::memcpy(&value, span.data(), sizeof(ValueT));
         return value;
     }
     std::string key() const;
     std::string value() const;
     bool is_bucket() const;
     void set_is_bucket();
-    bool is_inline_bucket() const;
-    void set_is_inline_bucket();
+    //bool is_inline_bucket() const;
+    //void set_is_inline_bucket();
     Status status() const { return status_; }
 
     void First(PageId pgid);
@@ -80,19 +80,18 @@ public:
     bool Empty() const;
     bool Top(std::span<const uint8_t> key);
     bool Down(std::span<const uint8_t> key);
-    std::pair<PageId, uint16_t>& Front();
-    const std::pair<PageId, uint16_t>& Front() const;
+    std::pair<PageId, SlotId>& Front();
+    const std::pair<PageId, SlotId>& Front() const;
     void Pop();
 
     void PathCopy();
 private:
-    std::pair<ConstNode, uint16_t> LeafConstNode() const;
-    std::pair<Node, uint16_t> LeafNode() const;
+    std::pair<LeafNode, SlotId> GetLeafNode(bool dirty) const;
 
-    std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<ConstPage, std::string>>>
-    KeyCell() const;
-    std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<ConstPage, std::string>>>
-    ValueCell() const;
+    std::tuple<std::span<const uint8_t>, std::optional<std::variant<ConstPage, std::string>>>
+    KeySlot() const;
+    std::tuple<std::span<const uint8_t>, std::optional<std::variant<ConstPage, std::string>>>
+    ValueSlot() const;
 
 private:
     BTree* const btree_;

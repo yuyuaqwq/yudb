@@ -15,15 +15,16 @@ class Pager;
 
 class Page : noncopyable {
 public:
-    Page(Pager* pager, uint8_t* page_buff);
+    Page(Pager* pager, uint8_t* page_buf);
     ~Page();
 
     Page(Page&& right) noexcept;
     void operator=(Page&& right) noexcept;
 
-    template <typename T> T& content() const { return *reinterpret_cast<T*>(page_buff_); }
-    template <typename T> const T& const_content() const { return *reinterpret_cast<T*>(page_buff_); }
+    Page AddReference();
 
+    auto& page_buf() { return page_buf_; }
+    auto& page_buf() const { return page_buf_; }
     PageId page_id() const;
 
 protected:
@@ -31,7 +32,7 @@ protected:
 
 protected:
     Pager* const pager_;
-    uint8_t* page_buff_;
+    uint8_t* page_buf_;
 };
 
 class ConstPage {

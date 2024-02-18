@@ -45,8 +45,6 @@ public:
     auto& writable() const { return writable_; }
     auto& btree() { assert(btree_.has_value()); return *btree_; }
     auto& btree() const { assert(btree_.has_value()); return *btree_; }
-    auto& max_leaf_ele_count() const { return max_leaf_ele_count_; }
-    auto& max_branch_ele_count() const { return max_branch_ele_count_; }
     auto& sub_bucket_map() const { return sub_bucket_map_; }
 
 protected:
@@ -57,11 +55,8 @@ protected:
     const bool writable_;
     const bool inlineable_;
     std::optional<BTree> btree_;
-    std::map<std::string, std::pair<uint32_t, PageId>> sub_bucket_map_;       // PageId为kPageInvalidId时，是Inline Bucket
+    std::map<std::string, std::pair<BucketId, PageId>> sub_bucket_map_;       // PageId为kPageInvalidId时，是Inline Bucket
     InlineBucket inline_bucket_;
-    
-    const uint16_t max_leaf_ele_count_;
-    const uint16_t max_branch_ele_count_;
 };
 
 } // namespace yudb

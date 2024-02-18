@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <array>
 
 #include "noncopyable.h"
 #include "cache.h"
@@ -9,7 +10,7 @@
 
 namespace yudb {
 
-constexpr size_t kCachePoolPageCount = 0x1000;
+constexpr size_t kCacheFastMapPoolCount = 64;
 
 class Pager;
 
@@ -19,16 +20,26 @@ public:
     ~CacheManager();
 
     std::pair<CacheInfo*, uint8_t*> Reference(PageId pgid);
-    void Dereference(uint8_t* page_cache);
-    PageId CacheToPageId(uint8_t* page_cache);
+    void AddReference(const uint8_t* page_cache);
+    void Dereference(const uint8_t* page_cache);
+    PageId CacheToPageId(const uint8_t* page_cache);
 
     auto& lru_list() const { return lru_list_; }
     auto& lru_list() { return lru_list_; }
 
 private:
+    CacheId PageCacheToCacheId(const uint8_t* page_cache);
+
+private:
     Pager* const pager_;
+
+    std::array<std::pair<PageId, CacheId>, kCacheFastMapPoolCount> fast_map_;
+
     LruList<PageId, CacheInfo> lru_list_;
     uint8_t* page_pool_;
+
+    size_t count1_{ 0 };
+    size_t count2_{ 0 };
 };
 
 } // namespace yudb

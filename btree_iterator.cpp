@@ -63,7 +63,7 @@ bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
 }
 
 std::string BTreeIterator::key() const {
-    auto [buf, size, ref] = KeyCell();
+    auto [span, ref] = KeySlot();
     std::string key;
     if (ref.has_value()) {
         auto ref_str = std::get_if<std::string>(&*ref);
@@ -72,12 +72,12 @@ std::string BTreeIterator::key() const {
         }
     }
     if (key.empty()) {
-        key = { reinterpret_cast<const char*>(buf), size };
+        key = { reinterpret_cast<const char*>(span.data()), span.size() };
     }
     return key;
 }
 std::string BTreeIterator::value() const {
-    auto [buf, size, ref] = ValueCell();
+    auto [span, ref] = ValueSlot();
     std::string val;
     if (ref.has_value()) {
         auto ref_str = std::get_if<std::string>(&*ref);
@@ -86,60 +86,50 @@ std::string BTreeIterator::value() const {
         }
     }
     if (val.empty()) {
-        val = { reinterpret_cast<const char*>(buf), size };
+        val = { reinterpret_cast<const char*>(span.data()), span.size() };
     }
     return val;
 }
 
 bool BTreeIterator::is_bucket() const {
-    auto [node, index] = LeafConstNode();
-    return node.leaf_key(index).bucket_flag;
+    auto [node, slot_id] = GetLeafNode(false);
+    return node.GetSlot(slot_id).bucket;
 }
 void BTreeIterator::set_is_bucket() {
-    auto [node, index] = LeafNode();
-    node.leaf_key(index).bucket_flag = 1;
+    auto [node, slot_id] = GetLeafNode(true);
+    node.GetSlot(slot_id).bucket = 1;
 }
-bool BTreeIterator::is_inline_bucket() const {
-    auto [node, index] = LeafConstNode();
-    return node.leaf_value(index).bucket_flag;
-}
-void BTreeIterator::set_is_inline_bucket() {
-    auto [node, index] = LeafNode();
-    node.leaf_value(index).bucket_flag = 1;
-}
+//bool BTreeIterator::is_inline_bucket() const {
+//    auto [node, slot_id] = GetLeafNode();
+//    return node.GetSlot(slot_id).bucket_flag;
+//}
+//void BTreeIterator::set_is_inline_bucket() {
+//    auto [node, slot_id] = GetLeafNode();
+//    node.leaf_value(slot_id).bucket_flag = 1;
+//}
 
-std::pair<ConstNode, uint16_t> BTreeIterator::LeafConstNode() const {
+std::pair<LeafNode, SlotId> BTreeIterator::GetLeafNode(bool dirty) const {
     if (*this == btree_->end()) {
         throw std::runtime_error("invalid iterator.");
     }
-    auto& [pgid, index] = Front();
-    ConstNode node{ btree_, pgid };
+    auto& [pgid, slot_id] = Front();
+    LeafNode node{ btree_, pgid, dirty };
     assert(*this != btree_->end());
     assert(node.IsLeaf());
-    return { std::move(node), index };
-}
-std::pair<Node, uint16_t> BTreeIterator::LeafNode() const {
-    if (*this == btree_->end()) {
-        throw std::runtime_error("invalid iterator.");
-    }
-    auto& [pgid, index] = Front();
-    Node node{ btree_, pgid };
-    assert(*this != btree_->end());
-    assert(node.IsLeaf());
-    return { std::move(node), index };
+    return { std::move(node), slot_id };
 }
 
-std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<ConstPage, std::string>>>
-BTreeIterator::KeyCell() const {
-    auto [node, index] = LeafConstNode();
-    auto res = node.CellLoad(node.leaf_key(index));
-    return res;
+std::tuple<std::span<const uint8_t>, std::optional<std::variant<ConstPage, std::string>>>
+BTreeIterator::KeySlot() const {
+    auto [node, slot_id] = GetLeafNode(false);
+    auto res = node.GetKey(slot_id);
+    return { res, node.Release() };
 }
-std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<ConstPage, std::string>>>
-BTreeIterator::ValueCell() const {
-    auto [node, index] = LeafConstNode();
-    auto res = node.CellLoad(node.leaf_value(index));
-    return res;
+std::tuple<std::span<const uint8_t>, std::optional<std::variant<ConstPage, std::string>>>
+BTreeIterator::ValueSlot() const {
+    auto [node, slot_id] = GetLeafNode(false);
+    auto res = node.GetValue(slot_id);
+    return { res, node.Release() };
 }
 
 void BTreeIterator::First(PageId pgid) {
@@ -148,45 +138,49 @@ void BTreeIterator::First(PageId pgid) {
     }
     status_ = Status::kIter;
     do {
-        ConstNode node{ btree_, pgid };
+        Node node{ btree_, pgid, false };
         if (node.IsLeaf()) {
             break;
         }
         stack_.push_back({ pgid, 0 });
-        assert(node.element_count() > 0);
-        pgid = node.branch_left_child(0);
+        assert(node.count() > 0);
+        BranchNode branch_node{ btree_, node.Release() };
+        pgid = branch_node.GetLeftChild(0);
     } while (true);
     stack_.push_back({ pgid, 0 });
 }
 void BTreeIterator::Last(PageId pgid) {
     status_ = Status::kIter;
     do {
-        ConstNode node{ btree_, pgid };
+        Node node{ btree_, pgid, false };
         if (node.IsLeaf()) {
             break;
         }
-        stack_.push_back({ pgid, node.element_count() - 1 });
-        assert(node.element_count() > 0);
-        pgid = node.branch_left_child(node.element_count() - 1);
+        stack_.push_back({ pgid, node.count() - 1 });
+        assert(node.count() > 0);
+        BranchNode branch_node{ btree_, node.Release() };
+        pgid = branch_node.GetLeftChild(node.count() - 1);
     } while (true);
-    ConstNode node{ btree_, pgid };
-    stack_.push_back({ pgid, node.element_count() - 1 });
+    Node node{ btree_, pgid, false };
+    stack_.push_back({ pgid, node.count() - 1 });
 }
 void BTreeIterator::Next() {
     assert(!Empty());
     do {
-        auto& [pgid, index] = Front();
-        ConstNode node{ btree_, pgid };
+        auto& [pgid, slot_id] = Front();
+        Node node{ btree_, pgid, false };
 
-        if (++index < node.element_count()) {
+        if (++slot_id < node.count()) {
             if (node.IsLeaf()) {
                 return;
             }
-            First(node.branch_left_child(index));
+            BranchNode branch_node{ btree_, node.Release() };
+            First(branch_node.GetLeftChild(slot_id));
             return;
         }
-        if (node.IsBranch() && index == node.element_count()) {
-            First(node.tail_child());
+        if (node.IsBranch() && slot_id == node.count()) {
+            BranchNode branch_node{ btree_, node.Release() };
+            First(branch_node.GetTailChild());
             return;
         }
         Pop();
@@ -198,14 +192,15 @@ void BTreeIterator::Prev() {
         return;
     }
     do {
-        auto& [pgid, index] = Front();
-        ConstNode node{ btree_, pgid };
-        if (index > 0) {
-            --index;
+        auto& [pgid, slot_id] = Front();
+        Node node{ btree_, pgid, false };
+        if (slot_id > 0) {
+            --slot_id;
             if (node.IsLeaf()) {
                 return;
             }
-            Last(node.branch_left_child(index));
+            BranchNode branch_node{ btree_, node.Release() };
+            Last(branch_node.GetLeftChild(slot_id));
             return;
         }
         Pop();
@@ -224,51 +219,52 @@ bool BTreeIterator::Down(std::span<const uint8_t> key) {
         }
     }
     else {
-        auto [parent_pgid, pos] = stack_.front();
-        ConstNode parent{ btree_, parent_pgid };
+        auto [parent_pgid, slot_id] = stack_.front();
+        Node parent{ btree_, parent_pgid, false };
         if (parent.IsLeaf()) {
             return false;
         }
-        pgid = parent.BranchGetLeftChild(pos);
+        BranchNode branch_parent{ btree_, parent.Release() };
+        pgid = branch_parent.GetLeftChild(slot_id);
     }
-    ConstNode node{ btree_, pgid };
+    Node node{ btree_, pgid, false };
 
     // 在节点中进行二分查找
-    uint16_t index;
+    SlotId slot_id;
+    bool eq;
     status_ = Status::kNe;
-    if (node.element_count() > 0) {
-        auto iter = std::lower_bound(node.begin(), node.end(), key, [&](const NodeIterator& iter, std::span<const uint8_t> search_key) -> bool {
-            auto [buf, size, ref] = node.CellLoad(iter.key());
-            auto res = btree_->comparator_({ buf, size }, search_key);
-            if (res == 0 && size != search_key.size()) {
-                return size < search_key.size();
-            }
-            if (res != 0) {
-                return res < 0;
-            }
-            else {
-                status_ = Status::kEq;
-                return false;
-            }
-        });
-        index = iter.index();
-        if (index == node.element_count() && node.IsLeaf()) {
+    if (node.count() > 0) {
+        if (node.IsBranch()) {
+            BranchNode branch_node{ btree_, node.Release() };
+            auto res = branch_node.LowerBound(key);
+            slot_id = res.first;
+            eq = res.second;
+        } else {
+            assert(node.IsLeaf());
+            LeafNode leaf_node{ btree_, node.Release() };
+            auto res = leaf_node.LowerBound(key);
+            slot_id = res.first;
+            eq = res.second;
+        }
+        if (eq) {
+            status_ = Status::kEq;
+        }
+        else if (slot_id == node.count() && node.IsLeaf()) {
             status_ = Status::kInvalid;
         }
-        if (status_ == Status::kEq && node.IsBranch()) {
-            ++index;
+        if (eq && node.IsBranch()) {
+            ++slot_id;
         }
+    } else {
+        slot_id = 0;
     }
-    else {
-        index = 0;
-    }
-    stack_.push_back(std::pair{ pgid, index });
+    stack_.push_back(std::pair{ pgid, slot_id });
     return true;
 }
-std::pair<PageId, uint16_t>& BTreeIterator::Front() {
+std::pair<PageId, SlotId>& BTreeIterator::Front() {
     return stack_.front();
 }
-const std::pair<PageId, uint16_t>& BTreeIterator::Front() const {
+const std::pair<PageId, SlotId>& BTreeIterator::Front() const {
     return stack_.front();
 }
 void BTreeIterator::Pop() {
@@ -285,23 +281,26 @@ void BTreeIterator::PathCopy() {
     auto& tx = btree_->bucket().tx();
     auto lower_pgid = kPageInvalidId;
     for (ptrdiff_t i = stack_.size() - 1; i >= 0; i--) {
-        auto& [pgid, index] = stack_[i];
-        Node node{ btree_, pgid };
+        auto& [pgid, slot_id] = stack_[i];
+        Node node{ btree_, pgid, true };
         if (!tx.IsLegacyTx(node.last_modified_txid())) {
             if (node.IsBranch()) {
+                BranchNode branch_node{ btree_, node.Release() };
                 assert(lower_pgid != kPageInvalidId);
-                node.BranchSetLeftChild(index, lower_pgid);
+                branch_node.SetLeftChild(slot_id, lower_pgid);
             }
             return;
         }
 
-        NodeImpl new_node = node.Copy();
-        new_node.set_last_modified_txid(tx.txid());
+        auto new_node = node.Copy();
         if (new_node.IsBranch()) {
             assert(lower_pgid != kPageInvalidId);
-            new_node.BranchSetLeftChild(index, lower_pgid);
+            BranchNode branch_node{ btree_, new_node.Release() };
+            branch_node.SetLeftChild(slot_id, lower_pgid);
+            lower_pgid = new_node.page_id();
+        } else {
+            lower_pgid = new_node.page_id();
         }
-        lower_pgid = new_node.page_id();
         pgid = lower_pgid;
     }
     btree_->root_pgid_ = lower_pgid;

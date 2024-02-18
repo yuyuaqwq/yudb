@@ -15,7 +15,7 @@ bool Meta::Load() {
         // Initialize Meta Information
         meta_format_.sign = YUDB_SIGN;
         meta_format_.min_version = YUDB_VERSION;
-        meta_format_.page_size = kPageSize;
+        meta_format_.page_size = db_->options()->page_size;
         meta_format_.page_count = 2;
         meta_format_.txid = 1;
         meta_format_.root = kPageInvalidId;
@@ -28,7 +28,7 @@ bool Meta::Load() {
         db_->file().Write(&meta_format_, kMetaSize);
 
         meta_format_.txid = 0;
-        db_->file().Seek(kPageSize, File::PointerMode::kDbFilePointerSet);
+        db_->file().Seek(db_->options()->page_size, File::PointerMode::kDbFilePointerSet);
         db_->file().Write(&meta_format_, kMetaSize);
 
         meta_format_.txid = 1;
@@ -39,7 +39,7 @@ bool Meta::Load() {
     MetaFormat meta_list[2];
     std::memcpy(&meta_list[0], &meta_format_, kMetaSize);
 
-    db_->file().Seek(kPageSize, File::PointerMode::kDbFilePointerSet);
+    db_->file().Seek(db_->options()->page_size, File::PointerMode::kDbFilePointerSet);
     if (db_->file().Read(&meta_list[1], kMetaSize) != kMetaSize) {
         return false;
     }
@@ -73,7 +73,7 @@ bool Meta::Load() {
     }
 
     // 页面尺寸不匹配则不允许打开
-    if (meta_list[meta_index_].page_size != kPageSize) {
+    if (meta_list[meta_index_].page_size != db_->options()->page_size) {
         return false;
     }
     std::memcpy(&meta_format_, &meta_list[meta_index_], kMetaSize);
@@ -84,7 +84,7 @@ void Meta::Save() {
     Crc32 crc32;
     crc32.Append(&meta_format_, kMetaSize - sizeof(uint32_t));
     meta_format_.crc32 = crc32.End();
-    db_->file().Seek((!meta_index_) * kPageSize, File::PointerMode::kDbFilePointerSet);
+    db_->file().Seek((!meta_index_) * db_->options()->page_size, File::PointerMode::kDbFilePointerSet);
     db_->file().Write(&meta_format_, kMetaSize);
 }
 

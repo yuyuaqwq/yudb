@@ -34,17 +34,21 @@ public:
 
     // 线程安全函数
     Page Reference(PageId pgid, bool dirty);
-    void Dereference(uint8_t* page_cache);
-    PageId CacheToPageId(uint8_t* page_cache);
+    Page AddReference(uint8_t* page_cache);
+    void Dereference(const uint8_t* page_cache);
+    PageId CacheToPageId(const uint8_t* page_cache);
 
     auto& db() const { return *db_; }
     auto& page_size() const { return page_size_; }
+    auto& tmp_page() { return tmp_page_; }
 
 private:
     DBImpl* const db_;
     const PageSize page_size_;
     CacheManager cache_manager_;
     std::map<TxId, std::vector<std::pair<PageId, PageCount>>> pending_;
+
+    uint8_t* tmp_page_;
 };
 
 } // namespace yudb

@@ -150,7 +150,7 @@ private:
         }
         else {
             auto& iter = std::get<kBTree>(iterator_);
-            return iter.is_inline_bucket();
+            //return iter.is_inline_bucket();
         }
         return false;
     }
@@ -160,7 +160,7 @@ private:
         }
         else {
             auto& iter = std::get<kBTree>(iterator_);
-            iter.set_is_inline_bucket();
+            //iter.set_is_inline_bucket();
         }
     }
 

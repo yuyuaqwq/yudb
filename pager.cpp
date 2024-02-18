@@ -2,15 +2,17 @@
 
 #include "db_impl.h"
 #include "node.h"
-#include "tx_impl.h"
 
 namespace yudb {
 
 Pager::Pager(DBImpl* db, PageSize page_size) : db_{ db },
     page_size_{ page_size },
-    cache_manager_{ this } {}
+    cache_manager_{ this },
+    tmp_page_{ reinterpret_cast<uint8_t*>(operator new(page_size)) } {}
 
-Pager::~Pager() = default;
+Pager::~Pager() {
+    operator delete(tmp_page_);
+}
 
 
 void Pager::Read(PageId pgid, void* cache, PageCount count) {
@@ -29,7 +31,7 @@ void Pager::Write(PageId pgid, const void* cache, PageCount count) {
 
 void Pager::SyncAllPage() {
     std::vector<PageCount> sort_arr;
-    sort_arr.reserve(kCachePoolPageCount);
+    sort_arr.reserve(db_->options()->cache_page_pool_count);
     auto& lru_list = cache_manager_.lru_list();
     for (auto& iter : lru_list) {
         if (iter.value().dirty) {
@@ -75,7 +77,7 @@ PageId Pager::Alloc(PageCount count) {
         pgid = update_tx.meta_format().page_count;
         auto new_pgid = pgid += count;
         if (new_pgid < pgid) {
-            throw std::runtime_error("Page allocation failed, there are not enough available pages.");
+            throw std::runtime_error("page allocation failed, there are not enough available pages.");
         }
         update_tx.meta_format().page_count += count;
     }
@@ -99,8 +101,8 @@ void Pager::Free(PageId free_pgid, PageCount free_count) {
 Page Pager::Copy(const Page& page) {
     auto new_pgid = Alloc(1);
     auto new_page = Reference(new_pgid, true);
-    std::memcpy(&new_page.content<uint8_t>(), &page.content<uint8_t>(), page_size_);
-    Free(page.page_id(), 1);    // Pending
+    std::memcpy(new_page.page_buf(), page.page_buf(), page_size_);
+    Free(page.page_id(), 1);
     return new_page;
 }
 Page Pager::Copy(PageId pgid) {
@@ -113,17 +115,20 @@ Page Pager::Reference(PageId pgid, bool dirty) {
     auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
     if (cache_info->dirty == false && dirty == true) {
         cache_info->dirty = true;
-        auto& update_tx = db_->tx_manager().CurrentUpdateTx();
-        Node node{ &update_tx.RootBucket().btree(), pgid, false };
-        node.set_last_modified_txid(update_tx.txid());
     }
     return Page{ this, page_cache };
 }
-void Pager::Dereference(uint8_t* page_cache) {
+
+Page Pager::AddReference(uint8_t* page_cache) {
+    cache_manager_.AddReference(page_cache);
+    return Page{ this, page_cache };
+}
+
+void Pager::Dereference(const uint8_t* page_cache) {
     cache_manager_.Dereference(page_cache);
 }
 
-PageId Pager::CacheToPageId(uint8_t* page_cache) {
+PageId Pager::CacheToPageId(const uint8_t* page_cache) {
     return cache_manager_.CacheToPageId(page_cache);
 }
 

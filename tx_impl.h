@@ -40,7 +40,7 @@ public:
 
     auto& txid() const { return meta_format_.txid; }
     void set_txid(TxId txid) { meta_format_.txid = txid; }
-    Pager& pager();
+    Pager& pager() const;
     auto& tx_manager() const { return *tx_manager_; }
     auto& meta_format() const { return meta_format_; }
     auto& meta_format() { return meta_format_; }

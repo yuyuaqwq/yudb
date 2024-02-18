@@ -29,7 +29,7 @@ public:
     void AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
     void AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key);
 
-    Pager& pager();
+    Pager& pager() const;
 
 private:
     template<typename Iter> void AppendLog(const Iter begin, const Iter end);

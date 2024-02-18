@@ -74,7 +74,7 @@ void TestLru() {
 void TestBTree(yudb::DB* db) {
     srand(10);
 
-    auto count = 20;
+    auto count = 1000000;
     std::vector<int> arr(count);
 
     for (auto i = 0; i < count; i++) {
@@ -102,14 +102,21 @@ void TestBTree(yudb::DB* db) {
         //    //assert(iter.key<int>() > old_key);
         //}
 
+        for (auto i = 0; i < count; i++) {
+            bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+            //bucket.Print(); printf("\n\n\n\n\n");
+        }
+
+        //bucket.Print(); printf("\n\n\n\n\n");
+
         /*sub_bucket.Put("abc", "def");
         sub_bucket.Print();  printf("\n\n\n\n\n");*/
         for (auto i = 0; i < count; i++) {
-            auto res = bucket.Get(&arr[i], sizeof(arr[i])); assert(res != bucket.end());
-            //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-            //bucket.Print(); printf("\n\n\n\n\n");
+            auto res = bucket.Get(&arr[i], sizeof(arr[i]));
+            assert(res != bucket.end());
+            assert(res.value<int>() == arr[i]);
         }
-        bucket.Print(); printf("\n\n\n\n\n");
+        //bucket.Print(); printf("\n\n\n\n\n");
         int old_key = -1;
         for (auto& iter : bucket) {
             //std::cout << "is_bucket:" << iter.key<int>() << " " << iter.value<int>() << "" << iter.is_bucket() << std::endl;
@@ -277,13 +284,15 @@ void TestBlock(yudb::DB* db) {
 
     srand(10);
 
-    auto count = 10000;
+    auto count = 1000000;
     std::vector<std::string> arr(count);
 
 
     for (auto i = 0; i < count; i++) {
-        arr[i] = RandomString(8, 16);
+        arr[i] = RandomString(16, 16);
     }
+
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     {
         auto tx = db->Update();
@@ -298,15 +307,32 @@ void TestBlock(yudb::DB* db) {
         }
         tx.Commit();
     }
+
+    // 获取程序结束时间点
+    auto end_time = std::chrono::high_resolution_clock::now();
+
+    // 计算时间差
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+
+    // 打印运行时间
+    std::cout << "写: " << duration.count() << " ms" << std::endl;
+
+    start_time = std::chrono::high_resolution_clock::now();
     {
         auto tx = db->View();
         auto bucket = tx.RootBucket();
         for (auto& iter : arr) {
-            auto res = bucket.Get(iter.c_str(), iter.size()); assert(res != bucket.end());
+            auto res = bucket.Get(iter.c_str(), iter.size());
+            assert(res != bucket.end());
+            assert(res.value() == iter);
             //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
             //bucket.Print(); printf("\n\n\n\n\n");
         }
     }
+    end_time = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "读: " << duration.count() << " ms" << std::endl;
+
 }
 
 void TestLog() {
@@ -335,7 +361,9 @@ int main() {
     //TestLog();
 
 
-    auto db = yudb::DB::Open("Z:/test.ydb");
+    yudb::PageSize page_size = 4096;
+
+    auto db = yudb::DB::Open(yudb::Options{.page_size = page_size, .cache_page_pool_count = 10485760ull / page_size * 10 }, "Z:/test.ydb");
     if (!db) {
         std::cout << "yudb::Db::Open failed!\n";
         return -1;
@@ -348,7 +376,11 @@ int main() {
 
     //TestBTree(db.get());
 
+
+    // 在这里放置你的程序代码
+
     TestBlock(db.get());
+
     
     //TestFreer();
 

@@ -9,7 +9,13 @@ namespace yudb {
 std::strong_ordering DefalutComparator(std::span<const uint8_t> key1, std::span<const uint8_t> key2) {
     auto res = std::memcmp(key1.data(), key2.data(), std::min(key1.size(), key2.size()));
     if (res == 0) {
-        return std::strong_ordering::equal;
+        if (key1.size() == key2.size()) {
+            return std::strong_ordering::equal;
+        } else if (key1.size() > key2.size()) {
+            return std::strong_ordering::greater;
+        } else {
+            return std::strong_ordering::less;
+        }
     } else if (res < 0) {
         return std::strong_ordering::less;
     } else {
@@ -21,9 +27,7 @@ BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool w
     tx_{ tx },
     bucket_id_{ bucket_id },
     writable_{ writable },
-    inlineable_{ false },
-    max_leaf_ele_count_{ (pager().page_size() - (sizeof(NodeFormat) - sizeof(NodeFormat::body))) / sizeof(NodeFormat::LeafElement) },
-    max_branch_ele_count_{ ((pager().page_size() - (sizeof(NodeFormat) - sizeof(NodeFormat::body))) - sizeof(PageId)) / sizeof(NodeFormat::BranchElement) }
+    inlineable_{ false }
 {
     btree_.emplace(this, root_pgid, DefalutComparator);
 }
@@ -33,9 +37,7 @@ BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, std::span<const uint8_t> 
     bucket_id_{ bucket_id },
     btree_{ std::nullopt },
     writable_{ writable },
-    inlineable_{ true },
-    max_leaf_ele_count_{ (pager().page_size() - (sizeof(NodeFormat) - sizeof(NodeFormat::body))) / sizeof(NodeFormat::LeafElement) },
-    max_branch_ele_count_{ ((pager().page_size() - (sizeof(NodeFormat) - sizeof(NodeFormat::body))) - sizeof(PageId)) / sizeof(NodeFormat::BranchElement) }
+    inlineable_{ true }
 {
     inline_bucket_.Deserialize(inline_bucket_data);
 }
@@ -114,7 +116,7 @@ void BucketImpl::Delete(Iterator* iter) {
 
 BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
     auto map_iter = sub_bucket_map_.find({ key.data(), key.size() });
-    uint32_t index;
+    BucketId bucket_id;
     if (map_iter == sub_bucket_map_.end()) {
         auto res = sub_bucket_map_.insert({ { key.data(), key.size() }, { 0, kPageInvalidId } });
         map_iter = res.first;
@@ -136,19 +138,19 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
             }
         }
         if (!iter.is_inline_bucket()) {
-            index = tx_->NewSubBucket(&map_iter->second.second, writable);
+            bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable);
         }
         //else {
         //    map_iter->second.second = kPageInvalidId;
         //    index = tx_->NewSubBucket({ bucket_info->data, data.size() - 1 }, writable);
         //}
-        map_iter->second.first = index;
+        map_iter->second.first = bucket_id;
     }
     else {
-        index = map_iter->second.first;
+        bucket_id = map_iter->second.first;
     }
 
-    return tx_->AtSubBucket(index);
+    return tx_->AtSubBucket(bucket_id);
 }
 
 

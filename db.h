@@ -1,5 +1,6 @@
 #pragma once
 
+#include "options.h"
 #include "noncopyable.h"
 #include "tx.h"
 
@@ -10,7 +11,7 @@ public:
     DB() = default;
     virtual ~DB();
 
-    static std::unique_ptr<DB> Open(std::string_view path);
+    static std::unique_ptr<DB> Open(const Options& options, std::string_view path);
     virtual UpdateTx Update() = 0;
     virtual ViewTx View() = 0;
 };

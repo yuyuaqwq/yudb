@@ -5,9 +5,9 @@
 namespace yudb {
 
 
-Page::Page(Pager* pager, uint8_t* page_buff) :
+Page::Page(Pager* pager, uint8_t* page_buf) :
     pager_{ pager },
-    page_buff_{ page_buff } {}
+    page_buf_{ page_buf } {}
 
 Page::~Page() {
     Dereference();
@@ -15,26 +15,30 @@ Page::~Page() {
 
 Page::Page(Page&& right) noexcept :
     pager_{ right.pager_ },
-    page_buff_{ right.page_buff_ }
+    page_buf_{ right.page_buf_ }
 {
-    right.page_buff_ = nullptr;
+    right.page_buf_ = nullptr;
 }
 
 void Page::operator=(Page&& right) noexcept {
     Dereference();
     assert(pager_ == right.pager_);
-    page_buff_ = right.page_buff_;
-    right.page_buff_ = nullptr;
+    page_buf_ = right.page_buf_;
+    right.page_buf_ = nullptr;
+}
+
+Page Page::AddReference() {
+    return pager_->AddReference(page_buf_);
 }
 
 PageId Page::page_id() const {
-    return pager_->CacheToPageId(page_buff_);
+    return pager_->CacheToPageId(page_buf_);
 }
 
 void Page::Dereference() {
-    if (page_buff_) {
-        pager_->Dereference(page_buff_);
-        page_buff_ = nullptr;
+    if (page_buf_) {
+        pager_->Dereference(page_buf_);
+        page_buf_ = nullptr;
     }
 }
 

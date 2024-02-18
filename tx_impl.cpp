@@ -66,7 +66,7 @@ void TxImpl::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {
 }
 
 
-Pager& TxImpl::pager() { return tx_manager_->pager(); }
+Pager& TxImpl::pager() const { return tx_manager_->pager(); }
 
 
 } // yudb

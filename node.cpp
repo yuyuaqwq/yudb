@@ -2,224 +2,551 @@
 
 #include "bucket_impl.h"
 #include "pager.h"
+#include "tx.h"
 
 namespace yudb {
 
 constexpr PageCount kMaxCachedPageCount = 32;
 
-NodeImpl::NodeImpl(BTree* btree, PageId page_id, bool dirty) :
+Node::Node(BTree* btree, PageId page_id, bool dirty) :
     btree_{ btree },
     page_{ btree_->bucket().pager().Reference(page_id, dirty) },
-    node_format_{ &page_.content<NodeFormat>() },
-    page_arena_{ &btree_->bucket().pager(), &node_format_->page_arena_format },
-    block_manager_{ this, &node_format_->block_table_descriptor } {}
-NodeImpl::NodeImpl(BTree* btree, Page page_ref) :
+    header_{ reinterpret_cast<NodeHeader*>(page_->page_buf()) } {}
+Node::Node(BTree* btree, Page page_ref) :
     btree_{ btree },
     page_{ std::move(page_ref) },
-    node_format_{ &page_.content<NodeFormat>() },
-    page_arena_{ &btree_->bucket().pager(), &node_format_->page_arena_format },
-    block_manager_{ this, &node_format_->block_table_descriptor } {}
-NodeImpl::NodeImpl(NodeImpl&& right) noexcept :
-    page_{ std::move(right.page_) },
+    header_{ reinterpret_cast<NodeHeader*>(page_->page_buf()) } {}
+Node::Node(BTree* btree, uint8_t* page_buf) :
+    btree_{ btree },
+    header_{ reinterpret_cast<NodeHeader*>(page_buf) } {}
+Node::~Node() = default;
+
+Node::Node(Node&& right) noexcept : 
     btree_{ right.btree_ },
-    node_format_{ &page_.content<NodeFormat>() },
-    page_arena_{ &btree_->bucket().pager(), &node_format_->page_arena_format },
-    block_manager_{ this, &node_format_->block_table_descriptor } {}
-void NodeImpl::operator=(NodeImpl&& right) noexcept {
-    page_ = std::move(right.page_);
+    page_{ std::move(right.page_) },
+    header_{ reinterpret_cast<NodeHeader*>(page_->page_buf()) } {}
+
+void Node::operator=(Node&& right) noexcept {
     assert(btree_ == right.btree_);
-    node_format_ = &page_.content<NodeFormat>();
-    page_arena_.set_format(&node_format_->page_arena_format);
-    block_manager_.set_descriptor(&node_format_->block_table_descriptor);
+    page_ = std::move(right.page_);
+    header_ = reinterpret_cast<NodeHeader*>(page_->page_buf());
 }
 
-std::tuple<const uint8_t*, uint32_t, std::optional<std::variant<ConstPage, std::string >> >
-NodeImpl::CellLoad(const Cell& cell) {
-    if (cell.type == Cell::Type::kEmbed) {
-        return { cell.embed.data, cell.embed.size, std::nullopt };
-    } else if (cell.type == Cell::Type::kBlock) {
-        auto [buff, page] = block_manager_.ConstLoad(cell.block.entry_index(), cell.block.offset);
-        return { buff, cell.block.size, std::move(page) };
-    } else if (cell.type == Cell::Type::kPage) {
-        auto [buff, page] = block_manager_.Load(cell.block.entry_index(), cell.block.offset);
-        auto page_record = reinterpret_cast<const std::pair<PageId, uint32_t>*>(buff);
-        auto& pager = btree_->bucket().pager();
-        auto page_size = pager.page_size();
-        auto page_count = page_record->second / page_size;
-        if (page_record->second % page_size) ++page_count;
-        auto pgid = pager.Alloc(page_count);
-        uint32_t rem_size = page_record->second;
-        std::string str;
-        str.resize(rem_size, 0);
-        if (page_count <= kMaxCachedPageCount) {
-            for (uint32_t i = 0; i < page_count; i++) {
-                auto page_ref = pager.Reference(pgid + i, true);
-                auto buf = &page_ref.content<uint8_t>();
-                std::memcpy(&str[i * page_size], buf, std::min(static_cast<uint32_t>(page_size), rem_size));
-                rem_size -= page_size;
-            }
-        } else {
-            pager.Read(pgid, str.data(), page_count);
-        }
-        return { buff, cell.block.size, std::move(str) };
-    } else {
-        throw std::runtime_error("unrealized types.");
-    }
+bool Node::IsLeaf() const {
+    return header_->type == NodeType::kLeaf;
 }
-size_t NodeImpl::CellSize(const Cell& cell) {
-    if (cell.type == Cell::Type::kEmbed) {
-        return cell.embed.size;
-    }
-    else if (cell.type == Cell::Type::kBlock) {
-        return cell.block.size;
-    }
-    else if (cell.type == Cell::Type::kPage) {
-        auto [buff, page] = block_manager_.Load(cell.block.entry_index(), cell.block.offset);
-        auto page_record = reinterpret_cast<const std::pair<PageId, uint32_t>*>(buff);
-        return page_record->second;
-    }
-    else {
-        throw std::runtime_error("unrealized types.");
-    }
+bool Node::IsBranch() const {
+    return header_->type == NodeType::kBranch;
 }
-Cell NodeImpl::CellSave(std::span<const uint8_t> data) {
-    Cell cell;
-    cell.bucket_flag = 0;
-    if (data.size() <= sizeof(Cell::embed.data)) {
-        cell.type = Cell::Type::kEmbed;
-        cell.embed.size = data.size();
-        std::memcpy(cell.embed.data, data.data(), data.size());
-    } else if (data.size() <= block_manager_.MaxSize()) {
-        auto res = block_manager_.Alloc(data.size());
-        if (!res) {
-            throw std::runtime_error("blocker alloc error.");
-        }
-        auto [index, offset] = *res;
-        cell.type = Cell::Type::kBlock;
-        cell.block.set_entry_index(index);
-        cell.block.offset = offset;
-        cell.block.size = data.size();
-        auto [buff, page] = block_manager_.Load(index, offset);
-        std::memcpy(buff, data.data(), data.size());
-    } else {
-        auto& pager = btree_->bucket().pager();
-        auto page_size = pager.page_size();
-        auto page_count = data.size() / page_size;
-        if (data.size() % page_size) ++page_count;
-        auto pgid = pager.Alloc(page_count);
-        std::pair<PageId, uint32_t> page_record{ pgid, data.size() };
-        cell = CellSave({ reinterpret_cast<uint8_t*>(&page_record), sizeof(page_record)});
-        uint32_t rem_size = data.size();
-        if (page_count <= kMaxCachedPageCount) {
-            for (uint32_t i = 0; i < page_count; i++) {
-                auto page_ref = pager.Reference(pgid + i, true);
-                auto buf = &page_ref.content<uint8_t>();
-                std::memcpy(buf, &data[i * page_size], std::min(static_cast<uint32_t>(page_size), rem_size));
-                rem_size -= page_size;
-            }
-        } else {
-            pager.Write(pgid, data.data(), page_count);
-        }
-        cell.type = Cell::Type::kPage;
-    }
-    return cell;
-}
-void NodeImpl::CellFree(Cell&& cell) {
-    if (cell.type == Cell::Type::kInvalid) {}
-    else if (cell.type == Cell::Type::kEmbed) {}
-    else if (cell.type == Cell::Type::kBlock) {
-        block_manager_.Free({ cell.block.entry_index(), cell.block.offset, cell.block.size });
-        //printf("free\n"); blocker_.Print(); printf("\n");
-    } else if (cell.type == Cell::Type::kPage) {
-        auto [buff, page] = block_manager_.Load(cell.block.entry_index(), cell.block.offset);
-        auto page_record = reinterpret_cast<const std::pair<PageId, uint32_t>*>(buff);
-        auto& pager = btree_->bucket().pager();
-        auto page_size = pager.page_size();
-        auto page_count = page_record->second / page_size;
-        if (page_record->second % page_size) ++page_count;
-        pager.Free(page_record->first, page_count);
-        CellFree(std::move(cell));
-    } else {
-        throw std::runtime_error("unrealized types.");
-    }
-    cell.type = Cell::Type::kInvalid;
-}
-void NodeImpl::CellClear() {
-    block_manager_.Clear();
-}
-
-void NodeImpl::PageSpaceBuild() {
-    auto& pager = btree_->bucket().pager();
-    PageArena arena{ &pager, &node_format_->page_arena_format };
-    arena.Build();
-    arena.AllocLeft(sizeof(NodeFormat) - sizeof(NodeFormat::body));
-}
-
-void NodeImpl::LeafAlloc(uint16_t ele_count) {
-    LeafCheck();
-    assert(ele_count * sizeof(NodeFormat::LeafElement) <= node_format_->page_arena_format.rest_size);
-    page_arena_.AllocLeft(ele_count * sizeof(NodeFormat::LeafElement));
-    node_format_->element_count += ele_count;
-}
-void NodeImpl::LeafFree(uint16_t ele_count) {
-    LeafCheck();
-    assert(node_format_->element_count >= ele_count);
-    page_arena_.FreeLeft(ele_count * sizeof(NodeFormat::LeafElement));
-    node_format_->element_count -= ele_count;
-}
-void NodeImpl::BranchAlloc(uint16_t ele_count) {
-    BranchCheck();
-    assert(ele_count * sizeof(NodeFormat::BranchElement) <= node_format_->page_arena_format.rest_size);
-    page_arena_.AllocLeft(ele_count * sizeof(NodeFormat::BranchElement));
-    node_format_->element_count += ele_count;
-}
-void NodeImpl::BranchFree(uint16_t ele_count) {
-    BranchCheck();
-    assert(node_format_->element_count >= ele_count);
-    page_arena_.FreeLeft(ele_count * sizeof(NodeFormat::BranchElement));
-    node_format_->element_count -= ele_count;
-}
-
-
-void NodeImpl::LeafCheck() const {
-    assert(btree_->bucket().pager().page_size() == (sizeof(NodeFormat) - sizeof(NodeFormat::body)) + node_format_->element_count * sizeof(NodeFormat::LeafElement) + node_format_->page_arena_format.rest_size);
-}
-void NodeImpl::BranchCheck() const {
-    assert(btree_->bucket().pager().page_size() == (sizeof(NodeFormat) - sizeof(NodeFormat::body)) + node_format_->element_count * sizeof(NodeFormat::BranchElement) + node_format_->page_arena_format.rest_size);
-}
-
-
-void NodeImpl::BlockRealloc(BlockPage* new_page, uint16_t entry_index, Cell* cell) {
-    if (cell->type != Cell::Type::kBlock) {
-        return;
-    }
-    if (cell->block.entry_index() != entry_index) {
-        return;
-    }
-    cell->block.offset = block_manager_.PageRebuildAppend(new_page, { entry_index, cell->block.offset, cell->block.size });
-}
-void NodeImpl::DefragmentSpace(uint16_t index) {
-    auto new_page = block_manager_.PageRebuildBegin(index);
-    for (uint16_t i = 0; i < node_format_->element_count; i++) {
-        if (IsBranch()) {
-            BlockRealloc(&new_page, index, &node_format_->body.branch[i].key);
-        } else {
-            assert(IsLeaf());
-            BlockRealloc(&new_page, index, &node_format_->body.leaf[i].key);
-            BlockRealloc(&new_page, index, &node_format_->body.leaf[i].value);
-        }
-    }
-    block_manager_.PageRebuildEnd(&new_page, index);
-}
-
 
 Node Node::Copy() const {
     auto& pager = btree_->bucket().pager();
-    pager.Copy(page_);
-    auto new_pgid = pager.Alloc(1);
-    Node new_node{ btree_, new_pgid, false };
-    std::memcpy(&new_node.page_content<uint8_t>(), &page_content<uint8_t>(), pager.page_size());
-    return new_node;
+    auto& tx = btree_->bucket().tx();
+    assert(page_.has_value());
+    Node node{ btree_, pager.Copy(*page_) };
+    node.set_last_modified_txid(tx.txid());
+    return node;
+}
+
+
+Page Node::Release() {
+    assert(page_.has_value());
+    return std::move(*page_);
+}
+
+PageId Node::page_id() const {
+    return page_->page_id();
+}
+TxId Node::last_modified_txid() const {
+    return header_->last_modified_txid;
+}
+ 
+uint16_t Node::count() {
+    return header_->count;
+}
+
+
+size_t Node::SpaceNeeded(size_t record_length) {
+    return record_length + sizeof(Slot);
+}
+
+
+size_t Node::SlotSpace(Slot* slots) {
+    auto slot_space = reinterpret_cast<const uint8_t*>(slots + header_->count) - Ptr();
+    assert(slot_space < page_size());
+    return slot_space;
+}
+
+size_t Node::FreeSpace(Slot* slots) {
+    auto free_space = header_->data_offset - SlotSpace(slots);
+    assert(free_space < page_size());
+    return free_space;
+}
+
+size_t Node::FreeSpaceAfterCompaction(Slot* slots) {
+    auto free_space = page_size() - SlotSpace(slots) - header_->space_used;
+    assert(free_space < page_size());
+    return free_space;
+}
+
+void Node::Compactify(Slot* slots) {
+    auto& pager = btree_->bucket().pager();
+    auto& tmp_page = pager.tmp_page();
+    Node tmp_node{ btree_, tmp_page };
+    std::memset(tmp_node.header_, 0, sizeof(*tmp_node.header_));
+
+    tmp_node.header_->data_offset = pager.page_size();
+    CopyRecordRange(&tmp_node, slots);
+    assert(header_->space_used == tmp_node.header_->space_used);
+    header_->data_offset = tmp_node.header_->data_offset;
+    std::memcpy(Ptr() + header_->data_offset, 
+        tmp_node.Ptr() + tmp_node.header_->data_offset,
+        tmp_node.header_->space_used);
+}
+
+void Node::CopyRecordRange(Node* dst, Slot* src_slots) {
+    for (SlotId i = 0; i < header_->count; ++i) {
+        size_t length;
+        length = src_slots[i].key_length;
+        if (IsLeaf()) {
+            length += src_slots[i].value_length;
+        }
+        dst->header_->data_offset -= length;
+        dst->header_->space_used += length;
+        auto dst_ptr = dst->Ptr() + dst->header_->data_offset;
+        std::memcpy(dst_ptr, GetRecordPtr(src_slots, i), length);
+        src_slots[i].record_offset = dst->header_->data_offset;
+    }
+}
+
+uint8_t* Node::Ptr() {
+    return reinterpret_cast<uint8_t*>(header_);
+}
+
+uint8_t* Node::GetRecordPtr(Slot* slots, SlotId slot_id) {
+    return Ptr() + slots[slot_id].record_offset;
+}
+
+PageSize Node::page_size() const {
+    return btree_->bucket().pager().page_size();
+}
+
+
+void BranchNode::Build(PageId tail_child) {
+    auto& header = node()->header;
+
+    header.type = NodeType::kBranch;
+    header.count = 0;
+
+    header.data_offset = page_size();
+    header.space_used = 0;
+
+    node()->tail_child = tail_child;
+    header_->last_modified_txid = btree_->bucket().tx().txid();
+}
+
+void BranchNode::Destroy() {
+
+}
+
+std::span<const uint8_t> BranchNode::GetKey(SlotId slot_id) {
+    auto& slot = slots()[slot_id];
+    if (slot.overflow_page) {
+
+    }
+    return { GetKeyPtr(slot_id), slot.key_length };
+}
+
+PageId BranchNode::GetLeftChild(SlotId slot_id) {
+    assert(slot_id <= count());
+    if (slot_id == count()) {
+        return GetTailChild();
+    }
+    return slots()[slot_id].left_child;
+}
+void BranchNode::SetLeftChild(SlotId slot_id, PageId child) {
+    assert(slot_id <= count());
+    if (slot_id == count()) {
+        SetTailChild(child);
+        return;
+    }
+    slots()[slot_id].left_child = child;
+}
+PageId BranchNode::GetRightChild(SlotId slot_id) {
+    assert(slot_id < count());
+    if (slot_id == count() - 1) {
+        return GetTailChild();
+    }
+    return slots()[slot_id + 1].left_child;
+}
+void BranchNode::SetRightChild(uint16_t slot_id, PageId child) {
+    assert(slot_id < count());
+    if (slot_id == count() - 1) {
+        SetTailChild(child);
+        return;
+    }
+    slots()[slot_id + 1].left_child = child;
+}
+
+PageId BranchNode::GetTailChild() {
+    return node()->tail_child;
+}
+void BranchNode::SetTailChild(PageId child) {
+    node()->tail_child = child;
+}
+
+std::pair<SlotId, bool> BranchNode::LowerBound(std::span<const uint8_t> key) {
+    bool eq = false;
+    auto res = std::lower_bound(slots(), slots() + count(), key, [&](const Slot& slot, std::span<const uint8_t> search_key) -> bool {
+        SlotId slot_id = &slot - slots();
+        auto slot_key = GetKey(slot_id);
+        auto res = btree_->comparator()(slot_key, search_key);
+        if (res == 0 && slot_key.size() != search_key.size()) {
+            return slot_key.size() < search_key.size();
+        }
+        if (res != 0) {
+            return res < 0;
+        } else {
+            eq = true;
+            return false;
+        }
+    });
+    return { res - slots(), eq };
+}
+
+bool BranchNode::Update(SlotId slot_id, std::span<const uint8_t> key, PageId child, bool is_right_child) {
+    if (!Update(slot_id, key)) {
+        return false;
+    }
+    auto& slot = slots()[slot_id];
+    if (is_right_child) {
+        if (slot_id == count() - 1) {
+            node()->tail_child = child;
+        } else {
+            slots()[slot_id + 1].left_child = child;
+        }
+    } else {
+        slot.left_child = child;
+    }
+    return true;
+}
+
+bool BranchNode::Update(SlotId slot_id, std::span<const uint8_t> key) {
+    auto saved_slot = slots()[slot_id];
+    DeleteRecord(slot_id);
+    if (!RequestSpaceFor(key)) {
+        // not enough space, restore deleted record.
+        RestoreRecord(slot_id, saved_slot);
+        return false;
+    }
+    auto& slot = slots()[slot_id];
+    auto length = slot.key_length;
+    header_->space_used -= length;
+    StoreRecord(slot_id, key);
+    assert(SlotSpace(slots()) + FreeSpace(slots()) == header_->data_offset);
+    return true;
+}
+
+
+bool BranchNode::Append(std::span<const uint8_t> key, PageId child, bool is_right_child) {
+    return Insert(count(), key, child, is_right_child);
+}
+
+bool BranchNode::Insert(SlotId slot_id, std::span<const uint8_t> key, PageId child, bool is_right_child) {
+    if (!RequestSpaceFor(key)) {
+        return false;
+    }
+    auto& slot = slots()[slot_id];
+    std::memmove(slots() + slot_id + 1, slots() + slot_id,
+        sizeof(Slot) * (count() - slot_id));
+    if (is_right_child) {
+        if (slot_id == count()) {
+            slot.left_child = node()->tail_child;
+            node()->tail_child = child;
+        } else {
+            slot.left_child = slots()[slot_id + 1].left_child;
+            slots()[slot_id + 1].left_child = child;
+        }
+    } else {
+        slot.left_child = child;
+    }
+    StoreRecord(slot_id, key);
+    ++header_->count;
+    assert(SlotSpace(slots()) + FreeSpace(slots()) == header_->data_offset);
+    return true;
+}
+
+void BranchNode::Delete(SlotId slot_id, bool right_child) {
+    header_->space_used -= slots()[slot_id].key_length;
+    if (right_child) {
+        if (slot_id + 1 < count()) {
+            slots()[slot_id] = slots()[slot_id + 1];
+        } else {
+            node()->tail_child = slots()[count() - 1].left_child;
+        }
+        if (count() - slot_id > 1) {
+            std::memmove(slots() + slot_id + 1, slots() + slot_id + 2,
+                sizeof(Slot) * (count() - slot_id - 2));
+        }
+    } else {
+        std::memmove(slots() + slot_id, slots() + slot_id + 1,
+            sizeof(Slot) * (count() - slot_id - 1));
+    }
+    --header_->count;
+    assert(SlotSpace(slots()) + FreeSpace(slots()) == header_->data_offset);
+}
+
+void BranchNode::Pop(bool right_cbild) {
+    Delete(count() - 1, right_cbild);
+}
+
+
+size_t BranchNode::GetFillRate() {
+    auto free_space = FreeSpaceAfterCompaction(slots());
+    return free_space * 100 / page_size();
+}
+
+
+BranchNodeFormat* BranchNode::node() {
+    return reinterpret_cast<BranchNodeFormat*>(header_);
+}
+Slot* BranchNode::slots() {
+    return node()->slots;
+}
+
+
+
+bool BranchNode::RequestSpaceFor(std::span<const uint8_t> key) {
+    auto space_needed = SpaceNeeded(key.size());
+    if (space_needed > MaxInlineRecordLength()) {
+        space_needed = sizeof(OverflowRecord);
+    }
+    if (space_needed <= FreeSpace(slots())) {
+        return true;
+    }
+    if (space_needed <= FreeSpaceAfterCompaction(slots())) {
+        Compactify(slots());
+        return true;
+    }
+    return false;
+}
+
+uint8_t* BranchNode::GetKeyPtr(SlotId slot_id) {
+    return GetRecordPtr(slots(), slot_id);
+}
+void BranchNode::StoreRecord(SlotId slot_id, std::span<const uint8_t> key) {
+    auto& slot = slots()[slot_id];
+    slot.key_length = key.size();
+    header_->data_offset -= key.size();
+    header_->space_used += key.size();
+    slot.record_offset = header_->data_offset;
+
+    //需要创建overflow page存放
+    if (key.size() > MaxInlineRecordLength()) {
+
+    }
+    else {
+        std::memcpy(GetKeyPtr(slot_id), key.data(), key.size());
+    }
+}
+void BranchNode::DeleteRecord(SlotId slot_id) {
+    auto& slot = slots()[slot_id];
+    header_->space_used -= slot.key_length;
+    slot.key_length = 0;
+}
+void BranchNode::RestoreRecord(SlotId slot_id, const Slot& saved_slot) {
+    auto& slot = slots()[slot_id];
+    slot.key_length = saved_slot.key_length;
+    header_->space_used += slot.key_length;
+}
+size_t BranchNode::MaxInlineRecordLength() {
+    auto max_records_length = page_size() -
+        sizeof(BranchNodeFormat::header) -
+        sizeof(BranchNodeFormat::tail_child) -
+        (sizeof(Slot) * 2);
+    return max_records_length / 2;
+}
+
+
+
+void LeafNode::Build() {
+    auto& header = node()->header;
+
+    header.type = NodeType::kLeaf;
+    header.count = 0;
+
+    header.data_offset = page_size();
+    header.space_used = 0;
+    header_->last_modified_txid = btree_->bucket().tx().txid();
+}
+void LeafNode::Destroy() {
+
+}
+
+Slot& LeafNode::GetSlot(SlotId slot_id) {
+    return slots()[slot_id];
+}
+
+std::span<const uint8_t> LeafNode::GetKey(SlotId slot_id) {
+    auto& slot = slots()[slot_id];
+    if (slot.overflow_page) {
+
+    }
+    return { GetKeyPtr(slot_id), slot.key_length };
+}
+
+std::span<const uint8_t> LeafNode::GetValue(SlotId slot_id) {
+    auto& slot = slots()[slot_id];
+    if (slot.overflow_page) {
+
+    }
+    return { GetValuePtr(slot_id), slot.value_length };
+}
+
+
+std::pair<SlotId, bool> LeafNode::LowerBound(std::span<const uint8_t> key) {
+    bool eq = false;
+    auto res = std::lower_bound(slots(), slots() + count(), key, [&](const Slot& slot, std::span<const uint8_t> search_key) -> bool {
+        SlotId slot_id = &slot - slots();
+        auto slot_key = GetKey(slot_id);
+        auto res = btree_->comparator()(slot_key, search_key);
+        if (res == 0 && slot_key.size() != search_key.size()) {
+            return slot_key.size() < search_key.size();
+        }
+        if (res != 0) {
+            return res < 0;
+        } else {
+            eq = true;
+            return false;
+        }
+    });
+    return { res - slots(), eq };
+}
+
+bool LeafNode::Update(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
+    auto saved_slot = slots()[slot_id];
+    DeleteRecord(slot_id);
+    if (!RequestSpaceFor(key, value)) {
+        // not enough space, restore deleted record.
+        RestoreRecord(slot_id, saved_slot);
+        return false;
+    }
+    auto& slot = slots()[slot_id];
+    StoreRecord(slot_id, key, value);
+    assert(SlotSpace(slots()) + FreeSpace(slots()) == header_->data_offset);
+    return true;
+}
+
+bool LeafNode::Append(std::span<const uint8_t> key, std::span<const uint8_t> value) {
+    return Insert(count(), key, value);
+}
+
+bool LeafNode::Insert(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
+    if (!RequestSpaceFor(key, value)) {
+        return false;
+    }
+    std::memmove(slots() + slot_id + 1, slots() + slot_id,
+        sizeof(Slot) * (count() - slot_id));
+    StoreRecord(slot_id, key, value);
+    ++header_->count;
+    assert(SlotSpace(slots()) + FreeSpace(slots()) == header_->data_offset);
+    return true;
+}
+
+void LeafNode::Delete(SlotId slot_id) {
+    header_->space_used -= slots()[slot_id].key_length;
+    header_->space_used -= slots()[slot_id].value_length;
+    std::memmove(slots() + slot_id, slots() + slot_id + 1,
+        sizeof(Slot) * (count() - slot_id - 1));
+    --header_->count;
+    assert(SlotSpace(slots()) + FreeSpace(slots()) == header_->data_offset);
+}
+
+void LeafNode::Pop() {
+    Delete(count() - 1);
+}
+
+
+
+size_t LeafNode::GetFillRate() {
+    auto free_space = FreeSpaceAfterCompaction(slots());
+    return free_space * 100 / page_size();
+}
+
+
+
+
+BranchNodeFormat* LeafNode::node() {
+    return reinterpret_cast<BranchNodeFormat*>(header_);
+}
+Slot* LeafNode::slots() {
+    return node()->slots;
+}
+
+bool LeafNode::RequestSpaceFor(std::span<const uint8_t> key, std::span<const uint8_t> value) {
+    auto length = key.size() + value.size();
+    auto space_needed = SpaceNeeded(length);
+    if (space_needed > MaxInlineRecordLength()) {
+        space_needed = sizeof(OverflowRecord);
+    }
+    if (space_needed <= FreeSpace(slots())) {
+        return true;
+    }
+    if (space_needed <= FreeSpaceAfterCompaction(slots())) {
+        Compactify(slots());
+        return true;
+    }
+    return false;
+}
+
+uint8_t* LeafNode::GetKeyPtr(SlotId slot_id) {
+    return GetRecordPtr(slots(), slot_id);
+}
+uint8_t* LeafNode::GetValuePtr(SlotId slot_id) {
+    return GetRecordPtr(slots(), slot_id) + slots()[slot_id].key_length;
+}
+
+void LeafNode::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
+    auto& slot = slots()[slot_id];
+    slot.key_length = key.size();
+    slot.value_length = value.size();
+    auto length = key.size() + value.size();
+    header_->data_offset -= length;
+    header_->space_used += length;
+    slot.record_offset = header_->data_offset;
+    slot.overflow_page = false;
+
+    // 需要创建overflow page存放
+    if (length > MaxInlineRecordLength()) {
+
+    }
+    else {
+        std::memcpy(GetKeyPtr(slot_id), key.data(), key.size());
+        std::memcpy(GetValuePtr(slot_id), value.data(), value.size());
+    }
+
+}
+void LeafNode::DeleteRecord(SlotId slot_id) {
+    auto& slot = slots()[slot_id];
+    header_->space_used -= slot.key_length + slot.value_length;
+    slot.key_length = 0;
+    slot.value_length = 0;
+}
+void LeafNode::RestoreRecord(SlotId slot_id, const Slot& saved_slot) {
+    auto& slot = slots()[slot_id];
+    slot.key_length = saved_slot.key_length;
+    slot.value_length = saved_slot.value_length;
+    header_->space_used += slot.key_length + slot.value_length;
+}
+
+
+size_t LeafNode::MaxInlineRecordLength() {
+    // ensure that each page can load at least 2 records.
+    auto max_records_length = page_size() -
+        sizeof(BranchNodeFormat::header) -
+        sizeof(BranchNodeFormat::tail_child) -
+        (sizeof(Slot) * 2);
+    return max_records_length / 2;
 }
 
 } // namespace yudb

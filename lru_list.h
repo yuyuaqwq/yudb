@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <functional>
 
+#include "unordered_dense.h"
 #include "cache.h"
 
 namespace yudb {
@@ -263,7 +264,8 @@ private:
     List lru_list_;
 
     std::vector<Node> pool_;
-    std::unordered_map<K, CacheId> map_;
+    //std::unordered_map<K, CacheId> map_;
+    ankerl::unordered_dense::map<K, CacheId> map_;
 };
 
 } // namespace yudb
