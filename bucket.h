@@ -79,6 +79,10 @@ public:
     bool Delete(const void* key_buf, size_t key_size) {
         return bucket_->Delete(key_buf, key_size);
     }
+
+    bool Delete(std::string_view key) {
+        return bucket_->Delete(key.data(), key.size());
+    }
 };
 
 } // namespace yudb

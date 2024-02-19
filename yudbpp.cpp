@@ -74,7 +74,7 @@ void TestLru() {
 void TestBTree(yudb::DB* db) {
     srand(10);
 
-    auto count = 1000000;
+    auto count = 100000;
     std::vector<int> arr(count);
 
     for (auto i = 0; i < count; i++) {
@@ -102,10 +102,16 @@ void TestBTree(yudb::DB* db) {
         //    //assert(iter.key<int>() > old_key);
         //}
 
-        for (auto i = 0; i < count; i++) {
+        //for (auto i = 0; i < count; i++) {
+        //    bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+        //    //bucket.Print(); printf("\n\n\n\n\n");
+        //}
+
+        for (auto i = count - 1; i >= 0; i--) {
             bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
             //bucket.Print(); printf("\n\n\n\n\n");
         }
+
 
         //bucket.Print(); printf("\n\n\n\n\n");
 
@@ -128,44 +134,51 @@ void TestBTree(yudb::DB* db) {
 
 
 
-    //{
-    //    auto view_tx = db->View();
-    //    auto view_bucket = view_tx.RootBucket();
-    //    //view_bucket.Print(); printf("\n\n\n\n\n");
-    //    //if (count <= 100000) {
-    //    //    bucket.Print();
-    //    //    printf("\n\n\n\n\n");
-    //    //}
+    {
+        auto view_tx = db->View();
+        auto view_bucket = view_tx.RootBucket();
+        //view_bucket.Print(); printf("\n\n\n\n\n");
+        //if (count <= 100000) {
+        //    bucket.Print();
+        //    printf("\n\n\n\n\n");
+        //}
 
-    //    //for (auto& iter : view_bucket) {
-    //    //    //std::cout << "is_bucket:" << iter.key<int>() << " " << iter.value<int>() << "" << iter.is_bucket() << std::endl;
-    //    //    //assert(iter.key<int>() > old_key);
-    //    //}
-    //    //auto sub_bucket = view_bucket.SubViewBucket("abcd");
+        //for (auto& iter : view_bucket) {
+        //    //std::cout << "is_bucket:" << iter.key<int>() << " " << iter.value<int>() << "" << iter.is_bucket() << std::endl;
+        //    //assert(iter.key<int>() > old_key);
+        //}
+        //auto sub_bucket = view_bucket.SubViewBucket("abcd");
 
-    //    //auto iter = sub_bucket.Get("abc");
-    //    //auto value = iter.value();
+        //auto iter = sub_bucket.Get("abc");
+        //auto value = iter.value();
 
-    //    for (auto i = 0; i < count; i++) {
-    //        auto res = view_bucket.Get(&arr[i], sizeof(arr[i]));
-    //        assert(res != view_bucket.end());
-    //    }
+        for (auto i = 0; i < count; i++) {
+            auto res = view_bucket.Get(&arr[i], sizeof(arr[i]));
+            assert(res != view_bucket.end());
+        }
 
-    //}
+    }
 
-    //{
-    //    auto tx = db->Update();
-    //    auto bucket = tx.RootBucket();
+    {
+        auto tx = db->Update();
+        auto bucket = tx.RootBucket();
 
-    //    for (auto i = 0; i < count; i++) {
-    //        auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
-    //        bucket.Print(); printf("\n\n\n\n\n");
-    //        assert(res);
-    //    }
+        //for (auto i = 0; i < count; i++) {
+        //    auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
+        //    //bucket.Print(); printf("\n\n\n\n\n");
+        //    assert(res);
+        //}
 
-    //    bucket.Print(); printf("\n\n\n\n\n");
-    //    tx.Commit();
-    //}
+        for (auto i = count - 1; i >= 0; --i) {
+            auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
+            //bucket.Print(); printf("\n\n\n\n\n");
+            assert(res);
+        }
+
+        //bucket.Print(); printf("\n\n\n\n\n");
+        tx.Commit();
+    }
+
     //{
     //    auto tx = db->Update();
     //    auto bucket = tx.RootBucket();
@@ -361,7 +374,7 @@ int main() {
     //TestLog();
 
 
-    yudb::PageSize page_size = 4096;
+    yudb::PageSize page_size = 96;
 
     auto db = yudb::DB::Open(yudb::Options{.page_size = page_size, .cache_page_pool_count = 10485760ull / page_size * 10 }, "Z:/test.ydb");
     if (!db) {
@@ -374,12 +387,44 @@ int main() {
 
     //TestBlock(db.get());
 
-    //TestBTree(db.get());
+    TestBTree(db.get());
+
+    //auto tx = db->Update();
+    //auto bucket = tx.RootBucket();
+
+    //bucket.Put("00000000", ".");
+    //bucket.Put("11111111", ".");
+    //bucket.Put("22222222", ".");
+    //bucket.Put("33333333", ".");
+    //bucket.Put("44444444", ".");
+    //bucket.Put("55555555", ".");
+    //bucket.Put("66666666", ".");
+    //bucket.Put("77777777", ".");
+    //bucket.Put("88888888", ".");
+    //bucket.Put("99999999", ".");
+    //bucket.Put("aaaaaaaa", ".");
+    ////bucket.Print(true); printf("\n\n\n\n");
+    ////bucket.Delete("77777777");
+
+    //bucket.Put("bbbbbbbb", ".");
+    //bucket.Put("cccccccc", ".");
+    //bucket.Put("dddddddd", ".");
+    ////bucket.Put("eeeeeeee", ".");
+    ////bucket.Put("ffffffff", ".");
+    ////bucket.Put("gggggggg", ".");
+    ////bucket.Put("hhhhhhhh", ".");
+    ////bucket.Put("iiiiiiii", ".");
+    //bucket.Print(true); printf("\n\n\n\n");
+
+    //bucket.Delete("33333333");
+    //bucket.Delete("22222222");
+    ////bucket.Delete("66666666");
+    //bucket.Print(true); printf("\n\n\n\n");
 
 
     // 在这里放置你的程序代码
 
-    TestBlock(db.get());
+    //TestBlock(db.get());
 
     
     //TestFreer();

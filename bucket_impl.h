@@ -20,17 +20,11 @@ public:
     BucketImpl(TxImpl* tx, BucketId bucket_id, std::span<const uint8_t> inline_bucket_data, bool writable);
 
     Iterator Get(const void* key_buf, size_t key_size);
-    Iterator Get(std::string_view key);
     Iterator LowerBound(const void* key_buf, size_t key_size);
-    Iterator LowerBound(std::string_view key);
     void Insert(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size);
-    void Insert(std::string_view key, std::string_view value);
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size);
-    void Put(std::string_view key, std::string_view value);
     void Update(Iterator* iter, const void* value_buf, size_t value_size);
-    void Update(Iterator* iter, std::string_view value);
     bool Delete(const void* key_buf, size_t key_size);
-    bool Delete(std::string_view key);
     void Delete(Iterator* iter);
 
     BucketImpl& SubBucket(std::string_view key, bool writable);

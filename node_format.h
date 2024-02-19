@@ -39,6 +39,4 @@ struct BranchNodeFormat {
 };
 #pragma pack(pop)
 
-//static_assert(sizeof(NodeFormat) - sizeof(NodeFormat::body) >= sizeof(NodeFormat::LeafElement) * 2, "abnormal length of head node.");
-
 } // namespace

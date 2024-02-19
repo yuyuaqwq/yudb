@@ -280,6 +280,7 @@ void BranchNode::Delete(SlotId slot_id, bool right_child) {
     header_->space_used -= slots()[slot_id].key_length;
     if (right_child) {
         if (slot_id + 1 < count()) {
+            slots()[slot_id + 1].left_child = slots()[slot_id].left_child;
             slots()[slot_id] = slots()[slot_id + 1];
         } else {
             node()->tail_child = slots()[count() - 1].left_child;
@@ -303,7 +304,7 @@ void BranchNode::Pop(bool right_cbild) {
 
 size_t BranchNode::GetFillRate() {
     auto free_space = FreeSpaceAfterCompaction(slots());
-    return free_space * 100 / page_size();
+    return (page_size() - free_space) * 100 / page_size();
 }
 
 
@@ -343,7 +344,7 @@ void BranchNode::StoreRecord(SlotId slot_id, std::span<const uint8_t> key) {
 
     //需要创建overflow page存放
     if (key.size() > MaxInlineRecordLength()) {
-
+        throw std::runtime_error("todo.");
     }
     else {
         std::memcpy(GetKeyPtr(slot_id), key.data(), key.size());
@@ -470,7 +471,7 @@ void LeafNode::Pop() {
 
 size_t LeafNode::GetFillRate() {
     auto free_space = FreeSpaceAfterCompaction(slots());
-    return free_space * 100 / page_size();
+    return (page_size() - free_space) * 100 / page_size();
 }
 
 
@@ -487,7 +488,8 @@ bool LeafNode::RequestSpaceFor(std::span<const uint8_t> key, std::span<const uin
     auto length = key.size() + value.size();
     auto space_needed = SpaceNeeded(length);
     if (space_needed > MaxInlineRecordLength()) {
-        space_needed = sizeof(OverflowRecord);
+        space_needed = SpaceNeeded(key.size() + sizeof(OverflowRecord));
+        //throw std::runtime_error("todo.");
     }
     if (space_needed <= FreeSpace(slots())) {
         return true;
@@ -518,7 +520,7 @@ void LeafNode::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::sp
 
     // 需要创建overflow page存放
     if (length > MaxInlineRecordLength()) {
-
+        throw std::runtime_error("todo.");
     }
     else {
         std::memcpy(GetKeyPtr(slot_id), key.data(), key.size());

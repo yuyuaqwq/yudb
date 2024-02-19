@@ -82,6 +82,7 @@ public:
     bool Down(std::span<const uint8_t> key);
     std::pair<PageId, SlotId>& Front();
     const std::pair<PageId, SlotId>& Front() const;
+    void Push(const std::pair<PageId, SlotId>& v);
     void Pop();
 
     void PathCopy();

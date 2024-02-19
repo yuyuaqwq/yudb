@@ -267,6 +267,11 @@ std::pair<PageId, SlotId>& BTreeIterator::Front() {
 const std::pair<PageId, SlotId>& BTreeIterator::Front() const {
     return stack_.front();
 }
+
+void BTreeIterator::Push(const std::pair<PageId, SlotId>& v) {
+    stack_.push_back(v);
+}
+
 void BTreeIterator::Pop() {
     stack_.pop_back();
 }
@@ -297,7 +302,7 @@ void BTreeIterator::PathCopy() {
             assert(lower_pgid != kPageInvalidId);
             BranchNode branch_node{ btree_, new_node.Release() };
             branch_node.SetLeftChild(slot_id, lower_pgid);
-            lower_pgid = new_node.page_id();
+            lower_pgid = branch_node.page_id();
         } else {
             lower_pgid = new_node.page_id();
         }
