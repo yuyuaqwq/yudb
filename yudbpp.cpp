@@ -302,7 +302,7 @@ void TestBlock(yudb::DB* db) {
 
 
     for (auto i = 0; i < count; i++) {
-        arr[i] = RandomString(16, 16);
+        arr[i] = RandomString(4, 4);
     }
 
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -374,7 +374,7 @@ int main() {
     //TestLog();
 
 
-    yudb::PageSize page_size = 96;
+    yudb::PageSize page_size = 1024;
 
     auto db = yudb::DB::Open(yudb::Options{.page_size = page_size, .cache_page_pool_count = 10485760ull / page_size * 10 }, "Z:/test.ydb");
     if (!db) {
@@ -385,9 +385,9 @@ int main() {
 
     //TestPager(db.get());
 
-    //TestBlock(db.get());
+    TestBlock(db.get());
 
-    TestBTree(db.get());
+    //TestBTree(db.get());
 
     //auto tx = db->Update();
     //auto bucket = tx.RootBucket();

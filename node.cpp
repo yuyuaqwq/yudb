@@ -124,6 +124,7 @@ uint8_t* Node::Ptr() {
 }
 
 uint8_t* Node::GetRecordPtr(Slot* slots, SlotId slot_id) {
+    assert(slot_id < count()); 
     return Ptr() + slots[slot_id].record_offset;
 }
 
@@ -150,6 +151,7 @@ void BranchNode::Destroy() {
 }
 
 std::span<const uint8_t> BranchNode::GetKey(SlotId slot_id) {
+    assert(slot_id < count());
     auto& slot = slots()[slot_id];
     if (slot.overflow_page) {
 
@@ -215,6 +217,7 @@ std::pair<SlotId, bool> BranchNode::LowerBound(std::span<const uint8_t> key) {
 }
 
 bool BranchNode::Update(SlotId slot_id, std::span<const uint8_t> key, PageId child, bool is_right_child) {
+    assert(slot_id < count());
     if (!Update(slot_id, key)) {
         return false;
     }
@@ -232,6 +235,7 @@ bool BranchNode::Update(SlotId slot_id, std::span<const uint8_t> key, PageId chi
 }
 
 bool BranchNode::Update(SlotId slot_id, std::span<const uint8_t> key) {
+    assert(slot_id < count());
     auto saved_slot = slots()[slot_id];
     DeleteRecord(slot_id);
     if (!RequestSpaceFor(key)) {
@@ -247,12 +251,12 @@ bool BranchNode::Update(SlotId slot_id, std::span<const uint8_t> key) {
     return true;
 }
 
-
 bool BranchNode::Append(std::span<const uint8_t> key, PageId child, bool is_right_child) {
     return Insert(count(), key, child, is_right_child);
 }
 
 bool BranchNode::Insert(SlotId slot_id, std::span<const uint8_t> key, PageId child, bool is_right_child) {
+    assert(slot_id <= count());
     if (!RequestSpaceFor(key)) {
         return false;
     }
@@ -270,13 +274,14 @@ bool BranchNode::Insert(SlotId slot_id, std::span<const uint8_t> key, PageId chi
     } else {
         slot.left_child = child;
     }
-    StoreRecord(slot_id, key);
     ++header_->count;
+    StoreRecord(slot_id, key);
     assert(SlotSpace(slots()) + FreeSpace(slots()) == header_->data_offset);
     return true;
 }
 
 void BranchNode::Delete(SlotId slot_id, bool right_child) {
+    assert(slot_id < count());
     header_->space_used -= slots()[slot_id].key_length;
     if (right_child) {
         if (slot_id + 1 < count()) {
@@ -336,6 +341,7 @@ uint8_t* BranchNode::GetKeyPtr(SlotId slot_id) {
     return GetRecordPtr(slots(), slot_id);
 }
 void BranchNode::StoreRecord(SlotId slot_id, std::span<const uint8_t> key) {
+    assert(slot_id < count());
     auto& slot = slots()[slot_id];
     slot.key_length = key.size();
     header_->data_offset -= key.size();
@@ -351,11 +357,13 @@ void BranchNode::StoreRecord(SlotId slot_id, std::span<const uint8_t> key) {
     }
 }
 void BranchNode::DeleteRecord(SlotId slot_id) {
+    assert(slot_id < count());
     auto& slot = slots()[slot_id];
     header_->space_used -= slot.key_length;
     slot.key_length = 0;
 }
 void BranchNode::RestoreRecord(SlotId slot_id, const Slot& saved_slot) {
+    assert(slot_id < count());
     auto& slot = slots()[slot_id];
     slot.key_length = saved_slot.key_length;
     header_->space_used += slot.key_length;
@@ -389,6 +397,7 @@ Slot& LeafNode::GetSlot(SlotId slot_id) {
 }
 
 std::span<const uint8_t> LeafNode::GetKey(SlotId slot_id) {
+    assert(slot_id < count());
     auto& slot = slots()[slot_id];
     if (slot.overflow_page) {
 
@@ -397,6 +406,7 @@ std::span<const uint8_t> LeafNode::GetKey(SlotId slot_id) {
 }
 
 std::span<const uint8_t> LeafNode::GetValue(SlotId slot_id) {
+    assert(slot_id < count());
     auto& slot = slots()[slot_id];
     if (slot.overflow_page) {
 
@@ -425,6 +435,7 @@ std::pair<SlotId, bool> LeafNode::LowerBound(std::span<const uint8_t> key) {
 }
 
 bool LeafNode::Update(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
+    assert(slot_id < count());
     auto saved_slot = slots()[slot_id];
     DeleteRecord(slot_id);
     if (!RequestSpaceFor(key, value)) {
@@ -443,18 +454,20 @@ bool LeafNode::Append(std::span<const uint8_t> key, std::span<const uint8_t> val
 }
 
 bool LeafNode::Insert(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
+    assert(slot_id <= count());
     if (!RequestSpaceFor(key, value)) {
         return false;
     }
     std::memmove(slots() + slot_id + 1, slots() + slot_id,
         sizeof(Slot) * (count() - slot_id));
-    StoreRecord(slot_id, key, value);
     ++header_->count;
+    StoreRecord(slot_id, key, value);
     assert(SlotSpace(slots()) + FreeSpace(slots()) == header_->data_offset);
     return true;
 }
 
 void LeafNode::Delete(SlotId slot_id) {
+    assert(slot_id < count());
     header_->space_used -= slots()[slot_id].key_length;
     header_->space_used -= slots()[slot_id].value_length;
     std::memmove(slots() + slot_id, slots() + slot_id + 1,
@@ -466,7 +479,6 @@ void LeafNode::Delete(SlotId slot_id) {
 void LeafNode::Pop() {
     Delete(count() - 1);
 }
-
 
 
 size_t LeafNode::GetFillRate() {
@@ -489,7 +501,7 @@ bool LeafNode::RequestSpaceFor(std::span<const uint8_t> key, std::span<const uin
     auto space_needed = SpaceNeeded(length);
     if (space_needed > MaxInlineRecordLength()) {
         space_needed = SpaceNeeded(key.size() + sizeof(OverflowRecord));
-        //throw std::runtime_error("todo.");
+        throw std::runtime_error("todo.");
     }
     if (space_needed <= FreeSpace(slots())) {
         return true;

@@ -24,7 +24,7 @@ public:
     using pointer = typename BTreeIterator*;
     using reference = const value_type&;
 
-    using Stack = detail::Stack<std::pair<PageId, SlotId>, 8>;
+    using Stack = detail::Stack<std::pair<PageId, SlotId>, 32>;
 
     enum class Status {
         kInvalid,

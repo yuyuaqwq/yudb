@@ -179,9 +179,8 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
             parent.SetLeftChild(parent_slot_id + 1, sibling.page_id());
         }
     }
-    if (sibling.GetFillRate() > 50) {
+    if (sibling.GetFillRate() > 50 && sibling.count() >= 2) {
         // 若兄弟节点内填充率充足
-        
         std::span<const uint8_t> new_key;
         if (left_sibling) {
             // 左兄弟节点的末尾元素上升到父节点指定位置
@@ -287,7 +286,7 @@ void BTree::Delete(Iterator* iter) {
     }
 
     // 兄弟节点填充率充足
-    if (sibling.GetFillRate() > 50) {
+    if (sibling.GetFillRate() > 50 && sibling.count() >= 2) {
         std::span<const uint8_t> new_key;
         if (left_sibling) {
             // 左兄弟节点的末尾的元素插入到当前节点的头部
@@ -338,7 +337,7 @@ std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, 
     right.Build(kPageInvalidId);
 
     uint16_t mid = left->count() / 2;
-    uint16_t right_count = mid;// +(left->count() % 2);
+    uint16_t right_count = mid + (left->count() % 2);
 
     int insert_right = 0;
     for (SlotId i = 0; i < right_count; ++i) {
@@ -411,9 +410,7 @@ LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uin
     right.Build();
 
     uint16_t mid = left->count() / 2;
-    uint16_t right_count = mid;// +(left->count() % 2);
-
-    //auto page_id = left->page_id();
+    uint16_t right_count = mid + (left->count() % 2);
 
     int insert_right = 0;
     for (SlotId i = 0; i < right_count; i++) {
