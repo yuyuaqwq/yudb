@@ -28,14 +28,15 @@ std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
         const auto cache_id = fast_map_[fast_map_index].second;
         auto cache_info = &lru_list_.GetNodeByCacheId(cache_id).value;
         ++cache_info->reference_count;
+        lru_list_.set_front(cache_id);
         return { cache_info, &page_pool_[cache_id * pager_->page_size()] };
     } else {
         fast_map_[fast_map_index].first = pgid;
     }
 
-    auto [cache_info, cache_id] = lru_list_.Get(pgid);
+    auto [cache_info, cache_id] = lru_list_.get(pgid);
     if (!cache_info) {
-        const auto evict = lru_list_.Put(pgid, CacheInfo{0});
+        const auto evict = lru_list_.push_front(pgid, CacheInfo{0});
         if (evict) {
             // 将淘汰页面写回磁盘，未来添加写盘队列则直接放入队列
             const auto& [evict_cache_id, evict_pgid, evict_cache_info] = *evict;
@@ -46,7 +47,7 @@ std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
                 pager_->Write(evict_pgid, &page_pool_[evict_cache_id * pager_->page_size()], 1);
             }
         }
-        const auto pair = lru_list_.Get(pgid);
+        const auto pair = lru_list_.get(pgid);
         cache_info = pair.first;
         cache_info->dirty = false;
         cache_id = pair.second;
@@ -61,25 +62,25 @@ std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
 }
 
 void CacheManager::AddReference(const uint8_t* page_cache) {
-    auto cache_id = PageCacheToCacheId(page_cache);
+    auto cache_id = GetCacheIdByCache(page_cache);
     auto& cache_info = lru_list_.GetNodeByCacheId(cache_id).value;
     ++cache_info.reference_count;
 }
 
 void CacheManager::Dereference(const uint8_t* page_cache) {
-    auto cache_id = PageCacheToCacheId(page_cache);
+    auto cache_id = GetCacheIdByCache(page_cache);
     auto& cache_info = lru_list_.GetNodeByCacheId(cache_id).value;
     assert(cache_info.reference_count > 0);
     --cache_info.reference_count;
 }
 
-PageId CacheManager::CacheToPageId(const uint8_t* page_cache) {
-    auto cache_id = PageCacheToCacheId(page_cache);
+PageId CacheManager::GetPageIdByCache(const uint8_t* page_cache) {
+    auto cache_id = GetCacheIdByCache(page_cache);
     const auto& cache_info = lru_list_.GetNodeByCacheId(cache_id);
     return cache_info.key;
 }
 
-CacheId CacheManager::PageCacheToCacheId(const uint8_t* page_cache) {
+CacheId CacheManager::GetCacheIdByCache(const uint8_t* page_cache) {
     const auto diff = page_cache - page_pool_;
     const CacheId cache_id = diff / pager_->page_size();
     return cache_id;

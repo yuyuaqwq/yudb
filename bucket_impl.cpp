@@ -75,7 +75,6 @@ void BucketImpl::Update(Iterator* iter, const void* value_buf, size_t value_size
     auto key = iter->key();
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key.data()), key.size()};
     tx_->AppendPutLog(bucket_id_, key_span, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
-
     btree_->Update(&std::get<BTreeIterator>(iter->iterator_), { reinterpret_cast<const uint8_t*>(value_buf), value_size });
 }
 
@@ -83,7 +82,6 @@ void BucketImpl::Update(Iterator* iter, const void* value_buf, size_t value_size
 bool BucketImpl::Delete(const void* key_buf, size_t key_size) {
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
     tx_->AppendDeleteLog(bucket_id_, key_span);
-
     return btree_->Delete(key_span);
 }
 

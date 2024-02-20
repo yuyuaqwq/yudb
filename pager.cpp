@@ -128,8 +128,8 @@ void Pager::Dereference(const uint8_t* page_cache) {
     cache_manager_.Dereference(page_cache);
 }
 
-PageId Pager::CacheToPageId(const uint8_t* page_cache) {
-    return cache_manager_.CacheToPageId(page_cache);
+PageId Pager::GetPageIdByCache(const uint8_t* page_cache) {
+    return cache_manager_.GetPageIdByCache(page_cache);
 }
 
 

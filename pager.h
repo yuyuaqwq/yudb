@@ -36,7 +36,7 @@ public:
     Page Reference(PageId pgid, bool dirty);
     Page AddReference(uint8_t* page_cache);
     void Dereference(const uint8_t* page_cache);
-    PageId CacheToPageId(const uint8_t* page_cache);
+    PageId GetPageIdByCache(const uint8_t* page_cache);
 
     auto& db() const { return *db_; }
     auto& page_size() const { return page_size_; }

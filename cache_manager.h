@@ -22,13 +22,13 @@ public:
     std::pair<CacheInfo*, uint8_t*> Reference(PageId pgid);
     void AddReference(const uint8_t* page_cache);
     void Dereference(const uint8_t* page_cache);
-    PageId CacheToPageId(const uint8_t* page_cache);
+    PageId GetPageIdByCache(const uint8_t* page_cache);
 
     auto& lru_list() const { return lru_list_; }
     auto& lru_list() { return lru_list_; }
 
 private:
-    CacheId PageCacheToCacheId(const uint8_t* page_cache);
+    CacheId GetCacheIdByCache(const uint8_t* page_cache);
 
 private:
     Pager* const pager_;

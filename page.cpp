@@ -32,7 +32,7 @@ Page Page::AddReference() {
 }
 
 PageId Page::page_id() const {
-    return pager_->CacheToPageId(page_buf_);
+    return pager_->GetPageIdByCache(page_buf_);
 }
 
 void Page::Dereference() {

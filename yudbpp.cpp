@@ -19,32 +19,32 @@
 void TestLru() {
     yudb::LruList<int, int> aa{ 3 };
 
-    auto evict = aa.Put(100, 200);
+    auto evict = aa.push_front(100, 200);
     assert(!evict);
 
-    auto f = aa.Front();
+    auto f = aa.front();
     assert(f == 200);
 
-    evict = aa.Put(200, 400);
+    evict = aa.push_front(200, 400);
     assert(!evict);
-    f = aa.Front();
+    f = aa.front();
     assert(f == 400);
 
     aa.Print();
 
-    auto get = aa.Get(100);
+    auto get = aa.get(100);
     assert(get.first != nullptr && *(get.first) == 200);
 
-    f = aa.Front();
+    f = aa.front();
     assert(f == 200);
 
     aa.Print();
 
 
-    evict = aa.Put(400, 123);
+    evict = aa.push_front(400, 123);
     assert(!evict);
 
-    evict = aa.Put(666, 123);
+    evict = aa.push_front(666, 123);
     assert(evict);
     auto [cache_id, k, v] = *evict;
     assert(k = 400);
@@ -74,7 +74,7 @@ void TestLru() {
 void TestBTree(yudb::DB* db) {
     srand(10);
 
-    auto count = 100000;
+    auto count = 100;
     std::vector<int> arr(count);
 
     for (auto i = 0; i < count; i++) {
@@ -84,7 +84,7 @@ void TestBTree(yudb::DB* db) {
     {
         auto tx = db->Update();
         auto bucket = tx.RootBucket();
-
+        printf("\n\n\n\n");
         //bucket.Put("c", "aa");
         //bucket.Put("e", "aaa");
         //auto aa = bucket.LowerBound("a");
@@ -302,7 +302,7 @@ void TestBlock(yudb::DB* db) {
 
 
     for (auto i = 0; i < count; i++) {
-        arr[i] = RandomString(4, 4);
+        arr[i] = RandomString(32, 32);
     }
 
     auto start_time = std::chrono::high_resolution_clock::now();
@@ -373,10 +373,9 @@ int main() {
     TestLru();
     //TestLog();
 
-
-    yudb::PageSize page_size = 1024;
-
-    auto db = yudb::DB::Open(yudb::Options{.page_size = page_size, .cache_page_pool_count = 10485760ull / page_size * 10 }, "Z:/test.ydb");
+    yudb::PageSize page_size = 4096;
+    // 
+    auto db = yudb::DB::Open(yudb::Options{.page_size = page_size, .cache_page_pool_count = 10485760ull / page_size * 12 }, "Z:/test.ydb");
     if (!db) {
         std::cout << "yudb::Db::Open failed!\n";
         return -1;
@@ -434,6 +433,8 @@ int main() {
     //
 
     //std::cout << "Hello World!\n";
+
+    system("pause");
 }
 
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
