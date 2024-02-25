@@ -2,8 +2,8 @@
 
 #include <cstdint>
 
-#include "page_format.h"
-#include "tx_format.h"
+#include "db/page_format.h"
+#include "db/tx_format.h"
 
 namespace yudb {
 

@@ -3,10 +3,10 @@
 #include <iostream>
 #include <array>
 
-#include "noncopyable.h"
-#include "cache.h"
-#include "page_format.h"
-#include "lru_list.h"
+#include "util/noncopyable.h"
+#include "db/cache.h"
+#include "db/page_format.h"
+#include "db/lru_list.h"
 
 namespace yudb {
 

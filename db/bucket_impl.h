@@ -3,8 +3,8 @@
 #include <variant>
 #include <map>
 
-#include "btree.h"
-#include "bucket_iterator.h"
+#include "db/btree.h"
+#include "db/bucket_iterator.h"
 
 namespace yudb {
 

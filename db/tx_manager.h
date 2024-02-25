@@ -3,9 +3,9 @@
 #include <optional>
 #include <map>
 
-#include "noncopyable.h"
-#include "tx.h"
-#include "log_writer.h"
+#include "util/noncopyable.h"
+#include "db/tx.h"
+#include "db/log_writer.h"
 
 namespace yudb {
 

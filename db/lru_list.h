@@ -7,12 +7,9 @@
 #include <unordered_map>
 #include <functional>
 
-#include "unordered_dense.h"
-#include "cache.h"
-#include "noncopyable.h"
-
-
-
+#include "db/cache.h"
+#include "third_party/unordered_dense.h"
+#include "util/noncopyable.h"
 
 namespace yudb {
 
