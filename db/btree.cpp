@@ -29,12 +29,12 @@ BTree::Iterator BTree::Get(std::span<const uint8_t> key) {
 }
 void BTree::Insert(std::span<const uint8_t> key, std::span<const uint8_t> value) {
     auto iter = LowerBound(key);
-    iter.PathCopy();
+    iter.CopyAllPagesByPath();
     Put(&iter, key, value, true);
 }
 void BTree::Put(std::span<const uint8_t> key, std::span<const uint8_t> value) {
     auto iter = LowerBound(key);
-    iter.PathCopy();
+    iter.CopyAllPagesByPath();
     Put(&iter, key, value, false);
 }
 void BTree::Update(Iterator* iter, std::span<const uint8_t> value) {
@@ -48,7 +48,7 @@ bool BTree::Delete(std::span<const uint8_t> key) {
     if (iter.status() != Iterator::Status::kEq) {
         return false;
     }
-    iter.PathCopy();
+    iter.CopyAllPagesByPath();
     Delete(&iter);
     return true;
 }
@@ -132,7 +132,6 @@ std::tuple<BranchNode, SlotId, PageId, bool> BTree::GetSibling(Iterator* iter) {
     return { std::move(parent), parent_slot_id, sibling_pgid, left_sibling };
 }
 
-
 void BTree::Merge(BranchNode&& left, BranchNode&& right, std::span<const uint8_t> down_key) {
     bool success = left.Append(down_key, kPageInvalidId, true);
     assert(success);
@@ -161,11 +160,10 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
         return;
     }
 
-    if (node.GetFillRate() >= 40) {
+    if (node.GetFillRate() >= 0.4) {
         return;
     }
 
-    //assert(node.count() > 0);
     auto [parent, parent_slot_id, sibling_id, left_sibling] = GetSibling(iter);
     if (left_sibling) --parent_slot_id;
 
@@ -179,7 +177,7 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
             parent.SetLeftChild(parent_slot_id + 1, sibling.page_id());
         }
     }
-    if (sibling.GetFillRate() > 50 && sibling.count() >= 2) {
+    if (sibling.GetFillRate() > 0.5 && sibling.count() >= 2) {
         // 若兄弟节点内填充率充足
         std::span<const uint8_t> new_key;
         if (left_sibling) {
@@ -244,7 +242,6 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
     Delete(iter, std::move(parent), parent_slot_id);
 }
 
-
 void BTree::Merge(LeafNode&& left, LeafNode&& right) {
     for (uint16_t i = 0; i < right.count(); i++) {
         bool success = left.Append(right.GetKey(i), right.GetValue(i));
@@ -254,12 +251,11 @@ void BTree::Merge(LeafNode&& left, LeafNode&& right) {
     bucket_->pager().Free(right.page_id(), 1);
 }
 
-
 void BTree::Delete(Iterator* iter) {
     auto [pgid, pos] = iter->Front();
     LeafNode node{ this, pgid, true };
     node.Delete(pos);
-    if (node.GetFillRate() >= 40) {
+    if (node.GetFillRate() >= 0.4) {
         return;
     }
 
@@ -269,8 +265,6 @@ void BTree::Delete(Iterator* iter) {
         // 是叶子节点就跳过
         return;
     }
-
-    //assert(node.count() > 0);
 
     auto [parent, parent_slot_id, sibling_id, left_sibling] = GetSibling(iter);
     if (left_sibling) --parent_slot_id;
@@ -286,7 +280,7 @@ void BTree::Delete(Iterator* iter) {
     }
 
     // 兄弟节点填充率充足
-    if (sibling.GetFillRate() > 50 && sibling.count() >= 2) {
+    if (sibling.GetFillRate() > 0.5 && sibling.count() >= 2) {
         std::span<const uint8_t> new_key;
         if (left_sibling) {
             // 左兄弟节点的末尾的元素插入到当前节点的头部
@@ -331,52 +325,73 @@ void BTree::Delete(Iterator* iter) {
     Delete(iter, std::move(parent), parent_slot_id);
 }
 
-
 std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, SlotId insert_slot_id, std::span<const uint8_t> insert_key, PageId insert_right_child) {
     BranchNode right{ this, bucket_->pager().Alloc(1), true };
     right.Build(kPageInvalidId);
 
-    uint16_t mid = left->count() / 2;
-    uint16_t right_count = mid + (left->count() % 2);
+    auto saved_left_count = left->count();
+    assert(saved_left_count >= 2);
+    
+    PageId insert_left_child = left->GetLeftChild(insert_slot_id);
+    left->SetLeftChild(insert_slot_id, insert_right_child);
 
-    int insert_right = 0;
-    for (SlotId i = 0; i < right_count; ++i) {
-        auto left_slot_id = mid + i;
-        if (insert_right == 0 && left_slot_id == insert_slot_id) {
-            // 插入节点的子节点使用左侧元素的子节点，并将右子节点交换给它
-            auto left_child = left->GetLeftChild(left_slot_id);
-            left->SetLeftChild(left_slot_id, insert_right_child);
-            right.Append(insert_key, left_child, false);
-            insert_right = 1;
-            --i;
-            continue;
-        }
-        right.Append(left->GetKey(left_slot_id), left->GetLeftChild(left_slot_id), false);
-    }
-    for (uint16_t i = 0; i < right_count; ++i) {
+    for (intptr_t i = saved_left_count - 1; i >= 0; --i) {
+        auto success = right.Append(left->GetKey(i), left->GetLeftChild(i), false);
+        assert(success);
         left->Pop(false);
+        if (left->GetFillRate() <= 0.5 || right.GetFillRate() >= 0.5) {
+            break;
+        }
     }
-
+    std::reverse(right.slots(), right.slots() + right.count());
     right.SetTailChild(left->GetTailChild());
-    if (insert_right == 0) {
-        if (insert_slot_id == left->count() + right.count()) {
-            right.Append(insert_key, right.GetTailChild(), false);
-            right.SetTailChild(insert_right_child);
+
+    if (insert_slot_id > left->count()) {
+        auto success = right.Insert(insert_slot_id - left->count(), insert_key, insert_left_child, false);
+        assert(success);
+        if (!success) {
+            success = left->Append(right.GetKey(0), right.GetLeftChild(0), true);
+            assert(success);
+            right.Delete(0, false);
+            success = right.Insert(insert_slot_id - left->count(), insert_key, insert_left_child, false);
+            assert(success);
         }
-        else {
-            left->Insert(insert_slot_id, insert_key, insert_right_child, true);
+    } else {
+        auto success = left->Insert(insert_slot_id, insert_key, insert_left_child, false);
+        assert(success);
+        if (!success) {
+            // 若插入到左侧失败，检查是否是插入到末尾
+            if (insert_slot_id == left->count()) {
+                // 是的话我们直接插入到右侧即可
+                success = right.Insert(0, insert_key, insert_left_child, false);
+                assert(success);
+            } else {
+                // 不是的话就移动末尾元素插入到右侧并重试
+                right.Insert(0, left->GetKey(left->count() - 1), left->GetLeftChild(left->count() - 1), false);
+                left->Pop(true);
+                success = left->Insert(insert_slot_id, insert_key, insert_left_child, false);
+                assert(success);
+            }
         }
     }
-    assert(left->count() > 1);
-    assert(right.count() > 1);
-
-    // 左侧末尾元素上升
-    left->SetTailChild(left->GetLeftChild(left->count() - 1));
-    auto up_key = left->GetKey(left->count() - 1);
-    left->Pop(true);
+    
+    std::span<const uint8_t> up_key;
+    if (left->count() >= 2) {
+        assert(right.count() >= 1);
+        // 左侧末尾元素上升
+        up_key = left->GetKey(left->count() - 1);
+        left->Pop(true);
+        
+    } else {
+        assert(right.count() >= 2);
+        // 右侧首元素上升
+        up_key = right.GetKey(0);
+        auto left_child = right.GetLeftChild(0);
+        right.Delete(0, false);
+        left->SetTailChild(left_child);
+    }
     return { up_key, std::move(right) };
 }
-
 
 void BTree::Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8_t> key, bool branch_put) {
     if (iter->Empty()) {
@@ -404,42 +419,59 @@ void BTree::Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8
     Put(iter, std::move(node), std::move(branch_right), branch_key, true);
 }
 
-
 LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     LeafNode right{ this, bucket_->pager().Alloc(1), false };
     right.Build();
 
-    uint16_t mid = left->count() / 2;
-    uint16_t right_count = mid + (left->count() % 2);
+    auto saved_left_count = left->count();
+    assert(saved_left_count >= 2);
 
-    int insert_right = 0;
-    for (SlotId i = 0; i < right_count; i++) {
-        auto left_slot_id = mid + i;
-        if (insert_right == 0 && left_slot_id == insert_slot_id) {
-            right.Append(key, value);
-            insert_right = 1;
-            --i;
-            continue;
-        }
-        right.Append(left->GetKey(left_slot_id), left->GetValue(left_slot_id));
-    }
-    for (uint16_t i = 0; i < right_count; i++) {
+    for (intptr_t i = saved_left_count - 1; i >= 0; --i) {
+        auto success = right.Append(left->GetKey(i), left->GetValue(i));
+        assert(success);
         left->Pop();
-    }
-
-    if (insert_right == 0) {
-        if (insert_slot_id == left->count() + right.count()) {
-            insert_right = 1;
-            right.Append(key, value);
-        } else {
-            left->Insert(insert_slot_id, key, value);
+        if (left->GetFillRate() <= 0.5 || right.GetFillRate() >= 0.5) {
+            break;
         }
     }
-    assert(left->count() > 1);
-    assert(right.count() > 1);
+    std::reverse(right.slots(), right.slots() + right.count());
+
+    // 节点的填充率>50%，则可能插入失败
+    if (insert_slot_id > left->count()) {
+        // 失败则将首元素移动到左侧并重试
+        assert(insert_slot_id != left->count());
+        auto success = right.Insert(insert_slot_id - left->count(), key, value);
+        assert(success);
+        if (!success) {
+            success = left->Append(right.GetKey(0), right.GetValue(0));
+            assert(success);
+            right.Delete(0);
+            success = right.Insert(insert_slot_id - left->count(), key, value);
+            assert(success);
+        }
+    } else {
+        auto success = left->Insert(insert_slot_id, key, value);
+        assert(success);
+        if (!success) {
+            // 若插入到左侧失败，检查是否是插入到末尾
+            if (insert_slot_id == left->count()) {
+                // 是的话我们直接插入到右侧即可
+                success = right.Insert(0, key, value);
+                assert(success);
+            } else {
+                // 不是的话就移动末尾元素插入到右侧并重试
+                right.Insert(0, left->GetKey(left->count() - 1), left->GetValue(left->count() - 1));
+                left->Pop();
+                success = left->Insert(insert_slot_id, key, value);
+                assert(success);
+            }
+        }
+        assert(success);
+    }
+    
+    assert(left->count() >= 1 && right.count() >= 2 || left->count() >= 2 && right.count() >= 1);
     return right;
 }
-
 
 void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value, bool insert_only) {
     if (iter->Empty()) {

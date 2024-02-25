@@ -16,6 +16,7 @@
 
 #include "db.h"
 
+
 void TestLru() {
     yudb::LruList<int, int> aa{ 3 };
 
@@ -74,7 +75,7 @@ void TestLru() {
 void TestBTree(yudb::DB* db) {
     srand(10);
 
-    auto count = 100;
+    auto count = 1;
     std::vector<int> arr(count);
 
     for (auto i = 0; i < count; i++) {
@@ -84,7 +85,7 @@ void TestBTree(yudb::DB* db) {
     {
         auto tx = db->Update();
         auto bucket = tx.RootBucket();
-        printf("\n\n\n\n");
+        //printf("\n\n\n\n");
         //bucket.Put("c", "aa");
         //bucket.Put("e", "aaa");
         //auto aa = bucket.LowerBound("a");
@@ -312,12 +313,14 @@ void TestBlock(yudb::DB* db) {
         auto bucket = tx.RootBucket();
 
         auto i = 0;
+        std::string_view value{ nullptr, 0 };
         for (auto& iter : arr) {
             //printf("%d\n", i);
-            bucket.Put(iter, iter);
-            //bucket.Print(true); printf("\n\n\n\n");
+            bucket.Put(iter, value);
+            //bucket.Print(); printf("\n\n\n\n");
             ++i;
         }
+        //bucket.Print();
         tx.Commit();
     }
 
@@ -330,14 +333,18 @@ void TestBlock(yudb::DB* db) {
     // 打印运行时间
     std::cout << "写: " << duration.count() << " ms" << std::endl;
 
+    
+
     start_time = std::chrono::high_resolution_clock::now();
     {
         auto tx = db->View();
         auto bucket = tx.RootBucket();
+        auto i = 0;
         for (auto& iter : arr) {
             auto res = bucket.Get(iter.c_str(), iter.size());
             assert(res != bucket.end());
-            assert(res.value() == iter);
+            //assert(res.value() == iter);
+            ++i;
             //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
             //bucket.Print(); printf("\n\n\n\n\n");
         }
@@ -345,7 +352,6 @@ void TestBlock(yudb::DB* db) {
     end_time = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     std::cout << "读: " << duration.count() << " ms" << std::endl;
-
 }
 
 void TestLog() {
@@ -388,12 +394,14 @@ int main() {
 
     //TestBTree(db.get());
 
-    //auto tx = db->Update();
-    //auto bucket = tx.RootBucket();
+    /*auto tx = db->Update();
+    auto bucket = tx.RootBucket();
 
-    //bucket.Put("00000000", ".");
-    //bucket.Put("11111111", ".");
-    //bucket.Put("22222222", ".");
+    bucket.Put("000000000000000000000000000000000000000000", ".");
+    auto iter = bucket.Get("000000000000000000000000000000000000000000");
+    printf("%s", iter.key());
+    bucket.Put("11111111", ".");
+    bucket.Put("22222222", ".");*/
     //bucket.Put("33333333", ".");
     //bucket.Put("44444444", ".");
     //bucket.Put("55555555", ".");

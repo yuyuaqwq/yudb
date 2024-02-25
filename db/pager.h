@@ -20,8 +20,10 @@ public:
     ~Pager();
 
     // 非线程安全函数，仅写事务使用
-    void Read(PageId pgid, void* cache, PageCount count);
-    void Write(PageId pgid, const void* cache, PageCount count);
+    void Read(PageId pgid, uint8_t* cache, PageCount count);
+    void ReadByBytes(PageId pgid, size_t offset, uint8_t* cache, size_t bytes);
+    void Write(PageId pgid, const uint8_t* cache, PageCount count);
+    void WriteByBytes(PageId pgid, size_t offset, const uint8_t* cache, size_t bytes);
     void SyncAllPage();
 
     PageId Alloc(PageCount count);

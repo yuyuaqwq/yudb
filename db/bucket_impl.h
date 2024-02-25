@@ -4,7 +4,6 @@
 #include <map>
 
 #include "btree.h"
-#include "inline_bucket.h"
 #include "bucket_iterator.h"
 
 namespace yudb {
@@ -47,10 +46,8 @@ protected:
     BucketId bucket_id_;
 
     const bool writable_;
-    const bool inlineable_;
     std::optional<BTree> btree_;
     std::map<std::string, std::pair<BucketId, PageId>> sub_bucket_map_;       // PageIdÎªkPageInvalidIdÊ±£¬ÊÇInline Bucket
-    InlineBucket inline_bucket_;
 };
 
 } // namespace yudb

@@ -20,13 +20,12 @@ class TxManager;
 
 class TxImpl : noncopyable {
 public:
-    TxImpl(TxManager* tx_manager, const MetaFormat& meta, bool writable);
+    TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable);
     ~TxImpl() = default;
 
     BucketImpl& RootBucket() { return root_bucket_; }
     const BucketImpl& RootBucket() const { return root_bucket_; }
     BucketId NewSubBucket(PageId* root_pgid, bool writable);
-    BucketId NewSubBucket(std::span<const uint8_t> inline_bucket_data, bool writable);
     BucketImpl& AtSubBucket(BucketId bucket_id);
 
     void RollBack();
@@ -47,7 +46,7 @@ public:
 
 protected:
     TxManager* const tx_manager_;
-    MetaFormat meta_format_;
+    MetaStruct meta_format_;
 
     const bool writable_;
 

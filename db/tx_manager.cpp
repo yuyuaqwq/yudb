@@ -21,14 +21,14 @@ UpdateTx TxManager::Update() {
     AppendBeginLog();
     update_tx_.emplace(this, db_->meta().meta_format(), true);
     update_tx_->set_txid(update_tx_->txid() + 1);
-    if (update_tx_->txid() == kInvalidTxId) {
+    if (update_tx_->txid() == kTxInvalidId) {
         throw std::runtime_error("txid overflow.");
     }
     const auto iter = view_tx_map_.cbegin();
     if (iter != view_tx_map_.end()) {
         pager().ClearPending(iter->first);
     } else {
-        pager().ClearPending(kInvalidTxId);
+        pager().ClearPending(kTxInvalidId);
     }
     return UpdateTx{ &*update_tx_ };
 }

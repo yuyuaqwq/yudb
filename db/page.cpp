@@ -27,7 +27,7 @@ void Page::operator=(Page&& right) noexcept {
     right.page_buf_ = nullptr;
 }
 
-Page Page::AddReference() {
+Page Page::AddReference() const {
     return pager_->AddReference(page_buf_);
 }
 

@@ -18,12 +18,12 @@ public:
     void Save();
     void Switch();
 
-    const auto& meta_format() const { return meta_format_; }
-    auto& meta_format() { return meta_format_; }
+    const auto& meta_format() const { return meta_struct_; }
+    auto& meta_format() { return meta_struct_; }
 
 private:
     DBImpl* const db_;
-    MetaFormat meta_format_{ 0 };
+    MetaStruct meta_struct_{ 0 };
     uint32_t meta_index_{ 0 };
 };
 

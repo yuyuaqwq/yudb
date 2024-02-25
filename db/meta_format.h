@@ -8,7 +8,7 @@
 namespace yudb {
 
 #pragma pack(push, 1)
-struct MetaFormat {
+struct MetaStruct {
     uint32_t sign;
     uint32_t min_version;
     PageSize page_size;
@@ -19,9 +19,9 @@ struct MetaFormat {
 };
 #pragma pack(pop)
 
-constexpr size_t kMetaSize = sizeof(MetaFormat);
+constexpr size_t kMetaSize = sizeof(MetaStruct);
 
-static void MetaFormatCopy(MetaFormat* dst, const MetaFormat& src) {
+static void MetaFormatCopy(MetaStruct* dst, const MetaStruct& src) {
     dst->root = src.root;
     dst->page_count = src.page_count;
     dst->txid = src.txid;

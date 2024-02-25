@@ -21,7 +21,7 @@ public:
     Page(Page&& right) noexcept;
     void operator=(Page&& right) noexcept;
 
-    Page AddReference();
+    Page AddReference() const;
 
     auto& page_buf() { return page_buf_; }
     auto& page_buf() const { return page_buf_; }

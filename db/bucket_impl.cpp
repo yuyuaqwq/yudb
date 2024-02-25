@@ -6,16 +6,13 @@
 
 namespace yudb {
 
-std::strong_ordering DefalutComparator(std::span<const uint8_t> key1, std::span<const uint8_t> key2) {
+inline std::strong_ordering DefaultComparator(std::span<const uint8_t> key1, std::span<const uint8_t> key2) {
     auto res = std::memcmp(key1.data(), key2.data(), std::min(key1.size(), key2.size()));
     if (res == 0) {
         if (key1.size() == key2.size()) {
             return std::strong_ordering::equal;
-        } else if (key1.size() > key2.size()) {
-            return std::strong_ordering::greater;
-        } else {
-            return std::strong_ordering::less;
         }
+        res = key1.size() - key2.size();
     } else if (res < 0) {
         return std::strong_ordering::less;
     } else {
@@ -26,29 +23,14 @@ std::strong_ordering DefalutComparator(std::span<const uint8_t> key1, std::span<
 BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable) :
     tx_{ tx },
     bucket_id_{ bucket_id },
-    writable_{ writable },
-    inlineable_{ false }
+    writable_{ writable }
 {
-    btree_.emplace(this, root_pgid, DefalutComparator);
-}
-
-BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, std::span<const uint8_t> inline_bucket_data, bool writable) :
-    tx_{ tx },
-    bucket_id_{ bucket_id },
-    btree_{ std::nullopt },
-    writable_{ writable },
-    inlineable_{ true }
-{
-    inline_bucket_.Deserialize(inline_bucket_data);
+    btree_.emplace(this, root_pgid, DefaultComparator);
 }
 
 
 BucketImpl::Iterator BucketImpl::Get(const void* key_buf, size_t key_size) {
-    if (inlineable_) {
-        return Iterator{ inline_bucket_.Get(key_buf, key_size) };
-    } else {
-        return Iterator{ btree_->Get({ reinterpret_cast<const uint8_t*>(key_buf), key_size }) };
-    }
+    return Iterator{ btree_->Get({ reinterpret_cast<const uint8_t*>(key_buf), key_size }) };
 }
 
 BucketImpl::Iterator BucketImpl::LowerBound(const void* key_buf, size_t key_size) {
@@ -75,7 +57,7 @@ void BucketImpl::Update(Iterator* iter, const void* value_buf, size_t value_size
     auto key = iter->key();
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key.data()), key.size()};
     tx_->AppendPutLog(bucket_id_, key_span, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
-    btree_->Update(&std::get<BTreeIterator>(iter->iterator_), { reinterpret_cast<const uint8_t*>(value_buf), value_size });
+    btree_->Update(&iter->iterator_, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
 }
 
 
@@ -87,7 +69,7 @@ bool BucketImpl::Delete(const void* key_buf, size_t key_size) {
 
 
 void BucketImpl::Delete(Iterator* iter) {
-    btree_->Delete(&std::get<BTreeIterator>(iter->iterator_));
+    btree_->Delete(&iter->iterator_);
 }
 
 BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
@@ -102,30 +84,18 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
             PageId pgid = kPageInvalidId;
             Put(key.data(), key.size(), &pgid, sizeof(pgid));
             iter = Get(key.data(), key.size());
-            iter.set_is_bucket();
-            assert(iter.is_bucket());
         }
         else {
-            auto data = iter->value();
-            auto pgid = *reinterpret_cast<PageId*>(data.data());
+            auto data = iter.value();
+            auto pgid = *reinterpret_cast<const PageId*>(data.data());
             map_iter->second.second = pgid;
-            if (!iter.is_bucket()) {
-                throw std::runtime_error("This is not a bucket.");
-            }
         }
-        if (!iter.is_inline_bucket()) {
-            bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable);
-        }
-        //else {
-        //    map_iter->second.second = kPageInvalidId;
-        //    index = tx_->NewSubBucket({ bucket_info->data, data.size() - 1 }, writable);
-        //}
+        bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable);
         map_iter->second.first = bucket_id;
     }
     else {
         bucket_id = map_iter->second.first;
     }
-
     return tx_->AtSubBucket(bucket_id);
 }
 

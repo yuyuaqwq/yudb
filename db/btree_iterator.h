@@ -47,7 +47,7 @@ public:
     bool operator==(const BTreeIterator& right) const noexcept;
 
     template <class KeyT> KeyT key() const {
-        auto [span, ref] = KeySlot();
+        auto span = GetKey();
         if (span.size() != sizeof(KeyT)) {
             throw std::runtime_error("The size of the key does not match.");
         }
@@ -56,7 +56,7 @@ public:
         return key;
     }
     template <class ValueT> ValueT value() const {
-        auto [span, ref] = ValueSlot();
+        auto span = GetValue();
         if (span.size() != sizeof(ValueT)) {
             throw std::runtime_error("The size of the value does not match.");
         }
@@ -64,8 +64,8 @@ public:
         std::memcpy(&value, span.data(), sizeof(ValueT));
         return value;
     }
-    std::string key() const;
-    std::string value() const;
+    std::string_view key() const;
+    std::string_view value() const;
     bool is_bucket() const;
     void set_is_bucket();
     //bool is_inline_bucket() const;
@@ -85,19 +85,20 @@ public:
     void Push(const std::pair<PageId, SlotId>& v);
     void Pop();
 
-    void PathCopy();
-private:
-    std::pair<LeafNode, SlotId> GetLeafNode(bool dirty) const;
+    void CopyAllPagesByPath();
 
-    std::tuple<std::span<const uint8_t>, std::optional<std::variant<ConstPage, std::string>>>
-    KeySlot() const;
-    std::tuple<std::span<const uint8_t>, std::optional<std::variant<ConstPage, std::string>>>
-    ValueSlot() const;
+private:
+    std::pair<LeafNode&, SlotId> GetLeafNode(bool dirty) const;
+
+    std::span<const uint8_t> GetKey() const;
+    std::span<const uint8_t> GetValue() const;
 
 private:
     BTree* const btree_;
     Stack stack_;       // 索引必定是小于等于搜索时key的节点
     Status status_{ Status::kInvalid };
+
+    mutable std::optional<Node> cached_node_;
 };
 
 } // namespace yudb

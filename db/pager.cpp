@@ -15,18 +15,23 @@ Pager::~Pager() {
 }
 
 
-void Pager::Read(PageId pgid, void* cache, PageCount count) {
-    db_->file().Seek(pgid * page_size());
-    const auto read_size = db_->file().Read(cache, count * page_size());
-    assert(read_size == 0 || read_size == count * page_size());
-    if (read_size == 0) {
-        memset(cache, 0, count * page_size());
-    }
+void Pager::Read(PageId pgid, uint8_t* cache, PageCount count) {
+    ReadByBytes(pgid, 0, cache, page_size_);
 }
 
-void Pager::Write(PageId pgid, const void* cache, PageCount count) {
-    db_->file().Seek(pgid * page_size());
-    db_->file().Write(cache, count * page_size());
+void Pager::ReadByBytes(PageId pgid, size_t offset, uint8_t* cache, size_t bytes) {
+    db_->file().Seek(pgid * page_size() + offset);
+    const auto read_size = db_->file().Read(cache + offset, bytes);
+    assert(read_size == 0 || read_size == bytes);
+}
+
+void Pager::Write(PageId pgid, const uint8_t* cache, PageCount count) {
+    WriteByBytes(pgid, 0, cache, page_size_ * count);
+}
+
+void Pager::WriteByBytes(PageId pgid, size_t offset, const uint8_t* cache, size_t bytes) {
+    db_->file().Seek(pgid * page_size() + offset);
+    db_->file().Write(cache, bytes);
 }
 
 void Pager::SyncAllPage() {
@@ -56,7 +61,7 @@ PageId Pager::Alloc(PageCount count) {
     PageId pgid = kPageInvalidId;
     if (update_tx.meta_format().root != kPageInvalidId) {
         auto& free_bucket = root_bucket.SubBucket("fr_pg", true);
-        for (auto& iter : free_bucket) {
+        for (auto iter : free_bucket) {
             auto free_count = iter.value<uint32_t>();
             assert(free_count > 0);
             if (free_count < count) {
@@ -157,17 +162,17 @@ void Pager::ClearPending(TxId min_view_txid) {
     auto& pending_bucket = root_bucket.SubBucket("tx_pd", true);
     // 如果是崩溃后重启，需要从pending_bucket中free
 
-    if(min_view_txid == kInvalidTxId) {
+    if(min_view_txid == kTxInvalidId) {
         // 不能全部释放，上一个写事务pending的还不能释放，因为当前写事务进行时，其他线程可能会开启新的读事务
         min_view_txid = update_tx.txid() - 1;
-        assert(min_view_txid != kInvalidTxId);
+        assert(min_view_txid != kTxInvalidId);
     }
     for (auto iter = pending_.begin(); iter != pending_.end(); ) {
         if (iter->first >= min_view_txid) {
             break;
         } 
         for (auto& [free_pgid, free_count] : iter->second) {
-            printf("free:%d\n", free_pgid);
+            //printf("free:%d\n", free_pgid);
             assert(free_bucket.Get(&free_pgid, free_pgid) == free_bucket.end());
             const auto next_pgid = free_pgid + free_count;
             auto next_iter = free_bucket.Get(&next_pgid, sizeof(next_pgid));

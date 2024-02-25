@@ -6,7 +6,7 @@
 
 namespace yudb {
 
-TxImpl::TxImpl(TxManager* tx_manager, const MetaFormat& meta, bool writable) :
+TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
     tx_manager_{ tx_manager },
     root_bucket_{ this, kRootBucketId, &meta_format_.root, writable },
     writable_{ writable }
@@ -18,11 +18,6 @@ TxImpl::TxImpl(TxManager* tx_manager, const MetaFormat& meta, bool writable) :
 BucketId TxImpl::NewSubBucket(PageId* root_pgid, bool writable) {
     BucketId new_bucket_id = sub_bucket_cache_.size();
     sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, new_bucket_id, root_pgid, writable));
-    return new_bucket_id;
-}
-BucketId TxImpl::NewSubBucket(std::span<const uint8_t> inline_bucket_data, bool writable) {
-    BucketId new_bucket_id = sub_bucket_cache_.size();
-    sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, new_bucket_id, inline_bucket_data, writable));
     return new_bucket_id;
 }
 BucketImpl& TxImpl::AtSubBucket(BucketId bucket_id) {

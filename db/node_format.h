@@ -26,17 +26,16 @@ struct NodeHeader {
     uint16_t data_offset; // the tail of the records.
 };
 
-struct LeafNodeFormat {
+struct NodeStruct {
     NodeHeader header;
-    Slot slots[1];
-
-};
-
-struct BranchNodeFormat {
-    NodeHeader header;
-    PageId tail_child;
+    union {
+        PageId tail_child;
+        uint32_t padding;
+        static_assert(sizeof(tail_child) == sizeof(padding));
+    };
     Slot slots[1];
 };
+
 #pragma pack(pop)
 
 } // namespace

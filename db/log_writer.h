@@ -23,7 +23,7 @@ public:
         if (!file_.Open(path, true)) {
             throw std::runtime_error("failed to open log file.");
         }
-        file_.Seek(0, File::PointerMode::kDbFilePointerEnd);
+        file_.Seek(0, File::PointerMode::kDbFilePointerSet);
         buffer_.resize(kBlockSize);
     }
     void AppendRecordToBuffer(std::span<const uint8_t> data) {
