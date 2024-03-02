@@ -12,13 +12,16 @@ Node::Node(BTree* btree, PageId page_id, bool dirty) :
     btree_{ btree },
     page_{ btree_->bucket().pager().Reference(page_id, dirty) },
     struct_{ reinterpret_cast<NodeStruct*>(page_->page_buf()) } {}
+
 Node::Node(BTree* btree, Page page_ref) :
     btree_{ btree },
     page_{ std::move(page_ref) },
     struct_{ reinterpret_cast<NodeStruct*>(page_->page_buf()) } {}
+
 Node::Node(BTree* btree, uint8_t* page_buf) :
     btree_{ btree },
     struct_{ reinterpret_cast<NodeStruct*>(page_buf) } {}
+
 Node::~Node() = default;
 
 Node::Node(Node&& right) noexcept : 
@@ -35,6 +38,7 @@ void Node::operator=(Node&& right) noexcept {
 bool Node::IsLeaf() const {
     return struct_->header.type == NodeType::kLeaf;
 }
+
 bool Node::IsBranch() const {
     return struct_->header.type == NodeType::kBranch;
 }
@@ -66,13 +70,11 @@ std::pair<SlotId, bool> Node::LowerBound(std::span<const uint8_t> key) {
     return { res - struct_->slots, eq };
 }
 
-
 double Node::GetFillRate() {
     auto max_space = page_size() - sizeof(struct_->header) - sizeof(struct_->padding);
     auto used_space = max_space - FreeSpaceAfterCompaction();
     return double(used_space) / max_space;
 }
-
 
 Node Node::Copy() const {
     auto& pager = btree_->bucket().pager();
@@ -105,17 +107,19 @@ uint16_t Node::count() const {
     return struct_->header.count;
 }
 
-
+PageSize Node::page_size() const {
+    return btree_->bucket().pager().page_size();
+}
 
 
 size_t Node::MaxInlineRecordLength() {
-    size_t max_records_length;
-    max_records_length = page_size() -
+    size_t max_length;
+    max_length = page_size() -
         sizeof(NodeStruct::header) -
         sizeof(NodeStruct::padding);
     // ensure that each node can hold two records.
-    assert(max_records_length % 2 == 0);
-    return max_records_length / 2;
+    assert(max_length % 2 == 0);
+    return max_length / 2;
 }
 
 size_t Node::SpaceNeeded(size_t record_length) {
@@ -324,11 +328,6 @@ void Node::RestoreRecord(SlotId slot_id, const Slot& saved_slot) {
 }
 
 
-PageSize Node::page_size() const {
-    return btree_->bucket().pager().page_size();
-}
-
-
 void BranchNode::Build(PageId tail_child) {
     auto& header = struct_->header;
 
@@ -345,7 +344,6 @@ void BranchNode::Build(PageId tail_child) {
 void BranchNode::Destroy() {
 
 }
-
 
 PageId BranchNode::GetLeftChild(SlotId slot_id) {
     assert(slot_id <= count());
@@ -384,8 +382,6 @@ PageId BranchNode::GetTailChild() {
 void BranchNode::SetTailChild(PageId child) {
     struct_->tail_child = child;
 }
-
-
 
 bool BranchNode::Update(SlotId slot_id, std::span<const uint8_t> key, PageId child, bool is_right_child) {
     assert(slot_id < count());
@@ -483,7 +479,6 @@ void BranchNode::Pop(bool right_cbild) {
 }
 
 
-
 void LeafNode::Build() {
     auto& header = struct_->header;
 
@@ -494,6 +489,7 @@ void LeafNode::Build() {
     header.space_used = 0;
     struct_->header.last_modified_txid = btree_->bucket().tx().txid();
 }
+
 void LeafNode::Destroy() {
 
 }
@@ -501,8 +497,6 @@ void LeafNode::Destroy() {
 Slot& LeafNode::GetSlot(SlotId slot_id) {
     return struct_->slots[slot_id];
 }
-
-
 
 std::span<const uint8_t> LeafNode::GetValue(SlotId slot_id) {
     assert(slot_id < count());
@@ -517,7 +511,6 @@ std::span<const uint8_t> LeafNode::GetValue(SlotId slot_id) {
     return { reinterpret_cast<const uint8_t*>(cached_record_.data()) + slot.key_length, slot.value_length };
     
 }
-
 
 bool LeafNode::Update(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     assert(slot_id < count());
@@ -570,7 +563,5 @@ void LeafNode::Delete(SlotId slot_id) {
 void LeafNode::Pop() {
     Delete(count() - 1);
 }
-
-
 
 } // namespace yudb

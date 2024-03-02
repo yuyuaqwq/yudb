@@ -23,53 +23,52 @@ inline std::strong_ordering DefaultComparator(std::span<const uint8_t> key1, std
 BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable) :
     tx_{ tx },
     bucket_id_{ bucket_id },
-    writable_{ writable }
-{
-    btree_.emplace(this, root_pgid, DefaultComparator);
-}
+    writable_{ writable },
+    btree_{ this, root_pgid, DefaultComparator }
+{}
 
 
 BucketImpl::Iterator BucketImpl::Get(const void* key_buf, size_t key_size) {
-    return Iterator{ btree_->Get({ reinterpret_cast<const uint8_t*>(key_buf), key_size }) };
+    return Iterator{ btree_.Get({ reinterpret_cast<const uint8_t*>(key_buf), key_size }) };
 }
 
 BucketImpl::Iterator BucketImpl::LowerBound(const void* key_buf, size_t key_size) {
-    return Iterator{ btree_->LowerBound({ reinterpret_cast<const uint8_t*>(key_buf), key_size }) };
+    return Iterator{ btree_.LowerBound({ reinterpret_cast<const uint8_t*>(key_buf), key_size }) };
 }
 
-void BucketImpl::Insert(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
-    std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
-    std::span<const uint8_t> value_span{ reinterpret_cast<const uint8_t*>(value_buf), value_size };
-    tx_->AppendInsertLog(bucket_id_, key_span, value_span);
-
-    btree_->Insert(key_span, value_span);
-}
+//void BucketImpl::Insert(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
+//    std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
+//    std::span<const uint8_t> value_span{ reinterpret_cast<const uint8_t*>(value_buf), value_size };
+//    tx_->AppendInsertLog(bucket_id_, key_span, value_span);
+//
+//    btree_.Insert(key_span, value_span);
+//}
 
 void BucketImpl::Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
     std::span<const uint8_t> value_span{ reinterpret_cast<const uint8_t*>(value_buf), value_size };
     tx_->AppendPutLog(bucket_id_, key_span, value_span);
 
-    btree_->Put(key_span, value_span);
+    btree_.Put(key_span, value_span);
 }
 
 void BucketImpl::Update(Iterator* iter, const void* value_buf, size_t value_size) {
     auto key = iter->key();
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key.data()), key.size()};
     tx_->AppendPutLog(bucket_id_, key_span, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
-    btree_->Update(&iter->iterator_, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
+    btree_.Update(&iter->iterator_, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
 }
 
 
 bool BucketImpl::Delete(const void* key_buf, size_t key_size) {
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
     tx_->AppendDeleteLog(bucket_id_, key_span);
-    return btree_->Delete(key_span);
+    return btree_.Delete(key_span);
 }
 
 
 void BucketImpl::Delete(Iterator* iter) {
-    btree_->Delete(&iter->iterator_);
+    btree_.Delete(&iter->iterator_);
 }
 
 BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
@@ -84,16 +83,12 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
             PageId pgid = kPageInvalidId;
             Put(key.data(), key.size(), &pgid, sizeof(pgid));
             iter = Get(key.data(), key.size());
-        }
-        else {
-            auto data = iter.value();
-            auto pgid = *reinterpret_cast<const PageId*>(data.data());
-            map_iter->second.second = pgid;
+        } else {
+            map_iter->second.second = iter.value<PageId>();
         }
         bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable);
         map_iter->second.first = bucket_id;
-    }
-    else {
+    } else {
         bucket_id = map_iter->second.first;
     }
     return tx_->AtSubBucket(bucket_id);
@@ -101,14 +96,13 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
 
 
 BucketImpl::Iterator BucketImpl::begin() noexcept {
-    return Iterator{ btree_->begin() };
+    return Iterator{ btree_.begin() };
 }
 BucketImpl::Iterator BucketImpl::end() noexcept {
-    return Iterator{ btree_->end() };
+    return Iterator{ btree_.end() };
 }
 
-void BucketImpl::Print(bool str) { btree_->Print(str); }
-
+void BucketImpl::Print(bool str) { btree_.Print(str); }
 
 
 Pager& BucketImpl::pager() const { return tx_->pager(); }

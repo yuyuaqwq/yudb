@@ -4,12 +4,13 @@
 #include <optional>
 #include <memory>
 
-#include "options.h"
-#include "db.h"
-#include "file.h"
-#include "meta.h"
-#include "pager.h"
-#include "tx_manager.h"
+#include "util\file.h"
+#include "db\options.h"
+#include "db\db.h"
+#include "db\meta.h"
+#include "db\pager.h"
+#include "db\tx_manager.h"
+#include "db\log_writer.h"
 
 namespace yudb {
 
@@ -20,6 +21,18 @@ public:
 
     UpdateTx Update() override;
     ViewTx View() override;
+    void Checkpoint();
+
+    template<typename Iter>
+    void AppendLog(const Iter begin, const Iter end) {
+        if (recovering_) return;
+        for (auto it = begin; it != end; ++it) {
+            log_writer_.AppendRecordToBuffer(*it);
+        }
+        if (log_writer_.size() >= options_->log_file_max_bytes && !tx_manager_.has_update_tx()) {
+            Checkpoint();
+        }
+    }
 
     auto& options() const { return options_; }
     auto& options() { return options_; }
@@ -35,6 +48,9 @@ public:
     auto& log_writer() { return log_writer_; }
 
 private:
+    void Recover(std::string_view log_path);
+    
+private:
     friend class DB;
 
     std::optional<const Options> options_;
@@ -45,6 +61,8 @@ private:
     TxManager tx_manager_{ this };
 
     log::Writer log_writer_;
+
+    bool recovering_{false};
 };
 
 }

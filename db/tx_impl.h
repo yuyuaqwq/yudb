@@ -12,8 +12,6 @@
 #include "db/bucket_impl.h"
 #include "db/bucket.h"
 
-#include "db/tx_log_format.h"
-
 namespace yudb {
 
 class TxManager;
@@ -23,8 +21,6 @@ public:
     TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable);
     ~TxImpl() = default;
 
-    BucketImpl& RootBucket() { return root_bucket_; }
-    const BucketImpl& RootBucket() const { return root_bucket_; }
     BucketId NewSubBucket(PageId* root_pgid, bool writable);
     BucketImpl& AtSubBucket(BucketId bucket_id);
 
@@ -37,12 +33,16 @@ public:
     void AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
     void AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key);
 
+    auto& root_bucket() { return root_bucket_; }
+    auto& root_bucket() const { return root_bucket_; }
     auto& txid() const { return meta_format_.txid; }
     void set_txid(TxId txid) { meta_format_.txid = txid; }
     Pager& pager() const;
     auto& tx_manager() const { return *tx_manager_; }
     auto& meta_format() const { return meta_format_; }
     auto& meta_format() { return meta_format_; }
+    auto& sub_bucket_cache() const { return sub_bucket_cache_; }
+    auto& sub_bucket_cache() { return sub_bucket_cache_; }
 
 protected:
     TxManager* const tx_manager_;

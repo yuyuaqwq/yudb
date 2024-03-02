@@ -13,8 +13,8 @@ public:
     }
 
     ViewBucket RootBucket() {
-        auto& root_bucket = tx_.RootBucket();
-        return ViewBucket{ &root_bucket.SubBucket("user", false) };
+        auto& root_bucket = tx_.root_bucket();
+        return ViewBucket{ &root_bucket.SubBucket(kUserDBKey, false) };
     }
 
 private:
@@ -30,9 +30,9 @@ public:
         }
     }
 
-    UpdateBucket RootBucket() {
-        auto& root_bucket = tx_->RootBucket();
-        return UpdateBucket{ &root_bucket.SubBucket("user", true) };
+    UpdateBucket UserBucket() {
+        auto& root_bucket = tx_->root_bucket();
+        return UpdateBucket{ &root_bucket.SubBucket(kUserDBKey, true) };
     }
     void RollBack() {
         assert(tx_ != nullptr);

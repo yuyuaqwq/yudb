@@ -20,7 +20,7 @@ void Pager::Read(PageId pgid, uint8_t* cache, PageCount count) {
 }
 
 void Pager::ReadByBytes(PageId pgid, size_t offset, uint8_t* cache, size_t bytes) {
-    db_->file().Seek(pgid * page_size() + offset);
+    db_->file().Seek(pgid * page_size() + offset, File::PointerMode::kDbFilePointerSet);
     const auto read_size = db_->file().Read(cache + offset, bytes);
     assert(read_size == 0 || read_size == bytes);
 }
@@ -30,13 +30,13 @@ void Pager::Write(PageId pgid, const uint8_t* cache, PageCount count) {
 }
 
 void Pager::WriteByBytes(PageId pgid, size_t offset, const uint8_t* cache, size_t bytes) {
-    db_->file().Seek(pgid * page_size() + offset);
+    db_->file().Seek(pgid * page_size() + offset, File::PointerMode::kDbFilePointerSet);
     db_->file().Write(cache, bytes);
 }
 
-void Pager::SyncAllPage() {
+void Pager::WriteAllDirtyPages() {
     std::vector<PageCount> sort_arr;
-    sort_arr.reserve(db_->options()->cache_page_pool_count);
+    sort_arr.reserve(db_->options()->cache_pool_page_count);
     auto& lru_list = cache_manager_.lru_list();
     for (auto& iter : lru_list) {
         if (iter.value().dirty) {
@@ -55,13 +55,13 @@ void Pager::SyncAllPage() {
 }
 
 PageId Pager::Alloc(PageCount count) {
-    auto& update_tx = db_->tx_manager().CurrentUpdateTx();
-    auto& root_bucket = update_tx.RootBucket();
+    auto& update_tx = db_->tx_manager().update_tx();
+    auto& root_bucket = update_tx.root_bucket();
 
     PageId pgid = kPageInvalidId;
     if (update_tx.meta_format().root != kPageInvalidId) {
-        auto& free_bucket = root_bucket.SubBucket("fr_pg", true);
-        for (auto iter : free_bucket) {
+        auto& free_db = root_bucket.SubBucket(kFreeDBKey, true);
+        for (auto& iter : free_db) {
             auto free_count = iter.value<uint32_t>();
             assert(free_count > 0);
             if (free_count < count) {
@@ -69,29 +69,29 @@ PageId Pager::Alloc(PageCount count) {
             }
             pgid = iter.key<PageId>();
             auto copy_iter = iter;
-            free_bucket.Delete(&copy_iter);
+            free_db.Delete(&copy_iter);
             if (count < free_count) {
                 free_count -= count;
                 auto free_pgid = pgid + count;
-                free_bucket.Put(&free_pgid, sizeof(free_pgid), &free_count, sizeof(free_count));
+                free_db.Put(&free_pgid, sizeof(free_pgid), &free_count, sizeof(free_count));
             }
             break;
         }
     }
     if (pgid == kPageInvalidId) {
-        pgid = update_tx.meta_format().page_count;
-        auto new_pgid = pgid += count;
-        if (new_pgid < pgid) {
+        auto& page_count = update_tx.meta_format().page_count;
+        if (page_count + count < page_count) {
             throw std::runtime_error("page allocation failed, there are not enough available pages.");
         }
-        update_tx.meta_format().page_count += count;
+        pgid = page_count;
+        page_count += count;
     }
     return pgid;
 }
 
 void Pager::Free(PageId free_pgid, PageCount free_count) {
-    auto& update_tx = db_->tx_manager().CurrentUpdateTx();
-    auto& root_bucket = update_tx.RootBucket();
+    auto& update_tx = db_->tx_manager().update_tx();
+    auto& root_bucket = update_tx.root_bucket();
 
     auto iter = pending_.find(update_tx.txid());
     if (iter == pending_.end()) {
@@ -110,6 +110,7 @@ Page Pager::Copy(const Page& page) {
     Free(page.page_id(), 1);
     return new_page;
 }
+
 Page Pager::Copy(PageId pgid) {
     auto page = Reference(pgid, false);
     return Copy(std::move(page));
@@ -139,31 +140,29 @@ PageId Pager::GetPageIdByCache(const uint8_t* page_cache) {
 
 
 void Pager::RollbackPending() {
-    const auto& update_tx = db_->tx_manager().CurrentUpdateTx();
+    const auto& update_tx = db_->tx_manager().update_tx();
     pending_.erase(update_tx.txid());
 }
 
 void Pager::CommitPending() {
-    return;// 暂时注释，处理可变长kv
-    auto& update_tx = db_->tx_manager().CurrentUpdateTx();
-    auto& root_bucket = update_tx.RootBucket();
-    auto& pending_bucket = root_bucket.SubBucket("tx_pd", true);
+    auto& update_tx = db_->tx_manager().update_tx();
+    auto& root = update_tx.root_bucket();
+    auto& pending_db = root.SubBucket(kPendingDBKey, true);
     const auto txid = update_tx.txid();
     const auto iter = pending_.find(txid);
     if (iter != pending_.end()) {
-        pending_bucket.Put(&txid, sizeof(txid), &iter->second[0], iter->second.size() * sizeof(iter->second[0]));
+        pending_db.Put(&txid, sizeof(txid), &iter->second[0], sizeof(iter->second[0]) * iter->second.size());
+        //for (auto& page_iter : iter->second) {
+            //pending_db.Put(&page_iter.first, sizeof(page_iter.first), &page_iter.second, sizeof(page_iter.second));
+        //}
     }
 }
 
-void Pager::ClearPending(TxId min_view_txid) {
-    auto& update_tx = db_->tx_manager().CurrentUpdateTx();
-    auto& root_bucket = update_tx.RootBucket();
-    auto& free_bucket = root_bucket.SubBucket("fr_pg", true);
-    auto& pending_bucket = root_bucket.SubBucket("tx_pd", true);
-    // 如果是崩溃后重启，需要从pending_bucket中free
-
+void Pager::FreePending(TxId min_view_txid) {
+    auto& update_tx = db_->tx_manager().update_tx();
+    auto& root = update_tx.root_bucket();
     if(min_view_txid == kTxInvalidId) {
-        // 不能全部释放，上一个写事务pending的还不能释放，因为当前写事务进行时，其他线程可能会开启新的读事务
+        // 上一个写事务pending的页面还不能释放，因为当前写事务进行时，其他线程可能会开启新的读事务
         min_view_txid = update_tx.txid() - 1;
         assert(min_view_txid != kTxInvalidId);
     }
@@ -172,29 +171,62 @@ void Pager::ClearPending(TxId min_view_txid) {
             break;
         } 
         for (auto& [free_pgid, free_count] : iter->second) {
-            //printf("free:%d\n", free_pgid);
-            assert(free_bucket.Get(&free_pgid, free_pgid) == free_bucket.end());
-            const auto next_pgid = free_pgid + free_count;
-            auto next_iter = free_bucket.Get(&next_pgid, sizeof(next_pgid));
-            if (next_iter != free_bucket.end()) {
-                free_count += next_iter.value<PageCount>();
-                free_bucket.Delete(&next_iter);
-            }
-            bool insert = true;
-            if (next_iter != free_bucket.begin()) {
-                auto prev_iter = next_iter--;
-                const auto prev_pgid = prev_iter.key<PageId>();
-                if (prev_pgid == free_pgid - free_count) {
-                    insert = false;
-                    free_count += prev_iter.value<PageCount>();
-                    free_bucket.Update(&prev_iter, &free_count, sizeof(free_count));
-                }
-            }
-            if (insert) {
-                free_bucket.Insert(&free_pgid, sizeof(free_pgid), &free_count, sizeof(free_count));
-            }
+            FreeToFreeDB(free_pgid, free_count);
         }
         pending_.erase(iter++);
+    }
+}
+
+void Pager::ClearPending() {
+    auto& update_tx = db_->tx_manager().update_tx();
+    auto& root = update_tx.root_bucket();
+    auto& pending_db = root.SubBucket(kPendingDBKey, true);
+
+    //std::vector<PageId> pending_list;
+    std::vector<TxId> pending_list;
+    for (auto& iter : pending_db) {
+        //auto pgid = iter.key<PageId>();
+        //auto count = iter.value<PageCount>();
+        //FreeToFreeDB(pgid, count);
+        //pending_list.push_back(pgid);
+
+        auto pair_arr_buf = iter.key();
+        auto pair_arr = reinterpret_cast<const std::pair<PageId, PageCount>*>(pair_arr_buf.data());
+        auto size = pair_arr_buf.size() / sizeof(pair_arr[0]);
+        for (size_t i = 0; i < size; ++i) {
+            FreeToFreeDB(pair_arr[i].first, pair_arr[i].second);
+        }
+    }
+
+    for (auto& key : pending_list) {
+        pending_db.Delete(&key, sizeof(key));
+    }
+}
+
+void Pager::FreeToFreeDB(PageId pgid, PageCount count) {
+    auto& update_tx = db_->tx_manager().update_tx();
+    auto& root = update_tx.root_bucket();
+    auto& free_db = root.SubBucket(kFreeDBKey, true);
+    
+    assert(free_db.Get(&pgid, sizeof(pgid)) == free_db.end());
+    const auto next_pgid = pgid + count;
+    auto next_iter = free_db.Get(&next_pgid, sizeof(next_pgid));
+    if (next_iter != free_db.end()) {
+        count += next_iter.value<PageCount>();
+        free_db.Delete(&next_iter);
+    }
+    bool insert = true;
+    if (next_iter != free_db.begin()) {
+        auto prev_iter = next_iter--;
+        const auto prev_pgid = prev_iter.key<PageId>();
+        if (prev_pgid == pgid - count) {
+            insert = false;
+            count += prev_iter.value<PageCount>();
+            free_db.Update(&prev_iter, &count, sizeof(count));
+        }
+    }
+    if (insert) {
+        free_db.Put(&pgid, sizeof(pgid), &count, sizeof(count));
     }
 }
 

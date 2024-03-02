@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include <span>
+#include <filesystem>
 
 #include "db/log_format.h"
 #include "util/noncopyable.h"
@@ -14,48 +15,76 @@ namespace log {
 
 class Writer : noncopyable {
 public:
-    Writer() : 
-        block_offset_{ 0 },
-        size_{ 0 } {}
+    Writer() = default;
     ~Writer() = default;
 
     void Open(std::string_view path) {
         if (!file_.Open(path, true)) {
             throw std::runtime_error("failed to open log file.");
         }
+        path_ = path;
         file_.Seek(0, File::PointerMode::kDbFilePointerSet);
-        buffer_.resize(kBlockSize);
+        rep_.reserve(kBlockSize);
     }
+
+    void Close() {
+        file_.Close();
+        block_offset_ = 0;
+        size_ = 0;
+    }
+
+    void Reset() {
+        file_.Close();
+        std::filesystem::remove(path_);
+        Open(path_);
+    }
+
     void AppendRecordToBuffer(std::span<const uint8_t> data) {
-        if (kBlockSize - size_ < kHeaderSize + data.size()) {
-            FlushBuffer();
-            if (kHeaderSize + data.size() > kBlockSize) {
+        auto length = kHeaderSize + data.size();
+        size_ += length;
+        if (block_offset_ + length > kBlockSize) {
+            WriteBuffer();
+            if (length > kBlockSize) {
                 AppendRecord(data);
                 return;
             }
         }
-        uint8_t buf[kHeaderSize];
-        auto record = reinterpret_cast<LogRecord*>(buf);
-        record->type = RecordType::kFullType;
-        record->size = data.size();
+        LogRecord record {
+            .type = RecordType::kFullType,
+        };
+        record.size = data.size();
+
         Crc32 crc32;
-        crc32.Append(&record->size, kHeaderSize - sizeof(record->checksum));
+        crc32.Append(&record.size, kHeaderSize - sizeof(record.checksum));
         crc32.Append(data.data(), data.size());
-        record->checksum = crc32.End();
-        std::memcpy(&buffer_[size_], buf, kHeaderSize);
-        size_ += kHeaderSize;
-        std::memcpy(&buffer_[size_], data.data(), data.size());
-        size_ += data.size();
+        record.checksum = crc32.End();
+
+        auto raw_size = rep_.size();
+        rep_.resize(raw_size + kHeaderSize);
+        std::memcpy(&rep_[raw_size], &record, kHeaderSize);
+        raw_size = rep_.size();
+        if (data.size() > 0) {
+            rep_.resize(raw_size + data.size());
+            std::memcpy(&rep_[raw_size], data.data(), data.size());
+        }
+        block_offset_ += length;
     }
-    void AppendRecordToBuffer(std::string_view str) {
-        AppendRecordToBuffer(std::span{ reinterpret_cast<const uint8_t*>(str.data()), str.size() });
+
+    void AppendRecordToBuffer(std::string_view data) {
+        AppendRecordToBuffer({ reinterpret_cast<const uint8_t*>(data.data()), data.size() });
     }
-    void FlushBuffer() {
-        if (size_ > 0) {
-            file_.Write(buffer_.data(), buffer_.size());
-            size_ = 0;
+
+    void WriteBuffer() {
+        if (rep_.size() > 0) {
+            file_.Write(rep_.data(), rep_.size());
+            rep_.resize(0);
         }
     }
+
+    std::string_view path() { return path_; }
+    size_t size() { return size_; }
+
+private:
     void AppendRecord(std::span<const uint8_t> data) {
         auto ptr = data.data();
         auto left = data.size();
@@ -91,11 +120,7 @@ public:
             begin = false;
         } while (left > 0);
     }
-    void AppendRecord(std::string_view str) {
-        AppendRecord(std::span<const uint8_t>{ reinterpret_cast<const uint8_t*>(str.data()), str.size() });
-    }
 
-private:
     void EmitPhysicalRecord(RecordType type, const uint8_t* ptr, size_t size) {
         assert(size < 0xffff);
         assert(block_offset_ + kHeaderSize + size <= kBlockSize);
@@ -118,9 +143,12 @@ private:
 
 private:
     File file_;
-    size_t block_offset_;
-    std::vector<uint8_t> buffer_;
-    size_t size_;
+    std::string path_;
+    size_t block_offset_{ 0 };
+    size_t size_{ 0 };
+
+    std::vector<uint8_t> rep_;
+    
 };
 
 } // namespace log

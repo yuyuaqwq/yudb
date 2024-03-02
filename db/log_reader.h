@@ -20,11 +20,14 @@ public:
     ~Reader() = default;
 
     void Open(std::string_view path) {
-        file_.Open(path, true);
+        if (!file_.Open(path, true)) {
+            throw std::runtime_error("failed to open log file.");
+        }
         buffer_.resize(kBlockSize);
         file_.Seek(0, File::PointerMode::kDbFilePointerSet);
         buffer_.resize(kBlockSize);
     }
+
     std::optional<std::string> ReadRecord() {
         bool in_fragmented_record = false;
         std::string res;

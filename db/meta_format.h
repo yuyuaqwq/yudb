@@ -21,7 +21,7 @@ struct MetaStruct {
 
 constexpr size_t kMetaSize = sizeof(MetaStruct);
 
-static void MetaFormatCopy(MetaStruct* dst, const MetaStruct& src) {
+static void CopyMetaInfo(MetaStruct* dst, const MetaStruct& src) {
     dst->root = src.root;
     dst->page_count = src.page_count;
     dst->txid = src.txid;

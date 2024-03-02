@@ -2,8 +2,8 @@
 
 #include <cstdint>
 
-#include "noncopyable.h"
-#include "meta_format.h"
+#include "util\noncopyable.h"
+#include "db\meta_format.h"
 
 namespace yudb {
 
@@ -24,7 +24,7 @@ public:
 private:
     DBImpl* const db_;
     MetaStruct meta_struct_{ 0 };
-    uint32_t meta_index_{ 0 };
+    uint32_t cur_meta_index_{ 0 };
 };
 
 } // namespace yudb

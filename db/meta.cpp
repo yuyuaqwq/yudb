@@ -51,17 +51,17 @@ bool Meta::Load() {
     }
 
     // 选择最新的持久化版本元信息
-    meta_index_ = 0;
+    cur_meta_index_ = 0;
     if (meta_list[0].txid < meta_list[1].txid) {
-        meta_index_ = 1;
+        cur_meta_index_ = 1;
     }
 
     // 校验元信息是否完整，不完整则使用另一个
     Crc32 crc32;
-    crc32.Append(&meta_list[meta_index_], kMetaSize - sizeof(uint32_t));
+    crc32.Append(&meta_list[cur_meta_index_], kMetaSize - sizeof(uint32_t));
     auto crc32_value = crc32.End();
-    if (crc32_value != meta_list[meta_index_].crc32) {
-        if (meta_index_ == 1) {
+    if (crc32_value != meta_list[cur_meta_index_].crc32) {
+        if (cur_meta_index_ == 1) {
             return false;
         }
         
@@ -73,10 +73,10 @@ bool Meta::Load() {
     }
 
     // 页面尺寸不匹配则不允许打开
-    if (meta_list[meta_index_].page_size != db_->options()->page_size) {
+    if (meta_list[cur_meta_index_].page_size != db_->options()->page_size) {
         return false;
     }
-    std::memcpy(&meta_struct_, &meta_list[meta_index_], kMetaSize);
+    std::memcpy(&meta_struct_, &meta_list[cur_meta_index_], kMetaSize);
     return true;
 }
 
@@ -84,12 +84,12 @@ void Meta::Save() {
     Crc32 crc32;
     crc32.Append(&meta_struct_, kMetaSize - sizeof(uint32_t));
     meta_struct_.crc32 = crc32.End();
-    db_->file().Seek((!meta_index_) * db_->options()->page_size, File::PointerMode::kDbFilePointerSet);
+    db_->file().Seek(cur_meta_index_ * db_->options()->page_size, File::PointerMode::kDbFilePointerSet);
     db_->file().Write(&meta_struct_, kMetaSize);
 }
 
 void Meta::Switch() { 
-    meta_index_ = !meta_index_;
+    cur_meta_index_ = cur_meta_index_ == 0 ? 1 : 0;
 }
 
 } // namespace yudb

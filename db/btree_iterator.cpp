@@ -108,6 +108,9 @@ void BTreeIterator::First(PageId pgid) {
     do {
         Node node{ btree_, pgid, false };
         if (node.IsLeaf()) {
+            if (node.count() == 0) {
+                return;
+            }
             break;
         }
         stack_.push_back({ pgid, 0 });

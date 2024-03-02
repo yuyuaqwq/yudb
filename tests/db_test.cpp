@@ -10,47 +10,44 @@
 #include <unordered_set>
 #include <span>
 
-#include "lru_list.h"
-#include "log_reader.h"
-#include "log_writer.h"
+#include <gtest/gtest.h>
 
-#include "db.h"
+#include "db\db.h"
 
+namespace yudb {
 
-void TestLru() {
-    yudb::LruList<int, int> aa{ 3 };
+static std::string RandomString(size_t min_size, size_t max_size) {
+    int size;
+    if (min_size == max_size) {
+        size = min_size;
+    } else {
+        size = (rand() % (max_size - min_size)) + min_size;
+    }
+    std::string str(size, ' ');
+    for (auto i = 0; i < size; i++) {
+        str[i] = rand() % 26 + 'a';
+    }
+    return str;
+}
 
-    auto evict = aa.push_front(100, 200);
-    assert(!evict);
+static std::unique_ptr<yudb::DB> db;
 
-    auto f = aa.front();
-    assert(f == 200);
+TEST(DBTest, Open) {
+    yudb::Options options{
+        .page_size = 1024,
+        .cache_pool_page_count = size_t(options.page_size) * 1024,
+        .log_file_max_bytes = 1024 * 1024 * 64,
+    };
+    db = yudb::DB::Open(options, "Z:/test.ydb");
+}
 
-    evict = aa.push_front(200, 400);
-    assert(!evict);
-    f = aa.front();
-    assert(f == 400);
-
-    aa.Print();
-
-    auto get = aa.get(100);
-    assert(get.first != nullptr && *(get.first) == 200);
-
-    f = aa.front();
-    assert(f == 200);
-
-    aa.Print();
-
-
-    evict = aa.push_front(400, 123);
-    assert(!evict);
-
-    evict = aa.push_front(666, 123);
-    assert(evict);
-    auto [cache_id, k, v] = *evict;
-    assert(k = 400);
+TEST(DBTest, SequentialFixedLength) {
 
 }
+
+} // namespace yudb
+
+
 
 //void TestPager(yudb::DB* db) {
 //    std::unordered_set<yudb::PageId> set;
@@ -84,7 +81,7 @@ void TestBTree(yudb::DB* db) {
 
     {
         auto tx = db->Update();
-        auto bucket = tx.RootBucket();
+        auto bucket = tx.UserBucket();
         //printf("\n\n\n\n");
         //bucket.Put("c", "aa");
         //bucket.Put("e", "aaa");
@@ -162,7 +159,7 @@ void TestBTree(yudb::DB* db) {
 
     {
         auto tx = db->Update();
-        auto bucket = tx.RootBucket();
+        auto bucket = tx.UserBucket();
 
         //for (auto i = 0; i < count; i++) {
         //    auto res = bucket.Delete(&arr[i], sizeof(arr[i]));
@@ -264,21 +261,6 @@ void TestBTree(yudb::DB* db) {
     //}
 }
 
-std::string RandomString(size_t min_size, size_t max_size) {
-    int size;
-    if (min_size == max_size) {
-        size = min_size;
-    }
-    else {
-        size = (rand() % (max_size - min_size)) + min_size;
-    }
-    std::string str(size , ' ');
-    for (auto i = 0; i < size; i++) {
-        str[i] = rand() % 26 + 'a';
-    }
-    return str;
-}
-
 void TestBlock(yudb::DB* db) {
 
     //bucket.Put("hello world!", "Cpp yyds!");
@@ -303,14 +285,14 @@ void TestBlock(yudb::DB* db) {
 
 
     for (auto i = 0; i < count; i++) {
-        arr[i] = RandomString(32, 32);
+        arr[i] = yudb::RandomString(32, 32);
     }
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
     {
         auto tx = db->Update();
-        auto bucket = tx.RootBucket();
+        auto bucket = tx.UserBucket();
 
         auto i = 0;
         std::string_view value{ nullptr, 0 };
@@ -354,96 +336,7 @@ void TestBlock(yudb::DB* db) {
     std::cout << "读: " << duration.count() << " ms" << std::endl;
 }
 
-void TestLog() {
-    //yudb::File file;
-    //file.Open("Z:/test.ydb-wal", true);
-    yudb::log::Writer writer;
-    writer.Open("Z:/test.ydb-wal");
-    writer.AppendRecord("abc");
-    writer.AppendRecord("aedaed");
-    writer.AppendRecord("awdwaaa");
-    writer.AppendRecord("123213123321");
-    writer.AppendRecord(std::string(100000, 'a'));
 
-    /*yudb::log::Reader reader{ &file };
-    auto res = reader.ReadRecord();
-    res = reader.ReadRecord();
-    res = reader.ReadRecord();
-    res = reader.ReadRecord();
-    res = reader.ReadRecord();
-    assert(res->size() == 100000);
-    assert(std::string(100000, 'a') == *res);*/
-}
-
-int main() {
-    TestLru();
-    //TestLog();
-
-    yudb::PageSize page_size = 4096;
-    // 
-    auto db = yudb::DB::Open(yudb::Options{.page_size = page_size, .cache_page_pool_count = 10485760ull / page_size * 12 }, "Z:/test.ydb");
-    if (!db) {
-        std::cout << "yudb::Db::Open failed!\n";
-        return -1;
-    }
-
-
-    //TestPager(db.get());
-
-    TestBlock(db.get());
-
-    //TestBTree(db.get());
-
-    /*auto tx = db->Update();
-    auto bucket = tx.RootBucket();
-
-    bucket.Put("000000000000000000000000000000000000000000", ".");
-    auto iter = bucket.Get("000000000000000000000000000000000000000000");
-    printf("%s", iter.key());
-    bucket.Put("11111111", ".");
-    bucket.Put("22222222", ".");*/
-    //bucket.Put("33333333", ".");
-    //bucket.Put("44444444", ".");
-    //bucket.Put("55555555", ".");
-    //bucket.Put("66666666", ".");
-    //bucket.Put("77777777", ".");
-    //bucket.Put("88888888", ".");
-    //bucket.Put("99999999", ".");
-    //bucket.Put("aaaaaaaa", ".");
-    ////bucket.Print(true); printf("\n\n\n\n");
-    ////bucket.Delete("77777777");
-
-    //bucket.Put("bbbbbbbb", ".");
-    //bucket.Put("cccccccc", ".");
-    //bucket.Put("dddddddd", ".");
-    ////bucket.Put("eeeeeeee", ".");
-    ////bucket.Put("ffffffff", ".");
-    ////bucket.Put("gggggggg", ".");
-    ////bucket.Put("hhhhhhhh", ".");
-    ////bucket.Put("iiiiiiii", ".");
-    //bucket.Print(true); printf("\n\n\n\n");
-
-    //bucket.Delete("33333333");
-    //bucket.Delete("22222222");
-    ////bucket.Delete("66666666");
-    //bucket.Print(true); printf("\n\n\n\n");
-
-
-    // 在这里放置你的程序代码
-
-    //TestBlock(db.get());
-
-    
-    //TestFreer();
-
-    //printf("emm");
-    //std::this_thread::sleep_for(std::chrono::seconds(10));
-    //
-
-    //std::cout << "Hello World!\n";
-
-    system("pause");
-}
 
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
 // 调试程序: F5 或调试 >“开始调试”菜单

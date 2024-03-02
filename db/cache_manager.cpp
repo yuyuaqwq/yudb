@@ -7,12 +7,12 @@ namespace yudb {
 
 CacheManager::CacheManager(Pager* pager) :
     pager_ { pager },
-    lru_list_{ pager_->db().options()->cache_page_pool_count }
+    lru_list_{ pager_->db().options()->cache_pool_page_count }
 {
     for (auto& val : fast_map_) {
         val.first = kPageInvalidId;
     }
-    page_pool_ = reinterpret_cast<uint8_t*>(operator new(pager_->db().options()->cache_page_pool_count * pager->page_size()));
+    page_pool_ = reinterpret_cast<uint8_t*>(operator new(pager_->db().options()->cache_pool_page_count * pager->page_size()));
 }
 
 CacheManager::~CacheManager() {

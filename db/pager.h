@@ -11,6 +11,9 @@
 
 namespace yudb {
 
+constexpr const char* kFreeDBKey = "free_db";
+constexpr const char* kPendingDBKey = "pending_db";
+
 class DBImpl;
 class UpdateTx;
 
@@ -24,13 +27,14 @@ public:
     void ReadByBytes(PageId pgid, size_t offset, uint8_t* cache, size_t bytes);
     void Write(PageId pgid, const uint8_t* cache, PageCount count);
     void WriteByBytes(PageId pgid, size_t offset, const uint8_t* cache, size_t bytes);
-    void SyncAllPage();
+    void WriteAllDirtyPages();
 
     PageId Alloc(PageCount count);
     void Free(PageId pgid, PageCount count);
     void RollbackPending();
     void CommitPending();
-    void ClearPending(TxId min_view_txid);
+    void FreePending(TxId min_view_txid);
+    void ClearPending();
     Page Copy(const Page& page_ref);
     Page Copy(PageId pgid);
 
@@ -43,6 +47,9 @@ public:
     auto& db() const { return *db_; }
     auto& page_size() const { return page_size_; }
     auto& tmp_page() { return tmp_page_; }
+
+private:
+    void FreeToFreeDB(PageId pgid, PageCount count);
 
 private:
     DBImpl* const db_;

@@ -11,7 +11,7 @@ TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
     root_bucket_{ this, kRootBucketId, &meta_format_.root, writable },
     writable_{ writable }
 {
-    MetaFormatCopy(&meta_format_, meta);
+    CopyMetaInfo(&meta_format_, meta);
 }
 
 
@@ -35,6 +35,7 @@ void TxImpl::RollBack() {
 
 void TxImpl::Commit() {
     assert(writable_);
+    pager().CommitPending();
     for (auto& iter : root_bucket_.sub_bucket_map()) {
         root_bucket_.Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second));
     }

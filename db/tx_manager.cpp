@@ -1,7 +1,7 @@
 #include "db/tx_manager.h"
 
 #include "db/db_impl.h"
-
+#include "db/operator_log_format.h"
 
 namespace yudb {
 
@@ -18,17 +18,22 @@ TxManager::~TxManager() {
 }
 
 UpdateTx TxManager::Update() {
+    assert(!update_tx_.has_value());
     AppendBeginLog();
     update_tx_.emplace(this, db_->meta().meta_format(), true);
     update_tx_->set_txid(update_tx_->txid() + 1);
     if (update_tx_->txid() == kTxInvalidId) {
         throw std::runtime_error("txid overflow.");
     }
+    if (first_) {
+        first_ = false;
+        pager().ClearPending();
+    }
     const auto iter = view_tx_map_.cbegin();
     if (iter != view_tx_map_.end()) {
-        pager().ClearPending(iter->first);
+        pager().FreePending(iter->first);
     } else {
-        pager().ClearPending(kTxInvalidId);
+        pager().FreePending(kTxInvalidId);
     }
     return UpdateTx{ &*update_tx_ };
 }
@@ -41,6 +46,11 @@ ViewTx TxManager::View() {
         ++iter->second;
     }
     return ViewTx{ this, db_->meta().meta_format()};
+}
+
+void TxManager::Continue() {
+    assert(!update_tx_.has_value());
+    update_tx_.emplace(this, db_->meta().meta_format(), true);
 }
 
 void TxManager::RollBack() {
@@ -60,88 +70,78 @@ void TxManager::RollBack(TxId view_txid) {
 }
 
 void TxManager::Commit() {
-    AppendCommitLog();
-    pager().CommitPending();
-    MetaFormatCopy(&db_->meta().meta_format(), update_tx_->meta_format());
+    CopyMetaInfo(&db_->meta().meta_format(), update_tx_->meta_format());
 
+    // 不在此处保存
     //pager().SyncAllPage();
-    // 不应该在这里保存元数据，也不应该交换元页面
-    //db_->meta().Save();
     //db_->meta().Switch();
+    //db_->meta().Save();
 
+    AppendCommitLog();
     update_tx_ = std::nullopt;
 }
 
-TxImpl& TxManager::CurrentUpdateTx() {
+TxImpl& TxManager::update_tx() {
     assert(update_tx_.has_value());
     return *update_tx_;
 }
 
 void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
-    TxLogBucketFormat format;
-    format.type = TxLogType::kBucketPut;
+    BucketLogHeader format;
+    format.type = OperationType::kPut;
     format.bucket_id = bucket_id;
     std::array<std::span<const uint8_t>, 3> arr;
-    arr[0] = { reinterpret_cast<const uint8_t*>(&format), sizeof(format) };
+    arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketPutLogHeaderSize };
     arr[1] = key;
     arr[2] = value;
-    AppendLog(arr.begin(), arr.end());
+    db_->AppendLog(arr.begin(), arr.end());
 }
 
 void TxManager::AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
-    TxLogBucketFormat format;
-    format.type = TxLogType::kBucketInsert;
+    BucketLogHeader format;
+    format.type = OperationType::kInsert;
     format.bucket_id = bucket_id;
     std::array<std::span<const uint8_t>, 3> arr;
-    arr[0] = { reinterpret_cast<const uint8_t*>(&format), sizeof(format) };
+    arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketInsertLogHeaderSize };
     arr[1] = key;
     arr[2] = value;
-    AppendLog(arr.begin(), arr.end());
+    db_->AppendLog(arr.begin(), arr.end());
 }
 
 void TxManager::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {
-    TxLogBucketFormat format;
-    format.type = TxLogType::kBucketDelete;
+    BucketLogHeader format;
+    format.type = OperationType::kDelete;
     format.bucket_id = bucket_id;
     std::array<std::span<const uint8_t>, 2> arr;
-    arr[0] = { reinterpret_cast<const uint8_t*>(&format), sizeof(format) };
+    arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketDeleteLogHeaderSize };
     arr[1] = key;
-    AppendLog(arr.begin(), arr.end());
+    db_->AppendLog(arr.begin(), arr.end());
 }
-
 
 Pager& TxManager::pager() const {
     return db_->pager();
 }
 
-
-template<typename Iter>
-void TxManager::AppendLog(const Iter begin, const Iter end) {
-    for (auto it = begin; it != end; ++it) {
-        db_->log_writer().AppendRecordToBuffer(*it);
-    }
-}
-
 void TxManager::AppendBeginLog() {
-    TxLogType type = TxLogType::kBegin;
+    OperationType type = OperationType::kBegin;
     std::array<std::span<const uint8_t>, 1> arr;
     arr[0] = { reinterpret_cast<const uint8_t*>(&type), sizeof(type) };
-    AppendLog(arr.begin(), arr.end());
+    db_->AppendLog(arr.begin(), arr.end());
 }
 
 void TxManager::AppendRollbackLog() {
-    TxLogType type = TxLogType::kRollback;
+    OperationType type = OperationType::kRollback;
     std::array<std::span<const uint8_t>, 1> arr;
     arr[0] = { reinterpret_cast<const uint8_t*>(&type), sizeof(type) };
-    AppendLog(arr.begin(), arr.end());
+    db_->AppendLog(arr.begin(), arr.end());
 }
 
 void TxManager::AppendCommitLog() {
-    TxLogType type = TxLogType::kCommit;
+    OperationType type = OperationType::kCommit;
     std::array<std::span<const uint8_t>, 1> arr;
     arr[0] = { reinterpret_cast<const uint8_t*>(&type), sizeof(type) };
-    AppendLog(arr.begin(), arr.end());
-    db_->log_writer().FlushBuffer();
+    db_->AppendLog(arr.begin(), arr.end());
+    db_->log_writer().WriteBuffer();
 }
 
 
