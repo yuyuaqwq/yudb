@@ -38,12 +38,14 @@ TEST(PagerTest, AllocAndPending) {
         ASSERT_EQ(pgid, 115);
 
         pager.Free(3, 1);
+        pager.Free(4, 1);
+        pager.Free(5, 1);
         pgid = pager.Alloc(1);
         ASSERT_EQ(pgid, 1115);
 
         pager.Free(115, 1000);
 
-        // 为PendingDB的root分配了1116，Pending了3和115
+        // 为PendingDB的root分配了1116，Pending了3、4、5、115
         tx.Commit();
     }
     {
@@ -56,23 +58,24 @@ TEST(PagerTest, AllocAndPending) {
         tx.Commit();
     }
     {
-        // FreeDB释放3、115，为FreeDB分配了1119
+        // FreeDB释放3、4、5、115，为FreeDB分配了1119
         auto tx = db_impl->Update();
 
         auto pgid = pager.Alloc(1);
         ASSERT_EQ(pgid, 3);
-
         pgid = pager.Alloc(1);
-        ASSERT_EQ(pgid, 115);
+        ASSERT_EQ(pgid, 4);
         pgid = pager.Alloc(1);
-        ASSERT_EQ(pgid, 116);
+        ASSERT_EQ(pgid, 5);
         pgid = pager.Alloc(998);
-        ASSERT_EQ(pgid, 117);
+        ASSERT_EQ(pgid, 115);
+        pgid = pager.Alloc(2);
+        ASSERT_EQ(pgid, 1113);
 
         pgid = pager.Alloc(1);
         ASSERT_EQ(pgid, 1120);
 
-        // root触发了Copy，分配了1121.Pending了1118
+        // root触发了Copy，分配了1121，Pending了1118
         tx.Commit();
     }
 
@@ -90,6 +93,7 @@ TEST(PagerTest, AllocAndPending) {
         // root触发了Copy，分配了1124，Pending了1121
         tx.Commit();
     }
+
 }
 
 TEST(PagerTest, Clear) {

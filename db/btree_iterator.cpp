@@ -192,8 +192,7 @@ bool BTreeIterator::Down(std::span<const uint8_t> key) {
         if (pgid == kPageInvalidId) {
             return false;
         }
-    }
-    else {
+    } else {
         auto [parent_pgid, slot_id] = stack_.front();
         assert(cached_node_->page_id() == parent_pgid);
         if (cached_node_->IsLeaf()) {

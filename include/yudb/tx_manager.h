@@ -18,7 +18,6 @@ public:
 
     UpdateTx Update();
     ViewTx View();
-    void Continue();
 
     void RollBack();
     void RollBack(TxId view_txid);

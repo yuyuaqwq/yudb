@@ -108,6 +108,9 @@ void BTree::Print(bool str, PageId pgid, int level) {
 }
 
 void BTree::Print(bool str) {
+    if (root_pgid_ == kPageInvalidId) {
+        return;
+    }
     Print(str, root_pgid_, 0);
 }
 

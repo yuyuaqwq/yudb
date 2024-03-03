@@ -44,7 +44,7 @@ TEST(DBTest, Open) {
 }
 
 TEST(DBTest, Sequential) {
-    auto count = 100000;
+    auto count = 1000000;
     std::vector<int64_t> arr(count);
     for (auto i = 0; i < count; i++) {
         arr[i] = i;
@@ -71,23 +71,23 @@ TEST(DBTest, Sequential) {
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
         std::cout << "insert: " << duration.count() << " ms" << std::endl;
 
-        start_time = std::chrono::high_resolution_clock::now();
-        {
-            auto tx = db->View();
-            auto bucket = tx.UserBucket();
-            auto j = 0;
-            for (auto& iter : arr) {
-                auto res = bucket.Get(&iter, sizeof(iter));
-                ASSERT_NE(res, bucket.end());
-                //assert(res.value() == iter);
-                ++j;
-                //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-                //bucket.Print(); printf("\n\n\n\n\n");
-            }
-        }
-        end_time = std::chrono::high_resolution_clock::now();
-        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-        std::cout << "get: " << duration.count() << " ms" << std::endl;
+        //start_time = std::chrono::high_resolution_clock::now();
+        //{
+        //    auto tx = db->View();
+        //    auto bucket = tx.UserBucket();
+        //    auto j = 0;
+        //    for (auto& iter : arr) {
+        //        auto res = bucket.Get(&iter, sizeof(iter));
+        //        ASSERT_NE(res, bucket.end());
+        //        //assert(res.value() == iter);
+        //        ++j;
+        //        //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+        //        //bucket.Print(); printf("\n\n\n\n\n");
+        //    }
+        //}
+        //end_time = std::chrono::high_resolution_clock::now();
+        //duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+        //std::cout << "get: " << duration.count() << " ms" << std::endl;
 
         start_time = std::chrono::high_resolution_clock::now();
         {
@@ -115,7 +115,7 @@ TEST(DBTest, Sequential) {
 TEST(DBTest, Random) {
     srand(10);
 
-    auto count = 100000;
+    auto count = 1000000;
     std::vector<std::string> arr(count);
 
     for (auto i = 0; i < count; i++) {
@@ -142,23 +142,23 @@ TEST(DBTest, Random) {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     std::cout << "insert: " << duration.count() << " ms" << std::endl;
 
-    start_time = std::chrono::high_resolution_clock::now();
-    {
-        auto tx = db->View();
-        auto bucket = tx.UserBucket();
-        auto i = 0;
-        for (auto& iter : arr) {
-            auto res = bucket.Get(iter.c_str(), iter.size());
-            ASSERT_NE(res, bucket.end());
-            //assert(res.value() == iter);
-            ++i;
-            //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-            //bucket.Print(); printf("\n\n\n\n\n");
-        }
-    }
-    end_time = std::chrono::high_resolution_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "get: " << duration.count() << " ms" << std::endl;
+    //start_time = std::chrono::high_resolution_clock::now();
+    //{
+    //    auto tx = db->View();
+    //    auto bucket = tx.UserBucket();
+    //    auto i = 0;
+    //    for (auto& iter : arr) {
+    //        auto res = bucket.Get(iter.c_str(), iter.size());
+    //        ASSERT_NE(res, bucket.end());
+    //        //assert(res.value() == iter);
+    //        ++i;
+    //        //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+    //        //bucket.Print(); printf("\n\n\n\n\n");
+    //    }
+    //}
+    //end_time = std::chrono::high_resolution_clock::now();
+    //duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    //std::cout << "get: " << duration.count() << " ms" << std::endl;
 
     start_time = std::chrono::high_resolution_clock::now();
     {

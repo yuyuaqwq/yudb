@@ -49,11 +49,6 @@ ViewTx TxManager::View() {
     return ViewTx{ this, db_->meta().meta_format()};
 }
 
-void TxManager::Continue() {
-    assert(!update_tx_.has_value());
-    update_tx_.emplace(this, db_->meta().meta_format(), true);
-}
-
 void TxManager::RollBack() {
     AppendRollbackLog();
     pager().RollbackPending();

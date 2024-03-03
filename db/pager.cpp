@@ -101,7 +101,6 @@ PageId Pager::Alloc(PageCount count) {
         pgid = page_count;
         page_count += count;
     }
-
     return pgid;
 }
 
@@ -177,11 +176,12 @@ void Pager::CommitPending() {
 void Pager::FreePending(TxId min_view_txid) {
     auto& update_tx = db_->tx_manager().update_tx();
     auto& root = update_tx.root_bucket();
-    if(min_view_txid == kTxInvalidId) {
+    if (min_view_txid == kTxInvalidId) {
         // 上一个写事务pending的页面还不能释放，因为当前写事务进行时，其他线程可能会开启新的读事务
         min_view_txid = update_tx.txid() - 1;
         assert(min_view_txid != kTxInvalidId);
     }
+
     for (auto iter = pending_.begin(); iter != pending_.end(); ) {
         if (iter->first >= min_view_txid) {
             break;
@@ -233,23 +233,19 @@ void Pager::FreeToFreeDB(PageId pgid, PageCount count) {
     auto& free_db = root.SubBucket(kFreeDBKey, true, UInt32Comparator);
     
     assert(free_db.Get(&pgid, sizeof(pgid)) == free_db.end());
+
     const auto next_pgid = pgid + count;
     auto next_iter = free_db.Get(&next_pgid, sizeof(next_pgid));
     if (next_iter != free_db.end()) {
         count += next_iter.value<PageCount>();
         free_db.Delete(&next_iter);
     }
-    bool insert = true;
-    if (next_iter != free_db.begin()) {
-        auto prev_iter = next_iter--;
-        const auto prev_pgid = prev_iter.key<PageId>();
-        if (prev_pgid == pgid - count) {
-            insert = false;
-            count += prev_iter.value<PageCount>();
-            free_db.Update(&prev_iter, &count, sizeof(count));
-        }
-    }
-    if (insert) {
+    const auto prev_pgid = pgid - count;
+    auto prev_iter = free_db.Get(&next_pgid, sizeof(next_pgid));
+    if (prev_iter != free_db.end()) {
+        count += prev_iter.value<PageCount>();
+        free_db.Update(&prev_iter, &count, sizeof(count));
+    } else {
         free_db.Put(&pgid, sizeof(pgid), &count, sizeof(count));
     }
     free_db_lock_ = false;
