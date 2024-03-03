@@ -11,6 +11,9 @@ inline std::strong_ordering UInt32Comparator(std::span<const uint8_t> key1, std:
 }
 
 inline std::strong_ordering UInt64Comparator(std::span<const uint8_t> key1, std::span<const uint8_t> key2) {
+    if (key1.size() != sizeof(uint64_t) || key2.size() != sizeof(uint64_t)) {
+        __debugbreak();
+    }
     assert(key1.size() == sizeof(uint64_t) && key2.size() == sizeof(uint64_t));
     uint64_t key1_ = *reinterpret_cast<const uint64_t*>(key1.data());
     uint64_t key2_ = *reinterpret_cast<const uint64_t*>(key2.data());

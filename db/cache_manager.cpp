@@ -27,7 +27,8 @@ std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
     auto fast_map_index = pgid % kCacheFastMapPoolCount;
     if (fast_map_[fast_map_index].first == pgid) {
         const auto cache_id = fast_map_[fast_map_index].second;
-        auto cache_info = &lru_list_.GetNodeByCacheId(cache_id).value;
+        auto& node = lru_list_.GetNodeByCacheId(cache_id);
+        auto cache_info = &node.value;
         ++cache_info->reference_count;
         lru_list_.set_front(cache_id);
         return { cache_info, &page_pool_[cache_id * pager_->page_size()] };
@@ -37,23 +38,64 @@ std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
 
     auto [cache_info, cache_id] = lru_list_.get(pgid);
     if (!cache_info) {
-        const auto evict = lru_list_.push_front(pgid, CacheInfo{0});
-        if (evict) {
-            // 将淘汰页面写回磁盘，未来添加写盘队列则直接放入队列
-            const auto& [evict_cache_id, evict_pgid, evict_cache_info] = *evict;
-            if (evict_cache_info.reference_count != 0) {
-                throw CacheManagerError{ "unable to reallocate cache." };
+        if (lru_list_.full()) {
+            // 若需要淘汰页面写回磁盘
+            auto iter = lru_list_.rbegin();
+            if (iter.value().reference_count != 0) {
+                do {
+                    --iter;
+                    if (iter == lru_list_.rend()) {
+                        throw CacheManagerError{ "unable to reallocate cache." };
+                    }
+                    if (iter.value().reference_count == 0) {
+                        break;
+                    }
+                } while (true);
             }
+            auto evict_pgid = iter.key();
+            auto evict_cache_id = iter.id();
+            auto evict_cache_info = iter.value();
+            lru_list_.erase(iter.key());
+
+            auto evict_fast_map_index = evict_pgid % kCacheFastMapPoolCount;
+            if (fast_map_[evict_fast_map_index].first == evict_pgid) {
+                fast_map_[evict_fast_map_index].first = kPageInvalidId;
+            }
+
+            // printf("evict:%d(%d) ", evict_pgid, evict_cache_info.dirty);
             if (evict_cache_info.dirty) {
+#ifndef NDEBUG
+                {
+                    Crc32 crc32;
+                    crc32.Append(&page_pool_[evict_cache_id * pager_->page_size()], pager_->page_size());
+                    page_crc32_map_[evict_pgid] = crc32.End();
+                }
+#endif
                 pager_->Write(evict_pgid, &page_pool_[evict_cache_id * pager_->page_size()], 1);
+
             }
         }
+
+        auto evict = lru_list_.push_front(pgid, CacheInfo{0});
+        assert(!evict);
+
         const auto pair = lru_list_.get(pgid);
         cache_info = pair.first;
         cache_info->dirty = false;
         cache_id = pair.second;
         auto cache = &page_pool_[cache_id * pager_->page_size()];
         pager_->Read(pgid, cache, 1);
+#ifndef NDEBUG
+        {
+            auto iter = page_crc32_map_.find(pgid);
+            if (iter != page_crc32_map_.end()) {
+                Crc32 crc32;
+                crc32.Append(cache, pager_->page_size());
+                auto crc32_res = crc32.End();
+                assert(iter->second == crc32_res);
+            }
+        }
+#endif
     }
 
     fast_map_[fast_map_index].second = cache_id;

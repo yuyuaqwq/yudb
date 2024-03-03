@@ -427,7 +427,7 @@ void BTree::Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8
 LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     assert(insert_slot_id <= left->count());
 
-    LeafNode right{ this, bucket_->pager().Alloc(1), false };
+    LeafNode right{ this, bucket_->pager().Alloc(1), true };
     right.Build();
 
     auto saved_left_count = left->count();

@@ -11,7 +11,7 @@ public:
     ViewTx(TxManager* tx_manager, const MetaStruct& meta);
     ~ViewTx();
 
-    ViewBucket UserBucket();
+    ViewBucket UserBucket(Comparator comparator = nullptr);
 
 private:
     TxImpl tx_;
@@ -22,7 +22,7 @@ public:
     explicit UpdateTx(TxImpl* tx);
     ~UpdateTx();
 
-    UpdateBucket UserBucket();
+    UpdateBucket UserBucket(Comparator comparator = nullptr);
     void RollBack();
     void Commit();
 

@@ -132,6 +132,7 @@ Page Pager::Copy(PageId pgid) {
 }
 
 Page Pager::Reference(PageId pgid, bool dirty) {
+    assert(pgid >= 2);
     assert(pgid != kPageInvalidId);
     auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
     if (cache_info->dirty == false && dirty == true) {

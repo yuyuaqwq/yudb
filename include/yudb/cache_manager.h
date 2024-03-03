@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <array>
+#include <unordered_map>
 
 #include "yudb/cache.h"
 #include "yudb/page_format.h"
@@ -38,8 +39,9 @@ private:
     LruList<PageId, CacheInfo> lru_list_;
     uint8_t* page_pool_;
 
-    size_t count1_{ 0 };
-    size_t count2_{ 0 };
+#ifndef NDEBUG
+    std::unordered_map<PageId, uint32_t> page_crc32_map_;
+#endif
 };
 
 } // namespace yudb

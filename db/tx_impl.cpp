@@ -72,9 +72,12 @@ ViewTx::~ViewTx() {
     tx_.RollBack();
 }
 
-ViewBucket ViewTx::UserBucket() {
+ViewBucket ViewTx::UserBucket(Comparator comparator) {
+    if (comparator == nullptr) {
+        comparator = DefaultComparator;
+    }
     auto& root_bucket = tx_.root_bucket();
-    return ViewBucket{ &root_bucket.SubBucket(kUserDBKey, false, DefaultComparator) };
+    return ViewBucket{ &root_bucket.SubBucket(kUserDBKey, false, comparator) };
 }
 
 UpdateTx::UpdateTx(TxImpl* tx) : tx_{ tx } {}
@@ -84,9 +87,12 @@ UpdateTx::~UpdateTx() {
     }
 }
 
-UpdateBucket UpdateTx::UserBucket() {
+UpdateBucket UpdateTx::UserBucket(Comparator comparator) {
+    if (comparator == nullptr) {
+        comparator = DefaultComparator;
+    }
     auto& root_bucket = tx_->root_bucket();
-    return UpdateBucket{ &root_bucket.SubBucket(kUserDBKey, true, DefaultComparator) };
+    return UpdateBucket{ &root_bucket.SubBucket(kUserDBKey, true, comparator) };
 }
 void UpdateTx::RollBack() {
     assert(tx_ != nullptr);

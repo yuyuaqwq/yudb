@@ -17,6 +17,7 @@ namespace yudb{
          meta_.Switch();
          meta_.Save();
          file_.Sync();
+         log_writer_.Close();
          std::filesystem::remove(log_writer_.path());
      }
  }

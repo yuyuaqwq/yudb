@@ -77,10 +77,10 @@ public:
     void pop_back() {
         erase(back_);
     }
-    CacheId front() {
+    CacheId front() const {
         return front_;
     }
-    CacheId back() {
+    CacheId back() const {
         return back_;
     }
 
@@ -111,10 +111,6 @@ public:
 
     reference operator*() const noexcept {
         return *this;
-    }
-
-    pointer operator->() const noexcept {
-        return this;
     }
 
     LruListIterator& operator++() noexcept {
@@ -154,6 +150,8 @@ public:
     const V& value() const {
         return list_->PoolNode(id_).value;
     }
+
+    CacheId id() const { return id_; }
 
 private:
     LruList* list_;
@@ -197,7 +195,7 @@ public:
         lru_list_.erase(cache_id);
         lru_list_.push_front(cache_id);
     }
-    std::optional<std::tuple<CacheId, K, V>> push_front(const K& key, V&& value) {
+    std::optional<std::tuple<CacheId, K, V>> push_front(const K& key, const V& value) {
         auto free = free_list_.front();
         std::optional<std::tuple<CacheId, K, V>> evict{};
         if (free == kCacheInvalidId) {
@@ -240,9 +238,9 @@ public:
         map_.erase(iter);
         return true;
     }
-    V& front() {
-        return PoolNode(lru_list_.front()).value;
-    }
+    V& front() { return PoolNode(lru_list_.front()).value; }
+    V& back() { return PoolNode(lru_list_.back()).value; }
+    bool full() const { return free_list_.front() == kCacheInvalidId; }
 
     Iterator begin() noexcept {
         return Iterator{ this, lru_list_.front() };
@@ -250,6 +248,8 @@ public:
     Iterator end() noexcept {
         return Iterator{ this, kCacheInvalidId };
     }
+    Iterator rbegin() { return Iterator{ this, lru_list_.back() }; }
+    Iterator rend() { return Iterator{ this, kCacheInvalidId }; }
 
     const Node& GetNodeByCacheId(CacheId cache_id) const { return PoolNode(cache_id); }
     Node& GetNodeByCacheId(CacheId cache_id) { return PoolNode(cache_id); }
