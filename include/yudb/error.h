@@ -17,6 +17,14 @@ public:
     }
 };
 
+class InvalidArgumentError : public Error {
+public:
+    using Error::Error;
+    const char* what() const {
+        return Error::what();
+    }
+};
+
 class RecoverError : public Error {
 public:
     using Error::Error;
@@ -41,7 +49,7 @@ public:
     }
 };
 
-class CacheError : public Error {
+class CacheManagerError : public Error {
 public:
     using Error::Error;
     const char* what() const {
@@ -58,14 +66,6 @@ public:
 };
 
 class PagerError : public Error {
-public:
-    using Error::Error;
-    const char* what() const {
-        return Error::what();
-    }
-};
-
-class InvalidArgumentError : public Error {
 public:
     using Error::Error;
     const char* what() const {
