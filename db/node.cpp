@@ -3,6 +3,7 @@
 #include "yudb/bucket_impl.h"
 #include "yudb/pager.h"
 #include "yudb/tx.h"
+#include "yudb/error.h"
 
 namespace yudb {
 
@@ -249,7 +250,7 @@ void Node::LoadRecordFromOverflowPages(SlotId slot_id) {
 }
 void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     if (key.size() > page_size()) {
-        throw std::runtime_error("Key length exceeds the limit.");
+        throw InvalidArgumentError("key length exceeds the limit.");
     }
 
     auto length = key.size() + value.size();

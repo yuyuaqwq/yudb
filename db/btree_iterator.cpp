@@ -3,6 +3,7 @@
 #include "yudb/btree.h"
 #include "yudb/bucket_impl.h"
 #include "yudb/tx_impl.h"
+#include "yudb/error.h"
 
 namespace yudb {
 
@@ -80,7 +81,7 @@ std::string_view BTreeIterator::value() const {
 
 std::pair<LeafNode&, SlotId> BTreeIterator::GetLeafNode(bool dirty) const {
     if (*this == btree_->end()) {
-        throw std::runtime_error("invalid iterator.");
+        throw InvalidArgumentError("invalid iterator.");
     }
     auto& [pgid, slot_id] = Front();
     if (!cached_node_.has_value() || cached_node_->page_id() != pgid) {

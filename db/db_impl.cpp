@@ -4,6 +4,7 @@
 
 #include "yudb/log_reader.h"
 #include "yudb/operator_log_format.h"
+#include "yudb/error.h"
 
 namespace yudb{
 
@@ -73,14 +74,14 @@ void DBImpl::Recover(std::string_view path) {
         switch (type) {
         case OperationType::kBegin: {
             if (current_tx.has_value()) {
-                throw std::runtime_error("abnormal logging.");
+                throw RecoverError{ "abnormal logging." };
             }
             current_tx = Update();
             break;
         }
         case OperationType::kRollback: {
             if (!current_tx.has_value()) {
-                throw std::runtime_error("abnormal logging.");
+                throw RecoverError{ "abnormal logging." };
             }
             current_tx->RollBack();
             current_tx = std::nullopt;
@@ -88,7 +89,7 @@ void DBImpl::Recover(std::string_view path) {
         }
         case OperationType::kCommit: {
             if (!current_tx.has_value()) {
-                throw std::runtime_error("abnormal logging.");
+                throw RecoverError{ "abnormal logging." };
             }
             current_tx->Commit();
             current_tx = std::nullopt;
@@ -139,7 +140,7 @@ void DBImpl::Recover(std::string_view path) {
 
 void DBImpl::Checkpoint() {
     if (tx_manager_.has_update_tx()) {
-        throw std::runtime_error("checkpoint execution is not allowed when there is a write transaction.");
+        throw CheckpointError{ "checkpoint execution is not allowed when there is a write transaction." };
     }
 
     pager_->WriteAllDirtyPages();

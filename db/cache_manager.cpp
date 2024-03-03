@@ -2,6 +2,7 @@
 
 #include "yudb/pager.h"
 #include "yudb/db_impl.h"
+#include "yudb/error.h"
 
 namespace yudb {
 
@@ -41,7 +42,7 @@ std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
             // 将淘汰页面写回磁盘，未来添加写盘队列则直接放入队列
             const auto& [evict_cache_id, evict_pgid, evict_cache_info] = *evict;
             if (evict_cache_info.reference_count != 0) {
-                throw std::runtime_error("unable to reallocate cache.");
+                throw CacheError{ "unable to reallocate cache." };
             }
             if (evict_cache_info.dirty) {
                 pager_->Write(evict_pgid, &page_pool_[evict_cache_id * pager_->page_size()], 1);

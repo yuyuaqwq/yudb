@@ -81,7 +81,7 @@ PageId Pager::Alloc(PageCount count) {
     if (pgid == kPageInvalidId) {
         auto& page_count = update_tx.meta_format().page_count;
         if (page_count + count < page_count) {
-            throw std::runtime_error("page allocation failed, there are not enough available pages.");
+            throw PagerError{ "page allocation failed, there are not enough available pages." };
         }
         pgid = page_count;
         page_count += count;

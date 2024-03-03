@@ -9,6 +9,7 @@
 #include "yudb/noncopyable.h"
 #include "yudb/crc32.h"
 #include "yudb/file.h"
+#include "yudb/error.h"
 
 namespace yudb {
 namespace log {
@@ -20,7 +21,7 @@ public:
 
     void Open(std::string_view path) {
         if (!file_.Open(path, true)) {
-            throw std::runtime_error("failed to open log file.");
+            throw IoError{ "failed to open log file." };
         }
         path_ = path;
         file_.Seek(0, File::PointerMode::kDbFilePointerSet);

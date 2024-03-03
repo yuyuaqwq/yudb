@@ -2,6 +2,7 @@
 
 #include "yudb/db_impl.h"
 #include "yudb/operator_log_format.h"
+#include "yudb/error.h"
 
 namespace yudb {
 
@@ -10,10 +11,10 @@ TxManager::TxManager(DBImpl* db) :
 
 TxManager::~TxManager() {
     if (!view_tx_map_.empty()) {
-        throw std::runtime_error("There are read transactions that have not been exited.");
+        throw TxManagerError{ "there are read transactions that have not been exited." };
     }
     if (update_tx_.has_value()) {
-        throw std::runtime_error("There are write transactions that have not been exited.");
+        throw TxManagerError{ "there are write transactions that have not been exited." };
     }
 }
 
@@ -23,7 +24,7 @@ UpdateTx TxManager::Update() {
     update_tx_.emplace(this, db_->meta().meta_format(), true);
     update_tx_->set_txid(update_tx_->txid() + 1);
     if (update_tx_->txid() == kTxInvalidId) {
-        throw std::runtime_error("txid overflow.");
+        throw TxManagerError("txid overflow.");
     }
     if (first_) {
         first_ = false;

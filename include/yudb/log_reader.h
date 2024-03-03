@@ -6,6 +6,7 @@
 #include "yudb/noncopyable.h"
 #include "yudb/file.h"
 #include "yudb/crc32.h"
+#include "yudb/error.h"
 
 
 namespace yudb {
@@ -21,7 +22,7 @@ public:
 
     void Open(std::string_view path) {
         if (!file_.Open(path, true)) {
-            throw std::runtime_error("failed to open log file.");
+            throw IoError("failed to open log file.");
         }
         buffer_.resize(kBlockSize);
         file_.Seek(0, File::PointerMode::kDbFilePointerSet);
@@ -41,13 +42,13 @@ public:
             switch (record->type) {
             case RecordType::kFullType: {
                 if (in_fragmented_record) {
-                    throw std::runtime_error("partial record without end(1).");
+                    throw LogError{ "partial record without end(1)." };
                 }
                 return std::string{ reinterpret_cast<const char*>(record->data), record->size };
             }
             case RecordType::kFirstType: {
                 if (in_fragmented_record) {
-                    throw std::runtime_error("partial record without end(2).");
+                    throw LogError{ "partial record without end(2)." };
                 }
                 in_fragmented_record = true;
                 res.append(reinterpret_cast<const char*>(record->data), record->size);
@@ -55,21 +56,21 @@ public:
             }
             case RecordType::kMiddleType: {
                 if (!in_fragmented_record) {
-                    throw std::runtime_error("missing start of fragmented record(1).");
+                    throw LogError{ "missing start of fragmented record(1)." };
                 }
                 res.append(reinterpret_cast<const char*>(record->data), record->size);
                 break;
             }
             case RecordType::kLastType: {
                 if (!in_fragmented_record) {
-                    throw std::runtime_error("missing start of fragmented record(2).");
+                    throw LogError{ "missing start of fragmented record(2)." };
                 }
                 res.append(reinterpret_cast<const char*>(record->data), record->size);
                 in_fragmented_record = false;
                 return res;
             }
             default: {
-                throw std::runtime_error("unknown record type.");
+                throw LogError{ "unknown record type." };
             }
             }
         } while (true);
@@ -103,7 +104,7 @@ private:
             if (kHeaderSize + record->size > size_) {
                 size_ = 0;
                 if (!eof_) {
-                    throw std::runtime_error("incorrect log record length.");
+                    throw LogError{ "incorrect log record length." };
                 }
                 // 可能是写data时crash
                 return nullptr;

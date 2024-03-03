@@ -1,5 +1,7 @@
 #include "yudb/file.h"
 
+#include "yudb/error.h"
+
 namespace yudb {
 
 File::File() = default;
@@ -36,14 +38,14 @@ void File::Close() {
 }
 void File::Seek(int64_t offset, PointerMode fromwhere) {
 	if (!SetFilePointerEx(handle_, *reinterpret_cast<LARGE_INTEGER*>(&offset), NULL, static_cast<DWORD>(fromwhere))) {
-		throw std::ios_base::failure{ "set file pointer failed!" };
+		throw IoError{ "set file pointer failed!" };
 	}
 }
 int64_t File::Tell() {
 	LARGE_INTEGER liCurrentPosition;
 	liCurrentPosition.QuadPart = 0;
 	if (!SetFilePointerEx(handle_, liCurrentPosition, &liCurrentPosition, static_cast<DWORD>(PointerMode::kDbFilePointerCur))) {
-		throw std::ios_base::failure{ "get file pointer failed!" };
+		throw IoError{ "get file pointer failed!" };
 	}
 	return liCurrentPosition.QuadPart;
 }
@@ -56,12 +58,12 @@ size_t File::Read(void* buf, size_t size) {
 void File::Write(const void* buf, size_t size) {
 	DWORD len;
 	if (!WriteFile(handle_, buf, size, &len, NULL)) {
-		throw std::ios_base::failure{ "write file failed!" };
+		throw IoError{ "write file failed!" };
 	}
 }
 void File::Sync() {
 	if (!FlushFileBuffers(handle_)) {
-		throw std::ios_base::failure{ "sync file failed!" };
+		throw IoError{ "sync file failed!" };
 	}
 }
 
