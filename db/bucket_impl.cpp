@@ -7,25 +7,11 @@
 
 namespace yudb {
 
-inline std::strong_ordering DefaultComparator(std::span<const uint8_t> key1, std::span<const uint8_t> key2) {
-    auto res = std::memcmp(key1.data(), key2.data(), std::min(key1.size(), key2.size()));
-    if (res == 0) {
-        if (key1.size() == key2.size()) {
-            return std::strong_ordering::equal;
-        }
-        res = key1.size() - key2.size();
-    } else if (res < 0) {
-        return std::strong_ordering::less;
-    } else {
-        return std::strong_ordering::greater;
-    }
-}
-
-BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable) :
+BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable, const Comparator& comparator) :
     tx_{ tx },
     bucket_id_{ bucket_id },
     writable_{ writable },
-    btree_{ this, root_pgid, DefaultComparator }
+    btree_{ this, root_pgid, comparator }
 {}
 
 
@@ -72,7 +58,7 @@ void BucketImpl::Delete(Iterator* iter) {
     btree_.Delete(&iter->iterator_);
 }
 
-BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
+BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable, Comparator comparator) {
     auto map_iter = sub_bucket_map_.find({ key.data(), key.size() });
     BucketId bucket_id;
     if (map_iter == sub_bucket_map_.end()) {
@@ -87,7 +73,7 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
         } else {
             map_iter->second.second = iter.value<PageId>();
         }
-        bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable);
+        bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable, comparator);
         map_iter->second.first = bucket_id;
     } else {
         bucket_id = map_iter->second.first;
@@ -113,8 +99,8 @@ Pager& BucketImpl::pager() const { return tx_->pager(); }
 ViewBucket::ViewBucket(BucketImpl* bucket) : bucket_{ bucket } {};
 ViewBucket::~ViewBucket() = default;
 
-ViewBucket ViewBucket::SubViewBucket(std::string_view key) {
-    return ViewBucket{ &bucket_->SubBucket(key, false) };
+ViewBucket ViewBucket::SubViewBucket(std::string_view key, const Comparator& comparator) {
+    return ViewBucket{ &bucket_->SubBucket(key, false, comparator) };
 }
 
 ViewBucket::Iterator ViewBucket::Get(const void* key_buf, size_t key_size) const {
@@ -148,8 +134,8 @@ void ViewBucket::Print(bool str) const {
 
 UpdateBucket::~UpdateBucket() = default;
 
-UpdateBucket UpdateBucket::SubUpdateBucket(std::string_view key) {
-    return UpdateBucket{ &bucket_->SubBucket(key, true) };
+UpdateBucket UpdateBucket::SubUpdateBucket(std::string_view key, const Comparator& comparator) {
+    return UpdateBucket{ &bucket_->SubBucket(key, true, comparator) };
 }
 
 

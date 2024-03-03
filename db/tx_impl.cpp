@@ -9,16 +9,16 @@ namespace yudb {
 
 TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
     tx_manager_{ tx_manager },
-    root_bucket_{ this, kRootBucketId, &meta_format_.root, writable },
+    root_bucket_{ this, kRootBucketId, &meta_format_.root, writable, DefaultComparator },
     writable_{ writable }
 {
     CopyMetaInfo(&meta_format_, meta);
 }
 
 
-BucketId TxImpl::NewSubBucket(PageId* root_pgid, bool writable) {
+BucketId TxImpl::NewSubBucket(PageId* root_pgid, bool writable, const Comparator& comparator) {
     BucketId new_bucket_id = sub_bucket_cache_.size();
-    sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, new_bucket_id, root_pgid, writable));
+    sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, new_bucket_id, root_pgid, writable, comparator));
     return new_bucket_id;
 }
 BucketImpl& TxImpl::AtSubBucket(BucketId bucket_id) {
@@ -72,9 +72,9 @@ ViewTx::~ViewTx() {
     tx_.RollBack();
 }
 
-ViewBucket ViewTx::RootBucket() {
+ViewBucket ViewTx::UserBucket() {
     auto& root_bucket = tx_.root_bucket();
-    return ViewBucket{ &root_bucket.SubBucket(kUserDBKey, false) };
+    return ViewBucket{ &root_bucket.SubBucket(kUserDBKey, false, DefaultComparator) };
 }
 
 UpdateTx::UpdateTx(TxImpl* tx) : tx_{ tx } {}
@@ -86,7 +86,7 @@ UpdateTx::~UpdateTx() {
 
 UpdateBucket UpdateTx::UserBucket() {
     auto& root_bucket = tx_->root_bucket();
-    return UpdateBucket{ &root_bucket.SubBucket(kUserDBKey, true) };
+    return UpdateBucket{ &root_bucket.SubBucket(kUserDBKey, true, DefaultComparator) };
 }
 void UpdateTx::RollBack() {
     assert(tx_ != nullptr);

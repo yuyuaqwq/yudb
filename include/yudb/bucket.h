@@ -1,5 +1,6 @@
 #pragma once
 
+#include "yudb/bucket_impl.h"
 #include "yudb/bucket_iterator.h"
 #include "yudb/noncopyable.h"
 
@@ -15,7 +16,7 @@ public:
     explicit ViewBucket(BucketImpl* bucket);
     ~ViewBucket();
 
-    ViewBucket SubViewBucket(std::string_view key);
+    ViewBucket SubViewBucket(std::string_view key, const Comparator& comparator);
 
     Iterator Get(const void* key_buf, size_t key_size) const;
 
@@ -44,7 +45,7 @@ public:
     UpdateBucket() = delete;
     ~UpdateBucket();
 
-    UpdateBucket SubUpdateBucket(std::string_view key);
+    UpdateBucket SubUpdateBucket(std::string_view key, const Comparator& comparator);
 
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size);
 

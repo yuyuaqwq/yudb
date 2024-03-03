@@ -11,7 +11,7 @@ public:
     ViewTx(TxManager* tx_manager, const MetaStruct& meta);
     ~ViewTx();
 
-    ViewBucket RootBucket();
+    ViewBucket UserBucket();
 
 private:
     TxImpl tx_;

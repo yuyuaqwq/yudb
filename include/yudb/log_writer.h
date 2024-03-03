@@ -45,10 +45,8 @@ public:
         size_ += length;
         if (block_offset_ + length > kBlockSize) {
             WriteBuffer();
-            if (length > kBlockSize) {
-                AppendRecord(data);
-                return;
-            }
+            AppendRecord(data);
+            return;
         }
         LogRecord record {
             .type = RecordType::kFullType,
@@ -87,6 +85,7 @@ public:
 
 private:
     void AppendRecord(std::span<const uint8_t> data) {
+        assert(block_offset_ <= kBlockSize);
         auto ptr = data.data();
         auto left = data.size();
         bool begin = true;
@@ -94,7 +93,6 @@ private:
             const size_t leftover = kBlockSize - block_offset_;
             if (leftover < kHeaderSize) {
                 if (leftover > 0) {
-                    file_.Seek(0, File::PointerMode::kDbFilePointerEnd);
                     file_.Write(kBlockPadding, leftover);
                 }
                 block_offset_ = 0;
@@ -144,9 +142,10 @@ private:
 
 private:
     File file_;
-    std::string path_;
-    size_t block_offset_{ 0 };
     size_t size_{ 0 };
+    std::string path_;
+
+    size_t block_offset_{ 0 };
 
     std::vector<uint8_t> rep_;
     

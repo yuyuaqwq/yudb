@@ -10,6 +10,7 @@
 #include "yudb/page_format.h"
 #include "yudb/node.h"
 #include "yudb/noncopyable.h"
+#include "yudb/comparator.h"
 
 namespace yudb {
 
@@ -18,7 +19,6 @@ class BucketImpl;
 class BTree : noncopyable {
 public:
     using Iterator = BTreeIterator;
-    using Comparator = std::strong_ordering(*)(std::span<const uint8_t> key1, std::span<const uint8_t> key2);
 
 public:
     BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator);

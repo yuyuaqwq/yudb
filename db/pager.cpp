@@ -5,6 +5,8 @@
 
 namespace yudb {
 
+
+
 Pager::Pager(DBImpl* db, PageSize page_size) : db_{ db },
     page_size_{ page_size },
     cache_manager_{ this },
@@ -59,8 +61,9 @@ PageId Pager::Alloc(PageCount count) {
     auto& root_bucket = update_tx.root_bucket();
 
     PageId pgid = kPageInvalidId;
-    if (update_tx.meta_format().root != kPageInvalidId) {
-        auto& free_db = root_bucket.SubBucket(kFreeDBKey, true);
+    if (update_tx.meta_format().root != kPageInvalidId && free_db_lock_ == false) {
+        free_db_lock_ = true;
+        auto& free_db = root_bucket.SubBucket(kFreeDBKey, true, UInt32Comparator);
         for (auto& iter : free_db) {
             auto free_count = iter.value<uint32_t>();
             assert(free_count > 0);
@@ -77,6 +80,18 @@ PageId Pager::Alloc(PageCount count) {
             }
             break;
         }
+
+#ifndef NDEBUG
+        if (pgid != kPageInvalidId) {
+            for (auto i = 0; i < count; ++i) {
+                auto iter = free_page_.find(pgid + i);
+                assert(iter != free_page_.end());
+                free_page_.erase(iter);
+            }
+        }
+#endif
+
+        free_db_lock_ = false;
     }
     if (pgid == kPageInvalidId) {
         auto& page_count = update_tx.meta_format().page_count;
@@ -86,6 +101,7 @@ PageId Pager::Alloc(PageCount count) {
         pgid = page_count;
         page_count += count;
     }
+
     return pgid;
 }
 
@@ -147,7 +163,7 @@ void Pager::RollbackPending() {
 void Pager::CommitPending() {
     auto& update_tx = db_->tx_manager().update_tx();
     auto& root = update_tx.root_bucket();
-    auto& pending_db = root.SubBucket(kPendingDBKey, true);
+    auto& pending_db = root.SubBucket(kPendingDBKey, true, UInt64Comparator);
     const auto txid = update_tx.txid();
     const auto iter = pending_.find(txid);
     if (iter != pending_.end()) {
@@ -180,7 +196,7 @@ void Pager::FreePending(TxId min_view_txid) {
 void Pager::ClearPending() {
     auto& update_tx = db_->tx_manager().update_tx();
     auto& root = update_tx.root_bucket();
-    auto& pending_db = root.SubBucket(kPendingDBKey, true);
+    auto& pending_db = root.SubBucket(kPendingDBKey, true, UInt64Comparator);
 
     //std::vector<PageId> pending_list;
     std::vector<TxId> pending_list;
@@ -204,9 +220,17 @@ void Pager::ClearPending() {
 }
 
 void Pager::FreeToFreeDB(PageId pgid, PageCount count) {
+#ifndef NDEBUG
+    for (auto i = 0; i < count; ++i) {
+        auto [_, success] = free_page_.insert(pgid + i);
+        assert(success);
+    }
+#endif
+
+    free_db_lock_ = true;
     auto& update_tx = db_->tx_manager().update_tx();
     auto& root = update_tx.root_bucket();
-    auto& free_db = root.SubBucket(kFreeDBKey, true);
+    auto& free_db = root.SubBucket(kFreeDBKey, true, UInt32Comparator);
     
     assert(free_db.Get(&pgid, sizeof(pgid)) == free_db.end());
     const auto next_pgid = pgid + count;
@@ -228,6 +252,7 @@ void Pager::FreeToFreeDB(PageId pgid, PageCount count) {
     if (insert) {
         free_db.Put(&pgid, sizeof(pgid), &count, sizeof(count));
     }
+    free_db_lock_ = false;
 }
 
 } // namespace yudb

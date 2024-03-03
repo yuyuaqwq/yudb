@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <map>
+#include <unordered_set>
 #include <vector>
 
 #include "yudb/page.h"
@@ -58,6 +59,13 @@ private:
     std::map<TxId, std::vector<std::pair<PageId, PageCount>>> pending_;
 
     uint8_t* tmp_page_;
+
+    bool free_db_lock_{ false };     // prevent idle databases from allocating pages during self modification.
+
+
+#ifndef NDEBUG
+    std::unordered_set<PageId> free_page_;
+#endif
 };
 
 } // namespace yudb

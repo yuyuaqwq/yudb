@@ -15,7 +15,7 @@ public:
     using Iterator = BucketIterator;
 
 public:
-    BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable);
+    BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable, const Comparator& comparator);
 
     Iterator Get(const void* key_buf, size_t key_size);
     Iterator LowerBound(const void* key_buf, size_t key_size);
@@ -25,7 +25,7 @@ public:
     bool Delete(const void* key_buf, size_t key_size);
     void Delete(Iterator* iter);
 
-    BucketImpl& SubBucket(std::string_view key, bool writable);
+    BucketImpl& SubBucket(std::string_view key, bool writable, Comparator comparator);
 
     Iterator begin() noexcept;
     Iterator end() noexcept;

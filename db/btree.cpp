@@ -326,6 +326,8 @@ void BTree::Delete(Iterator* iter) {
 }
 
 std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, SlotId insert_slot_id, std::span<const uint8_t> insert_key, PageId insert_right_child) {
+    assert(insert_slot_id <= left->count());
+    
     BranchNode right{ this, bucket_->pager().Alloc(1), true };
     right.Build(kPageInvalidId);
 
@@ -420,6 +422,8 @@ void BTree::Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8
 }
 
 LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
+    assert(insert_slot_id <= left->count());
+
     LeafNode right{ this, bucket_->pager().Alloc(1), false };
     right.Build();
 
