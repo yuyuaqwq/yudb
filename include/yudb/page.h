@@ -5,8 +5,8 @@
 
 #include <utility>
 
-#include "db/page_format.h"
-#include "util/noncopyable.h"
+#include "yudb/page_format.h"
+#include "yudb/noncopyable.h"
 
 namespace yudb {
 

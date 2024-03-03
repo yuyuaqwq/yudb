@@ -1,7 +1,7 @@
-#include "cache_manager.h"
+#include "yudb/cache_manager.h"
 
-#include "db/pager.h"
-#include "db/db_impl.h"
+#include "yudb/pager.h"
+#include "yudb/db_impl.h"
 
 namespace yudb {
 

@@ -1,8 +1,8 @@
 #pragma once
 
-#include "db/tx_format.h"
-#include "db/page_format.h"
-#include "db/slot.h"
+#include "yudb/tx_format.h"
+#include "yudb/page_format.h"
+#include "yudb/slot.h"
 
 namespace yudb {
 

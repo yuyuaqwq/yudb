@@ -12,7 +12,7 @@
 
 #include <gtest/gtest.h>
 
-#include "yudb\db.h"
+#include "yudb/db.h"
 
 namespace yudb {
 

@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
 
-#include "db/lru_list.h"
+#include "yudb/lru_list.h"
 
 namespace yudb {
 

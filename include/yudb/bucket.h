@@ -1,5 +1,8 @@
 #pragma once
 
+#include "yudb/bucket_iterator.h"
+#include "yudb/noncopyable.h"
+
 namespace yudb {
 
 class BucketImpl;

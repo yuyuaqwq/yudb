@@ -1,8 +1,8 @@
-#include "db/tx_impl.h"
+#include "yudb/tx_impl.h"
 
-#include "db/tx_manager.h"
-#include "db/db_impl.h"
-#include "db/bucket_impl.h"
+#include "yudb/tx_manager.h"
+#include "yudb/db_impl.h"
+#include "yudb/bucket_impl.h"
 #include "yudb/tx.h"
 
 namespace yudb {

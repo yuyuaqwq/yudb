@@ -1,7 +1,7 @@
-#include "db/pager.h"
+#include "yudb/pager.h"
 
-#include "db/db_impl.h"
-#include "db/node.h"
+#include "yudb/db_impl.h"
+#include "yudb/node.h"
 
 namespace yudb {
 

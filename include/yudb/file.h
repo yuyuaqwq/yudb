@@ -9,7 +9,7 @@
 #include <Windows.h>
 #undef min
 
-#include "util/noncopyable.h"
+#include "yudb/noncopyable.h"
 
 namespace yudb {
 

@@ -3,8 +3,8 @@
 #include <optional>
 #include <map>
 
-#include "util/noncopyable.h"
-#include "db/log_writer.h"
+#include "yudb/noncopyable.h"
+#include "yudb/log_writer.h"
 #include "yudb/tx.h"
 
 namespace yudb {

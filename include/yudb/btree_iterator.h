@@ -4,9 +4,9 @@
 #include <optional>
 #include <variant>
 
-#include "db/page_format.h"
-#include "db/node.h"
-#include "util/stack.h"
+#include "yudb/page_format.h"
+#include "yudb/node.h"
+#include "yudb/stack.h"
 
 namespace yudb {
 

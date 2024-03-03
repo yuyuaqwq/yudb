@@ -4,10 +4,10 @@
 #include <map>
 #include <vector>
 
-#include "db/page.h"
-#include "db/tx_format.h"
-#include "db/cache_manager.h"
-#include "util/noncopyable.h"
+#include "yudb/page.h"
+#include "yudb/tx_format.h"
+#include "yudb/cache_manager.h"
+#include "yudb/noncopyable.h"
 
 namespace yudb {
 

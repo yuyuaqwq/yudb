@@ -1,7 +1,7 @@
-#include "db/tx_manager.h"
+#include "yudb/tx_manager.h"
 
-#include "db/db_impl.h"
-#include "db/operator_log_format.h"
+#include "yudb/db_impl.h"
+#include "yudb/operator_log_format.h"
 
 namespace yudb {
 

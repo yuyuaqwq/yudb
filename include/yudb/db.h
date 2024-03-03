@@ -1,7 +1,8 @@
 #pragma once
 
-#include "yudb\options.h"
-#include "yudb\tx.h"
+#include "yudb/options.h"
+#include "yudb/tx.h"
+#include "yudb/noncopyable.h"
 
 namespace yudb {
 
@@ -9,9 +10,6 @@ class DB : noncopyable {
 public:
     DB() = default;
     virtual ~DB();
-
-    DB(const DB&) = delete;
-    void operator=(const DB&) = delete;
 
     static std::unique_ptr<DB> Open(const Options& options, std::string_view path);
     virtual UpdateTx Update() = 0;

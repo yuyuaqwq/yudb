@@ -6,10 +6,10 @@
 #include <memory>
 #include <string_view>
 
-#include "db/tx_format.h"
-#include "db/meta.h"
-#include "db/bucket_impl.h"
-#include "util/noncopyable.h"
+#include "yudb/tx_format.h"
+#include "yudb/meta.h"
+#include "yudb/bucket_impl.h"
+#include "yudb/noncopyable.h"
 
 namespace yudb {
 

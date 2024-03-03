@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
-#include "db/log_reader.h"
-#include "db/log_writer.h"
+#include "yudb/log_reader.h"
+#include "yudb/log_writer.h"
 
 namespace yudb {
 

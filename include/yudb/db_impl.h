@@ -4,13 +4,12 @@
 #include <optional>
 #include <memory>
 
-
-#include "db\meta.h"
-#include "db\pager.h"
-#include "db\tx_manager.h"
-#include "db\log_writer.h"
-#include "util\file.h"
-#include "yudb\db.h"
+#include "yudb/db.h"
+#include "yudb/meta.h"
+#include "yudb/pager.h"
+#include "yudb/tx_manager.h"
+#include "yudb/log_writer.h"
+#include "yudb/file.h"
 
 
 namespace yudb {

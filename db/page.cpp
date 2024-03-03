@@ -1,6 +1,6 @@
-#include "db/page.h"
+#include "yudb/page.h"
 
-#include "db/pager.h"
+#include "yudb/pager.h"
 
 namespace yudb {
 

@@ -1,8 +1,8 @@
-#include "db/btree.h"
+#include "yudb/btree.h"
 
-#include "db/tx_impl.h"
-#include "db/bucket_impl.h"
-#include "db/pager.h"
+#include "yudb/tx_impl.h"
+#include "yudb/bucket_impl.h"
+#include "yudb/pager.h"
 
 namespace yudb {
 
