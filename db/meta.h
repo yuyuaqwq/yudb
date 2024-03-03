@@ -2,8 +2,8 @@
 
 #include <cstdint>
 
-#include "util\noncopyable.h"
 #include "db\meta_format.h"
+#include "util\noncopyable.h"
 
 namespace yudb {
 

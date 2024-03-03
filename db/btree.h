@@ -6,10 +6,10 @@
 #include <format>
 #include <string>
 
-#include "util/noncopyable.h"
 #include "db/btree_iterator.h"
 #include "db/page_format.h"
 #include "db/node.h"
+#include "util/noncopyable.h"
 
 namespace yudb {
 

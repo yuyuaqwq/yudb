@@ -8,9 +8,9 @@
 #include <variant>
 #include <vector>
 
-#include "util/noncopyable.h"
 #include "db/node_format.h"
 #include "db/page.h"
+#include "util/noncopyable.h"
 
 namespace yudb {
 

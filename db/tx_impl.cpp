@@ -3,6 +3,7 @@
 #include "db/tx_manager.h"
 #include "db/db_impl.h"
 #include "db/bucket_impl.h"
+#include "yudb/tx.h"
 
 namespace yudb {
 
@@ -63,6 +64,39 @@ void TxImpl::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {
 
 
 Pager& TxImpl::pager() const { return tx_manager_->pager(); }
+
+
+ViewTx::ViewTx(TxManager* tx_manager, const MetaStruct& meta) : tx_{ tx_manager, meta, false } {}
+
+ViewTx::~ViewTx() {
+    tx_.RollBack();
+}
+
+ViewBucket ViewTx::RootBucket() {
+    auto& root_bucket = tx_.root_bucket();
+    return ViewBucket{ &root_bucket.SubBucket(kUserDBKey, false) };
+}
+
+UpdateTx::UpdateTx(TxImpl* tx) : tx_{ tx } {}
+UpdateTx::~UpdateTx() {
+    if (tx_) {
+        RollBack();
+    }
+}
+
+UpdateBucket UpdateTx::UserBucket() {
+    auto& root_bucket = tx_->root_bucket();
+    return UpdateBucket{ &root_bucket.SubBucket(kUserDBKey, true) };
+}
+void UpdateTx::RollBack() {
+    assert(tx_ != nullptr);
+    tx_->RollBack();
+    tx_ = nullptr;
+}
+void UpdateTx::Commit() {
+    tx_->Commit();
+    tx_ = nullptr;
+}
 
 
 } // yudb

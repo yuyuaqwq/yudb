@@ -1,6 +1,5 @@
 #include "gtest/gtest.h"
 
-#include "db/db.h"
 #include "db/db_impl.h"
 
 namespace yudb {

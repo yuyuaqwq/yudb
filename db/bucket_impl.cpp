@@ -3,6 +3,7 @@
 #include "db/tx_manager.h"
 #include "db/pager.h"
 #include "db/db_impl.h"
+#include "yudb/bucket.h"
 
 namespace yudb {
 
@@ -106,6 +107,67 @@ void BucketImpl::Print(bool str) { btree_.Print(str); }
 
 
 Pager& BucketImpl::pager() const { return tx_->pager(); }
+
+
+
+ViewBucket::ViewBucket(BucketImpl* bucket) : bucket_{ bucket } {};
+ViewBucket::~ViewBucket() = default;
+
+ViewBucket ViewBucket::SubViewBucket(std::string_view key) {
+    return ViewBucket{ &bucket_->SubBucket(key, false) };
+}
+
+ViewBucket::Iterator ViewBucket::Get(const void* key_buf, size_t key_size) const {
+    return bucket_->Get(key_buf, key_size);
+}
+
+ViewBucket::Iterator ViewBucket::Get(std::string_view key) const {
+    return Get(key.data(), key.size());
+}
+
+ViewBucket::Iterator ViewBucket::LowerBound(const void* key_buf, size_t key_size) const {
+    return bucket_->LowerBound(key_buf, key_size);
+}
+
+ViewBucket::Iterator ViewBucket::LowerBound(std::string_view key) const {
+    return LowerBound(key.data(), key.size());
+}
+
+ViewBucket::Iterator ViewBucket::begin() const noexcept {
+    return bucket_->begin();
+}
+
+ViewBucket::Iterator ViewBucket::end() const noexcept {
+    return bucket_->end();
+}
+
+void ViewBucket::Print(bool str) const {
+    bucket_->Print(str);
+}
+
+
+UpdateBucket::~UpdateBucket() = default;
+
+UpdateBucket UpdateBucket::SubUpdateBucket(std::string_view key) {
+    return UpdateBucket{ &bucket_->SubBucket(key, true) };
+}
+
+
+void UpdateBucket::Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
+    bucket_->Put(key_buf, key_size, value_buf, value_size);
+}
+
+void UpdateBucket::Put(std::string_view key, std::string_view value) {
+    Put(key.data(), key.size(), value.data(), value.size());
+}
+
+bool UpdateBucket::Delete(const void* key_buf, size_t key_size) {
+    return bucket_->Delete(key_buf, key_size);
+}
+
+bool UpdateBucket::Delete(std::string_view key) {
+    return bucket_->Delete(key.data(), key.size());
+}
 
 
 } // namespace yudb

@@ -5,8 +5,8 @@
 #include <variant>
 
 #include "db/page_format.h"
-#include "db/stack.h"
 #include "db/node.h"
+#include "util/stack.h"
 
 namespace yudb {
 
