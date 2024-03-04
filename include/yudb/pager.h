@@ -12,9 +12,6 @@
 
 namespace yudb {
 
-constexpr const char* kFreeDBKey = "free_db";
-constexpr const char* kPendingDBKey = "pending_db";
-
 class DBImpl;
 class UpdateTx;
 
@@ -30,14 +27,17 @@ public:
     void WriteByBytes(PageId pgid, size_t offset, const uint8_t* cache, size_t bytes);
     void WriteAllDirtyPages();
 
+    void Rollback();
+
     PageId Alloc(PageCount count);
     void Free(PageId pgid, PageCount count);
-    void RollbackPending();
-    void CommitPending();
-    void FreePending(TxId min_view_txid);
-    void ClearPending();
     Page Copy(const Page& page_ref);
     Page Copy(PageId pgid);
+
+    void FreePending(TxId min_view_txid);
+
+    void BuildFreeMap();
+    void UpdateFreeList();
 
     // 线程安全函数
     Page Reference(PageId pgid, bool dirty);
@@ -50,21 +50,23 @@ public:
     auto& tmp_page() { return tmp_page_; }
 
 private:
+    void FreeToFreeMap(PageId pgid, PageCount count);
     void FreeToFreeDB(PageId pgid, PageCount count);
 
 private:
     DBImpl* const db_;
     const PageSize page_size_;
     CacheManager cache_manager_;
-    std::map<TxId, std::vector<std::pair<PageId, PageCount>>> pending_;
+
+    using PagePair = std::pair<PageId, PageCount>;
+    std::map<TxId, std::vector<PagePair>> pending_map_;
+    std::map<PageId, PageCount> free_map_;
+    std::vector<PagePair> alloc_records_;
 
     uint8_t* tmp_page_;
 
-    bool free_db_lock_{ false };     // prevent idle databases from allocating pages during self modification.
-
-
 #ifndef NDEBUG
-    std::unordered_set<PageId> free_page_;
+    std::unordered_set<PageId> debug_free_set_;
 #endif
 };
 

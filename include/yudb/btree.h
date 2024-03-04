@@ -24,6 +24,7 @@ public:
     BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator);
     ~BTree() = default;
 
+    bool Empty() const;
     Iterator LowerBound(std::span<const uint8_t> key);
     Iterator Get(std::span<const uint8_t> key);
     void Insert(std::span<const uint8_t> key, std::span<const uint8_t> value);

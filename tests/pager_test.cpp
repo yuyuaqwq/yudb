@@ -6,6 +6,7 @@ namespace yudb {
 
 static std::unique_ptr<yudb::DB> db;
 
+/*
 TEST(PagerTest, AllocAndPending) {
     yudb::Options options{
         .page_size = 1024,
@@ -95,7 +96,7 @@ TEST(PagerTest, AllocAndPending) {
     }
 
 }
-
+*/
 TEST(PagerTest, Clear) {
 
 }

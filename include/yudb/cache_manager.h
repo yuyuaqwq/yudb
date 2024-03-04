@@ -40,7 +40,7 @@ private:
     uint8_t* page_pool_;
 
 #ifndef NDEBUG
-    std::unordered_map<PageId, uint32_t> page_crc32_map_;
+    std::unordered_map<PageId, uint32_t> debug_page_crc32_map_;
 #endif
 };
 

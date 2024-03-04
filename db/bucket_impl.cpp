@@ -15,6 +15,10 @@ BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool w
 {}
 
 
+bool BucketImpl::Empty() const {
+    return btree_.Empty();
+}
+
 BucketImpl::Iterator BucketImpl::Get(const void* key_buf, size_t key_size) {
     return Iterator{ btree_.Get({ reinterpret_cast<const uint8_t*>(key_buf), key_size }) };
 }

@@ -12,6 +12,10 @@ BTree::BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator) :
     comparator_{ comparator } {}
 
 
+bool BTree::Empty() const {
+    return root_pgid_ == kPageInvalidId;
+}
+
 BTree::Iterator BTree::LowerBound(std::span<const uint8_t> key) {
     Iterator iter{ this };
     auto continue_ = iter.Top(key);

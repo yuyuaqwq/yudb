@@ -140,9 +140,13 @@ void DBImpl::Recover(std::string_view path) {
 }
 
 void DBImpl::Checkpoint() {
-    if (tx_manager_.has_update_tx()) {
+    if (!tx_manager_.committed()) {
         throw CheckpointError{ "checkpoint execution is not allowed when there is a write transaction." };
     }
+
+    pager_->UpdateFreeList();
+    auto& tx = tx_manager_.update_tx();
+    CopyMetaInfo(&meta_.meta_format(), tx.meta_format());
 
     pager_->WriteAllDirtyPages();
     meta_.Switch();

@@ -9,7 +9,8 @@ namespace yudb {
 
 TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
     tx_manager_{ tx_manager },
-    root_bucket_{ this, kRootBucketId, &meta_format_.root, writable, DefaultComparator },
+    user_bucket_{ this, kRootBucketId, &meta_format_.userdb_root, writable, DefaultComparator },
+    //system_bucket_{ this, kFreeBucketId, &meta_format_.freedb_root, writable, UInt32Comparator },
     writable_{ writable }
 {
     CopyMetaInfo(&meta_format_, meta);
@@ -36,9 +37,8 @@ void TxImpl::RollBack() {
 
 void TxImpl::Commit() {
     assert(writable_);
-    pager().CommitPending();
-    for (auto& iter : root_bucket_.sub_bucket_map()) {
-        root_bucket_.Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second));
+    for (auto& iter : user_bucket_.sub_bucket_map()) {
+        user_bucket_.Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second));
     }
     for (auto& bucket : sub_bucket_cache_) {
         for (auto& iter : bucket->sub_bucket_map()) {
@@ -76,8 +76,8 @@ ViewBucket ViewTx::UserBucket(Comparator comparator) {
     if (comparator == nullptr) {
         comparator = DefaultComparator;
     }
-    auto& root_bucket = tx_.root_bucket();
-    return ViewBucket{ &root_bucket.SubBucket(kUserDBKey, false, comparator) };
+    auto& root_bucket = tx_.user_bucket();
+    return ViewBucket{ &root_bucket };
 }
 
 UpdateTx::UpdateTx(TxImpl* tx) : tx_{ tx } {}
@@ -91,8 +91,8 @@ UpdateBucket UpdateTx::UserBucket(Comparator comparator) {
     if (comparator == nullptr) {
         comparator = DefaultComparator;
     }
-    auto& root_bucket = tx_->root_bucket();
-    return UpdateBucket{ &root_bucket.SubBucket(kUserDBKey, true, comparator) };
+    auto& root_bucket = tx_->user_bucket();
+    return UpdateBucket{ &root_bucket };
 }
 void UpdateTx::RollBack() {
     assert(tx_ != nullptr);

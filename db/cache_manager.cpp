@@ -68,7 +68,7 @@ std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
                 {
                     Crc32 crc32;
                     crc32.Append(&page_pool_[evict_cache_id * pager_->page_size()], pager_->page_size());
-                    page_crc32_map_[evict_pgid] = crc32.End();
+                    debug_page_crc32_map_[evict_pgid] = crc32.End();
                 }
 #endif
                 pager_->Write(evict_pgid, &page_pool_[evict_cache_id * pager_->page_size()], 1);
@@ -87,8 +87,8 @@ std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
         pager_->Read(pgid, cache, 1);
 #ifndef NDEBUG
         {
-            auto iter = page_crc32_map_.find(pgid);
-            if (iter != page_crc32_map_.end()) {
+            auto iter = debug_page_crc32_map_.find(pgid);
+            if (iter != debug_page_crc32_map_.end()) {
                 Crc32 crc32;
                 crc32.Append(cache, pager_->page_size());
                 auto crc32_res = crc32.End();

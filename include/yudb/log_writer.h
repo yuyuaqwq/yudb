@@ -35,7 +35,7 @@ public:
     }
 
     void Reset() {
-        file_.Close();
+        Close();
         std::filesystem::remove(path_);
         Open(path_);
     }

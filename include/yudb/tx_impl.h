@@ -32,8 +32,10 @@ public:
     void AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
     void AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key);
 
-    auto& root_bucket() { return root_bucket_; }
-    auto& root_bucket() const { return root_bucket_; }
+    //auto& system_bucket() { return system_bucket_; }
+    //auto& system_bucket() const { return system_bucket_; }
+    auto& user_bucket() { return user_bucket_; }
+    auto& user_bucket() const { return user_bucket_; }
     auto& txid() const { return meta_format_.txid; }
     void set_txid(TxId txid) { meta_format_.txid = txid; }
     Pager& pager() const;
@@ -49,7 +51,9 @@ protected:
 
     const bool writable_;
 
-    BucketImpl root_bucket_;
+    //BucketImpl system_bucket_;
+    BucketImpl user_bucket_;
+
     std::vector<std::unique_ptr<BucketImpl>> sub_bucket_cache_;
 };
 

@@ -31,6 +31,7 @@ public:
     void AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key);
 
     Pager& pager() const;
+    bool committed() const { return committed_; }
 
 private:
     void AppendBeginLog();
@@ -42,7 +43,7 @@ private:
     bool first_{ true };
     std::optional<TxImpl> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;
-
+    bool committed_{ false };
 };
 
 } // namespace yudb

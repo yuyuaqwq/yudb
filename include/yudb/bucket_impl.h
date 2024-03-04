@@ -17,6 +17,7 @@ public:
 public:
     BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable, const Comparator& comparator);
 
+    bool Empty() const;
     Iterator Get(const void* key_buf, size_t key_size);
     Iterator LowerBound(const void* key_buf, size_t key_size);
     //void Insert(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size);

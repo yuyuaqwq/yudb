@@ -28,7 +28,7 @@ UpdateTx TxManager::Update() {
     }
     if (first_) {
         first_ = false;
-        pager().ClearPending();
+        pager().BuildFreeMap();
     }
     const auto iter = view_tx_map_.cbegin();
     if (iter != view_tx_map_.end()) {
@@ -51,7 +51,7 @@ ViewTx TxManager::View() {
 
 void TxManager::RollBack() {
     AppendRollbackLog();
-    pager().RollbackPending();
+    pager().Rollback();
     update_tx_ = std::nullopt;
 }
 
@@ -66,15 +66,18 @@ void TxManager::RollBack(TxId view_txid) {
 }
 
 void TxManager::Commit() {
+    committed_ = true;
+    // 不在此处保存
+    // pager().SyncAllPage();
+    // db_->meta().Switch();
+    // db_->meta().Save();
+
     CopyMetaInfo(&db_->meta().meta_format(), update_tx_->meta_format());
 
-    // 不在此处保存
-    //pager().SyncAllPage();
-    //db_->meta().Switch();
-    //db_->meta().Save();
-
     AppendCommitLog();
+
     update_tx_ = std::nullopt;
+    committed_ = false;
 }
 
 TxImpl& TxManager::update_tx() {

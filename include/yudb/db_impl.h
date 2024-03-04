@@ -29,7 +29,7 @@ public:
         for (auto it = begin; it != end; ++it) {
             log_writer_.AppendRecordToBuffer(*it);
         }
-        if (log_writer_.size() >= options_->log_file_max_bytes && !tx_manager_.has_update_tx()) {
+        if (log_writer_.size() >= options_->log_file_max_bytes && tx_manager_.committed()) {
             Checkpoint();
         }
     }
@@ -62,7 +62,7 @@ private:
 
     log::Writer log_writer_;
 
-    bool recovering_{false};
+    bool recovering_{ false };
 };
 
 }
