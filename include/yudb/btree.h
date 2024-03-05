@@ -7,10 +7,10 @@
 #include <string>
 
 #include "yudb/btree_iterator.h"
-#include "yudb/page_format.h"
+#include "yudb/comparator.h"
 #include "yudb/node.h"
 #include "yudb/noncopyable.h"
-#include "yudb/comparator.h"
+#include "yudb/page_format.h"
 
 namespace yudb {
 
@@ -22,7 +22,7 @@ public:
 
 public:
     BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator);
-    ~BTree() = default;
+    ~BTree();
 
     bool Empty() const;
     Iterator LowerBound(std::span<const uint8_t> key);

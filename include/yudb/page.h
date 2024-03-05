@@ -34,12 +34,4 @@ protected:
     uint8_t* page_buf_;
 };
 
-class ConstPage {
-public:
-    ConstPage(Page&& right) noexcept;
-
-private:
-    Page page_;
-};
-
 } // namespace yudb

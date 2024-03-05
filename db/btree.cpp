@@ -11,6 +11,7 @@ BTree::BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator) :
     root_pgid_ { *root_pgid },
     comparator_{ comparator } {}
 
+BTree::~BTree() = default;
 
 bool BTree::Empty() const {
     return root_pgid_ == kPageInvalidId;
@@ -24,6 +25,7 @@ BTree::Iterator BTree::LowerBound(std::span<const uint8_t> key) {
     }
     return iter;
 }
+
 BTree::Iterator BTree::Get(std::span<const uint8_t> key) {
     const auto iter = LowerBound(key);
     if (iter.status() != Iterator::Status::kEq) {
@@ -31,22 +33,26 @@ BTree::Iterator BTree::Get(std::span<const uint8_t> key) {
     }
     return iter;
 }
+
 void BTree::Insert(std::span<const uint8_t> key, std::span<const uint8_t> value) {
     auto iter = LowerBound(key);
     iter.CopyAllPagesByPath();
     Put(&iter, key, value, true);
 }
+
 void BTree::Put(std::span<const uint8_t> key, std::span<const uint8_t> value) {
     auto iter = LowerBound(key);
     iter.CopyAllPagesByPath();
     Put(&iter, key, value, false);
 }
+
 void BTree::Update(Iterator* iter, std::span<const uint8_t> value) {
     auto [pgid, slot_id] = iter->Front();
     LeafNode node{ this, pgid, true };
     assert(node.IsLeaf());
     node.Update(slot_id, node.GetKey(slot_id), value);
 }
+
 bool BTree::Delete(std::span<const uint8_t> key) {
     auto iter = LowerBound(key);
     if (iter.status() != Iterator::Status::kEq) {
@@ -62,6 +68,7 @@ BTree::Iterator BTree::begin() noexcept {
     iter.First(root_pgid_);
     return iter;
 }
+
 BTree::Iterator BTree::end() noexcept {
     return Iterator{ this };
 }
@@ -117,8 +124,6 @@ void BTree::Print(bool str) {
     }
     Print(str, root_pgid_, 0);
 }
-
-
 
 std::tuple<BranchNode, SlotId, PageId, bool> BTree::GetSibling(Iterator* iter) {
     auto [parent_pgid, parent_slot_id] = iter->Front();
@@ -511,6 +516,5 @@ void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const ui
     // 上升右节点的第一个节点
     Put(iter, std::move(node), std::move(right), right.GetKey(0));
 }
-
 
 } // namespace yudb

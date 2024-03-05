@@ -8,9 +8,11 @@
 namespace yudb {
 
 BTreeIterator::BTreeIterator(BTree* btree) : btree_{ btree } {}
+
 BTreeIterator::BTreeIterator(const BTreeIterator& right) : btree_{right.btree_} {
     operator=(right);
 }
+
 void BTreeIterator::operator=(const BTreeIterator& right) {
     assert(btree_ == right.btree_);
     stack_ = right.stack_;
@@ -24,27 +26,33 @@ void BTreeIterator::operator=(const BTreeIterator& right) {
 BTreeIterator::reference BTreeIterator::operator*() const noexcept {
     return *this;
 }
+
 const BTreeIterator* BTreeIterator::operator->() const noexcept {
     return this;
 }
+
 BTreeIterator& BTreeIterator::operator++() noexcept {
     Next();
     return *this;
 }
+
 BTreeIterator BTreeIterator::operator++(int) noexcept {
     BTreeIterator tmp = *this;
     tmp.Next();
     return tmp;
 }
+
 BTreeIterator& BTreeIterator::operator--() noexcept {
     Prev();
     return *this;
 }
+
 BTreeIterator BTreeIterator::operator--(int) noexcept {
     BTreeIterator tmp = *this;
     tmp.Prev();
     return tmp;
 }
+
 bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
     if (btree_ != right.btree_) {
         return false;
@@ -73,11 +81,11 @@ std::string_view BTreeIterator::key() const {
     auto span = GetKey();
     return { reinterpret_cast<const char*>(span.data()), span.size() };
 }
+
 std::string_view BTreeIterator::value() const {
     auto span = GetValue();
     return { reinterpret_cast<const char*>(span.data()), span.size() };
 }
-
 
 std::pair<LeafNode&, SlotId> BTreeIterator::GetLeafNode(bool dirty) const {
     if (*this == btree_->end()) {
@@ -96,6 +104,7 @@ std::span<const uint8_t> BTreeIterator::GetKey() const {
     auto span = node.GetKey(slot_id);
     return span;
 }
+
 std::span<const uint8_t> BTreeIterator::GetValue() const {
     auto [node, slot_id] = GetLeafNode(false);
     return node.GetValue(slot_id);
@@ -121,6 +130,7 @@ void BTreeIterator::First(PageId pgid) {
     } while (true);
     stack_.push_back({ pgid, 0 });
 }
+
 void BTreeIterator::Last(PageId pgid) {
     status_ = Status::kIter;
     do {
@@ -139,6 +149,7 @@ void BTreeIterator::Last(PageId pgid) {
     Node node{ btree_, pgid, false };
     stack_.push_back({ pgid, node.count() - 1 });
 }
+
 void BTreeIterator::Next() {
     assert(!Empty());
     do {
@@ -161,6 +172,7 @@ void BTreeIterator::Next() {
         Pop();
     } while (!Empty());
 }
+
 void BTreeIterator::Prev() {
     if (Empty()) {
         Last(btree_->root_pgid_);
@@ -185,6 +197,7 @@ void BTreeIterator::Prev() {
 bool BTreeIterator::Top(std::span<const uint8_t> key) {
     return Down(key);
 }
+
 bool BTreeIterator::Down(std::span<const uint8_t> key) {
     PageId pgid;
     if (stack_.empty()) {
@@ -229,15 +242,19 @@ bool BTreeIterator::Down(std::span<const uint8_t> key) {
 std::pair<PageId, SlotId>& BTreeIterator::Front() {
     return stack_.front();
 }
+
 const std::pair<PageId, SlotId>& BTreeIterator::Front() const {
     return stack_.front();
 }
+
 void BTreeIterator::Push(const std::pair<PageId, SlotId>& v) {
     stack_.push_back(v);
 }
+
 void BTreeIterator::Pop() {
     stack_.pop_back();
 }
+
 bool BTreeIterator::Empty() const {
     return stack_.empty();
 }

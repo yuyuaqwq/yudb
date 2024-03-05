@@ -10,6 +10,32 @@ namespace yudb{
 
  DB::~DB() = default;
 
+ std::unique_ptr<DB> DB::Open(const Options& options, std::string_view path) {
+     auto db = std::make_unique<DBImpl>();
+     db->options_.emplace(options);
+     if (!db->file().Open(path, false)) {
+         return {};
+     }
+     if (!db->meta().Load()) {
+         return {};
+     }
+     db->pager_.emplace(db.get(), db->meta().meta_format().page_size);
+     std::string log_path = path.data();
+     log_path += "-wal";
+
+     namespace fs = std::filesystem;
+     std::error_code error;
+     auto file_status = fs::status(path, error);
+     if (!error) {
+         if (fs::exists(file_status)) {
+             db->Recover(log_path);
+             fs::remove(log_path);
+         }
+     }
+     db->log_writer().Open(log_path);
+     return db;
+ }
+
 
  DBImpl::~DBImpl() {
      if (pager_.has_value()) {
@@ -25,36 +51,10 @@ namespace yudb{
  UpdateTx DBImpl::Update() {
      return tx_manager_.Update();
  }
+
  ViewTx DBImpl::View() {
      return tx_manager_.View();
  }
-
-std::unique_ptr<DB> DB::Open(const Options& options, std::string_view path) {
-    auto db = std::make_unique<DBImpl>();
-    db->options_.emplace(options);
-    if (!db->file().Open(path, false)) {
-        return {};
-    }
-    if (!db->meta().Load()) {
-        return {};
-    }
-    db->pager_.emplace(db.get(), db->meta().meta_format().page_size);
-    std::string log_path = path.data();
-    log_path += "-wal";
-
-    namespace fs = std::filesystem;
-    std::error_code error;
-    auto file_status = fs::status(path, error);
-    if (!error) {
-        if (fs::exists(file_status)) {
-            db->Recover(log_path);
-            fs::remove(log_path);
-        }
-    }
-    db->log_writer().Open(log_path);
-    return db;
-}
-
 
 void DBImpl::Recover(std::string_view path) {
     // 实际上的恢复过程还需要判断是否已经进行了恢复但中途又发生了崩溃
@@ -140,7 +140,7 @@ void DBImpl::Recover(std::string_view path) {
 }
 
 void DBImpl::Checkpoint() {
-    if (!tx_manager_.committed()) {
+    if (!tx_manager_.has_update_tx()) {
         throw CheckpointError{ "checkpoint execution is not allowed when there is a write transaction." };
     }
 
@@ -155,6 +155,5 @@ void DBImpl::Checkpoint() {
 
     log_writer_.Reset();
 }
-
 
 } // namespace yudb

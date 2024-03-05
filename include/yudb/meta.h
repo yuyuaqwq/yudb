@@ -12,7 +12,7 @@ class DBImpl;
 class Meta : noncopyable {
 public:
     Meta(DBImpl* db);
-    ~Meta() = default;
+    ~Meta();
 
     bool Load();
     void Save();

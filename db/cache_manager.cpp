@@ -1,8 +1,9 @@
 #include "yudb/cache_manager.h"
 
-#include "yudb/pager.h"
-#include "yudb/db_impl.h"
+#include "yudb/crc32.h"
 #include "yudb/error.h"
+#include "yudb/db_impl.h"
+#include "yudb/pager.h"
 
 namespace yudb {
 
@@ -97,9 +98,7 @@ std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
         }
 #endif
     }
-
     fast_map_[fast_map_index].second = cache_id;
-
     ++cache_info->reference_count;
     return { cache_info, &page_pool_[cache_id * pager_->page_size()] };
 }

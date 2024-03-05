@@ -1,8 +1,8 @@
 #pragma once
 
+#include "yudb/noncopyable.h"
 #include "yudb/options.h"
 #include "yudb/tx.h"
-#include "yudb/noncopyable.h"
 
 namespace yudb {
 

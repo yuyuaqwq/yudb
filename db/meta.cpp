@@ -8,7 +8,13 @@ namespace yudb {
 
 Meta::Meta(DBImpl* db) : db_{ db } {};
 
+Meta::~Meta() = default;
+
 bool Meta::Load() {
+    if (db_->options()->page_size < kPageMinSize) {
+        return false;
+    }
+
     db_->file().Seek(0, File::PointerMode::kDbFilePointerSet);
     const auto success = db_->file().Read(&meta_struct_, sizeof(meta_struct_));
     if (!success) {
@@ -18,7 +24,7 @@ bool Meta::Load() {
         meta_struct_.page_size = db_->options()->page_size;
         meta_struct_.page_count = 2;
         meta_struct_.txid = 1;
-        meta_struct_.userdb_root = kPageInvalidId;
+        meta_struct_.user_root = kPageInvalidId;
         meta_struct_.free_list_pgid = kPageInvalidId;
         meta_struct_.free_pair_count = 0;
         meta_struct_.free_list_page_count = 0;

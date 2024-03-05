@@ -36,13 +36,12 @@ TEST(DBTest, Open) {
     yudb::Options options{
         .page_size = 1024 * 4,
         .cache_pool_page_count = 1024 * 16 * 4,
-        .log_file_max_bytes = 1024 * 1024 * 256,
+        .log_file_limit_bytes = 1024 * 1024 * 64,
     };
     db = yudb::DB::Open(options, "Z:/db_test.ydb");
     ASSERT_FALSE(!db);
 }
 
-/*
 TEST(DBTest, BatchSequential) {
     auto count = 1000000;
 
@@ -112,80 +111,7 @@ TEST(DBTest, BatchSequential) {
         std::reverse(arr.begin(), arr.end());
     }
 }
-*/
 
-TEST(DBTest, Sequential) {
-    auto count = 1000000;
-
-    std::vector<int64_t> arr(count);
-    for (auto i = 0; i < count; i++) {
-        arr[i] = i;
-    }
-
-    for (auto i = 0; i < 2; i++) {
-        auto start_time = std::chrono::high_resolution_clock::now();
-        {
-            auto j = 0;
-            std::string_view value{ nullptr, 0 };
-            for (auto& iter : arr) {
-                auto tx = db->Update();
-                auto bucket = tx.UserBucket(yudb::UInt64Comparator);
-                //printf("%d\n", i);
-                bucket.Put(&iter, sizeof(iter), &value, sizeof(value));
-                //bucket.Print(); printf("\n\n\n\n");
-                ++j;
-                tx.Commit();
-            }
-            //bucket.Print();
-            
-        }
-        auto end_time = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-        std::cout << "insert: " << duration.count() << " ms" << std::endl;
-
-        start_time = std::chrono::high_resolution_clock::now();
-        {
-            auto j = 0;
-            for (auto& iter : arr) {
-                auto tx = db->View();
-                auto bucket = tx.UserBucket(yudb::UInt64Comparator);
-                auto res = bucket.Get(&iter, sizeof(iter));
-                ASSERT_NE(res, bucket.end());
-                //assert(res.value() == iter);
-                ++j;
-                //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-                //bucket.Print(); printf("\n\n\n\n\n");
-            }
-        }
-        end_time = std::chrono::high_resolution_clock::now();
-        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-        std::cout << "get: " << duration.count() << " ms" << std::endl;
-
-        start_time = std::chrono::high_resolution_clock::now();
-        {
-            auto j = 0;
-            for (auto& iter : arr) {
-                auto tx = db->Update();
-                auto bucket = tx.UserBucket(yudb::UInt64Comparator);
-                auto res = bucket.Delete(&iter, sizeof(iter));
-                ASSERT_TRUE(res);
-                //assert(res.value() == iter);
-                ++j;
-                //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-                //bucket.Print(); printf("\n\n\n\n\n");
-                tx.Commit();
-            }
-            
-        }
-        end_time = std::chrono::high_resolution_clock::now();
-        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-        std::cout << "delete: " << duration.count() << " ms" << std::endl;
-
-        std::reverse(arr.begin(), arr.end());
-    }
-}
-
-/*
 TEST(DBTest, BatchRandom) {
     // 需要注意这里用的比较器不同了
 
@@ -255,6 +181,77 @@ TEST(DBTest, BatchRandom) {
     duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     std::cout << "delete: " << duration.count() << " ms" << std::endl;
 }
-*/
+
+TEST(DBTest, Sequential) {
+    auto count = 1000000;
+
+    std::vector<int64_t> arr(count);
+    for (auto i = 0; i < count; i++) {
+        arr[i] = i;
+    }
+
+    for (auto i = 0; i < 2; i++) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        {
+            auto j = 0;
+            std::string_view value{ nullptr, 0 };
+            for (auto& iter : arr) {
+                auto tx = db->Update();
+                auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+                //printf("%d\n", i);
+                bucket.Put(&iter, sizeof(iter), &value, sizeof(value));
+                //bucket.Print(); printf("\n\n\n\n");
+                ++j;
+                tx.Commit();
+            }
+            //bucket.Print();
+
+        }
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+        std::cout << "insert: " << duration.count() << " ms" << std::endl;
+
+        start_time = std::chrono::high_resolution_clock::now();
+        {
+            auto j = 0;
+            for (auto& iter : arr) {
+                auto tx = db->View();
+                auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+                auto res = bucket.Get(&iter, sizeof(iter));
+                ASSERT_NE(res, bucket.end());
+                //assert(res.value() == iter);
+                ++j;
+                //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+                //bucket.Print(); printf("\n\n\n\n\n");
+            }
+        }
+        end_time = std::chrono::high_resolution_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+        std::cout << "get: " << duration.count() << " ms" << std::endl;
+
+        start_time = std::chrono::high_resolution_clock::now();
+        {
+            auto j = 0;
+            for (auto& iter : arr) {
+                auto tx = db->Update();
+                auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+                auto res = bucket.Delete(&iter, sizeof(iter));
+                ASSERT_TRUE(res);
+                //assert(res.value() == iter);
+                ++j;
+                //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
+                //bucket.Print(); printf("\n\n\n\n\n");
+                tx.Commit();
+            }
+
+        }
+        end_time = std::chrono::high_resolution_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+        std::cout << "delete: " << duration.count() << " ms" << std::endl;
+
+        std::reverse(arr.begin(), arr.end());
+    }
+}
+
 } // namespace yudb
 

@@ -67,10 +67,6 @@ public:
     }
     std::string_view key() const;
     std::string_view value() const;
-    bool is_bucket() const;
-    void set_is_bucket();
-    //bool is_inline_bucket() const;
-    //void set_is_inline_bucket();
     Status status() const { return status_; }
 
     void First(PageId pgid);
@@ -90,7 +86,6 @@ public:
 
 private:
     std::pair<LeafNode&, SlotId> GetLeafNode(bool dirty) const;
-
     std::span<const uint8_t> GetKey() const;
     std::span<const uint8_t> GetValue() const;
 

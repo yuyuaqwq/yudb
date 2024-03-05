@@ -14,7 +14,6 @@ using SlotId = uint16_t;
 constexpr SlotId kSlotInvalidId = 0xffff;
 
 #pragma pack(push, 1)
-
 struct Slot {
     uint16_t record_offset : 15;
     uint16_t is_overflow_pages : 1;

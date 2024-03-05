@@ -85,6 +85,10 @@ TxImpl& TxManager::update_tx() {
     return *update_tx_;
 }
 
+Pager& TxManager::pager() const {
+    return db_->pager();
+}
+
 void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     BucketLogHeader format;
     format.type = OperationType::kPut;
@@ -117,10 +121,6 @@ void TxManager::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key
     db_->AppendLog(arr.begin(), arr.end());
 }
 
-Pager& TxManager::pager() const {
-    return db_->pager();
-}
-
 void TxManager::AppendBeginLog() {
     OperationType type = OperationType::kBegin;
     std::array<std::span<const uint8_t>, 1> arr;
@@ -142,6 +142,5 @@ void TxManager::AppendCommitLog() {
     db_->AppendLog(arr.begin(), arr.end());
     db_->log_writer().WriteBuffer();
 }
-
 
 } // namespace yudb

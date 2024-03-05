@@ -16,11 +16,11 @@ public:
 
 public:
     BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable, const Comparator& comparator);
+    ~BucketImpl();
 
     bool Empty() const;
     Iterator Get(const void* key_buf, size_t key_size);
     Iterator LowerBound(const void* key_buf, size_t key_size);
-    //void Insert(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size);
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size);
     void Update(Iterator* iter, const void* value_buf, size_t value_size);
     bool Delete(const void* key_buf, size_t key_size);
@@ -43,9 +43,7 @@ public:
 
 protected:
     TxImpl* const tx_;
-
     BucketId bucket_id_;
-
     const bool writable_;
     BTree btree_;
     std::map<std::string, std::pair<BucketId, PageId>> sub_bucket_map_;

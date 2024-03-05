@@ -78,7 +78,6 @@ protected:
     SlotId cached_slot_id_{ kSlotInvalidId };
 };
 
-
 class BranchNode : public Node {
 public:
     using Node::Node;
@@ -116,6 +115,5 @@ public:
     void Delete(SlotId slot_id);
     void Pop();
 };
-
 
 } // namespace yudb

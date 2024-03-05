@@ -5,12 +5,11 @@
 #include <memory>
 
 #include "yudb/db.h"
+#include "yudb/file.h"
+#include "yudb/log_writer.h"
 #include "yudb/meta.h"
 #include "yudb/pager.h"
 #include "yudb/tx_manager.h"
-#include "yudb/log_writer.h"
-#include "yudb/file.h"
-
 
 namespace yudb {
 
@@ -29,7 +28,7 @@ public:
         for (auto it = begin; it != end; ++it) {
             log_writer_.AppendRecordToBuffer(*it);
         }
-        if (log_writer_.size() >= options_->log_file_max_bytes && tx_manager_.committed()) {
+        if (log_writer_.size() >= options_->log_file_limit_bytes && tx_manager_.committed()) {
             Checkpoint();
         }
     }
@@ -54,15 +53,13 @@ private:
     friend class DB;
 
     std::optional<const Options> options_;
+    bool recovering_{ false };
 
     File file_;
     Meta meta_{ this };
     std::optional<Pager> pager_;
     TxManager tx_manager_{ this };
-
     log::Writer log_writer_;
-
-    bool recovering_{ false };
 };
 
 }

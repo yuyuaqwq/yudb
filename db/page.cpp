@@ -42,8 +42,4 @@ void Page::Dereference() {
     }
 }
 
-
-ConstPage::ConstPage(Page&& right) noexcept : 
-    page_{ std::move(right) } {}
-
 } // namespace yudb

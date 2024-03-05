@@ -9,23 +9,21 @@ namespace yudb {
 
 TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
     tx_manager_{ tx_manager },
-    user_bucket_{ this, kRootBucketId, &meta_format_.userdb_root, writable, DefaultComparator },
-    //system_bucket_{ this, kFreeBucketId, &meta_format_.freedb_root, writable, UInt32Comparator },
+    user_bucket_{ this, kUserBucketId, &meta_format_.user_root, writable, DefaultComparator },
     writable_{ writable }
 {
     CopyMetaInfo(&meta_format_, meta);
 }
-
 
 BucketId TxImpl::NewSubBucket(PageId* root_pgid, bool writable, const Comparator& comparator) {
     BucketId new_bucket_id = sub_bucket_cache_.size();
     sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, new_bucket_id, root_pgid, writable, comparator));
     return new_bucket_id;
 }
+
 BucketImpl& TxImpl::AtSubBucket(BucketId bucket_id) {
     return *sub_bucket_cache_[bucket_id];
 }
-
 
 void TxImpl::RollBack() {
     if (writable_) {
@@ -55,13 +53,14 @@ bool TxImpl::IsLegacyTx(TxId txid) const {
 void TxImpl::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     tx_manager_->AppendPutLog(bucket_id, key, value);
 }
+
 void TxImpl::AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     tx_manager_->AppendInsertLog(bucket_id, key, value);
 }
+
 void TxImpl::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {
     tx_manager_->AppendDeleteLog(bucket_id, key);
 }
-
 
 Pager& TxImpl::pager() const { return tx_manager_->pager(); }
 
@@ -80,7 +79,9 @@ ViewBucket ViewTx::UserBucket(Comparator comparator) {
     return ViewBucket{ &root_bucket };
 }
 
+
 UpdateTx::UpdateTx(TxImpl* tx) : tx_{ tx } {}
+
 UpdateTx::~UpdateTx() {
     if (tx_) {
         RollBack();
@@ -94,15 +95,16 @@ UpdateBucket UpdateTx::UserBucket(Comparator comparator) {
     auto& root_bucket = tx_->user_bucket();
     return UpdateBucket{ &root_bucket };
 }
+
 void UpdateTx::RollBack() {
     assert(tx_ != nullptr);
     tx_->RollBack();
     tx_ = nullptr;
 }
+
 void UpdateTx::Commit() {
     tx_->Commit();
     tx_ = nullptr;
 }
-
 
 } // yudb

@@ -112,7 +112,6 @@ PageSize Node::page_size() const {
     return btree_->bucket().pager().page_size();
 }
 
-
 size_t Node::MaxInlineRecordLength() {
     size_t max_length;
     max_length = page_size() -
@@ -126,6 +125,7 @@ size_t Node::MaxInlineRecordLength() {
 size_t Node::SpaceNeeded(size_t record_length) {
     return record_length + sizeof(Slot);
 }
+
 bool Node::RequestSpaceFor(std::span<const uint8_t> key, std::span<const uint8_t> value) {
     auto length = key.size() + value.size();
     auto space_needed = SpaceNeeded(length);
@@ -141,21 +141,25 @@ bool Node::RequestSpaceFor(std::span<const uint8_t> key, std::span<const uint8_t
     }
     return false;
 }
+
 size_t Node::SlotSpace() {
     auto slot_space = reinterpret_cast<const uint8_t*>(struct_->slots + struct_->header.count) - Ptr();
     assert(slot_space < page_size());
     return slot_space;
 }
+
 size_t Node::FreeSpace() {
     auto free_space = struct_->header.data_offset - SlotSpace();
     assert(free_space < page_size());
     return free_space;
 }
+
 size_t Node::FreeSpaceAfterCompaction() {
     auto free_space = page_size() - SlotSpace() - struct_->header.space_used;
     assert(free_space < page_size());
     return free_space;
 }
+
 void Node::Compactify() {
     auto& pager = btree_->bucket().pager();
     auto& tmp_page = pager.tmp_page();
@@ -174,6 +178,7 @@ void Node::Compactify() {
 uint8_t* Node::Ptr() {
     return reinterpret_cast<uint8_t*>(struct_);
 }
+
 uint8_t* Node::GetRecordPtr(SlotId slot_id) {
     assert(slot_id < count()); 
     return Ptr() + struct_->slots[slot_id].record_offset;
@@ -213,6 +218,7 @@ PageId Node::StoreRecordToOverflowPages(SlotId slot_id, std::span<const uint8_t>
     }
     return pgid;
 }
+
 void Node::LoadRecordFromOverflowPages(SlotId slot_id) {
     auto& slot = struct_->slots[slot_id];
     assert(slot.is_overflow_pages);
@@ -248,6 +254,7 @@ void Node::LoadRecordFromOverflowPages(SlotId slot_id) {
     }
     cached_slot_id_ = slot_id;
 }
+
 void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     if (key.size() > page_size()) {
         throw InvalidArgumentError("key length exceeds the limit.");
@@ -280,6 +287,7 @@ void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<c
         }
     }
 }
+
 void Node::CopyRecordRange(Node* dst) {
     for (SlotId i = 0; i < struct_->header.count; ++i) {
         size_t length;
@@ -299,6 +307,7 @@ void Node::CopyRecordRange(Node* dst) {
         slot.record_offset = dst->struct_->header.data_offset;
     }
 }
+
 void Node::DeleteRecord(SlotId slot_id) {
     assert(slot_id < count());
     auto& slot = struct_->slots[slot_id];
@@ -313,6 +322,7 @@ void Node::DeleteRecord(SlotId slot_id) {
         }
     }
 }
+
 void Node::RestoreRecord(SlotId slot_id, const Slot& saved_slot) {
     assert(slot_id < count());
     auto& slot = struct_->slots[slot_id];
@@ -353,6 +363,7 @@ PageId BranchNode::GetLeftChild(SlotId slot_id) {
     }
     return struct_->slots[slot_id].left_child;
 }
+
 void BranchNode::SetLeftChild(SlotId slot_id, PageId child) {
     assert(slot_id <= count());
     if (slot_id == count()) {
@@ -361,6 +372,7 @@ void BranchNode::SetLeftChild(SlotId slot_id, PageId child) {
     }
     struct_->slots[slot_id].left_child = child;
 }
+
 PageId BranchNode::GetRightChild(SlotId slot_id) {
     assert(slot_id < count());
     if (slot_id == count() - 1) {
@@ -368,6 +380,7 @@ PageId BranchNode::GetRightChild(SlotId slot_id) {
     }
     return struct_->slots[slot_id + 1].left_child;
 }
+
 void BranchNode::SetRightChild(uint16_t slot_id, PageId child) {
     assert(slot_id < count());
     if (slot_id == count() - 1) {
@@ -380,6 +393,7 @@ void BranchNode::SetRightChild(uint16_t slot_id, PageId child) {
 PageId BranchNode::GetTailChild() {
     return struct_->tail_child;
 }
+
 void BranchNode::SetTailChild(PageId child) {
     struct_->tail_child = child;
 }

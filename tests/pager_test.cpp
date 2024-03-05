@@ -6,99 +6,100 @@ namespace yudb {
 
 static std::unique_ptr<yudb::DB> db;
 
-/*
-TEST(PagerTest, AllocAndPending) {
+TEST(PagerTest, AllocAndFree) {
     yudb::Options options{
         .page_size = 1024,
         .cache_pool_page_count = 1024,
-        .log_file_max_bytes = 1024 * 1024 * 64,
+        .log_file_limit_bytes = 1024 * 1024 * 64,
     };
     db = yudb::DB::Open(options, "Z:/pager_test.ydb");
     ASSERT_TRUE(db.operator bool());
     auto db_impl = static_cast<DBImpl*>(db.get());
     auto& pager = db_impl->pager();
+
     {
         auto tx = db_impl->Update();
-
-        // 这里分配了pgid为2的页面作为root page
-        auto root = tx.UserBucket();
-
         auto pgid = pager.Alloc(1);
+        ASSERT_EQ(pgid, 2);
+        pgid = pager.Alloc(1);
         ASSERT_EQ(pgid, 3);
-
         pgid = pager.Alloc(1);
         ASSERT_EQ(pgid, 4);
-
         pgid = pager.Alloc(10);
         ASSERT_EQ(pgid, 5);
-
         pgid = pager.Alloc(100);
         ASSERT_EQ(pgid, 15);
-
         pgid = pager.Alloc(1000);
         ASSERT_EQ(pgid, 115);
-
+        pager.Free(2, 1);
         pager.Free(3, 1);
         pager.Free(4, 1);
-        pager.Free(5, 1);
         pgid = pager.Alloc(1);
         ASSERT_EQ(pgid, 1115);
-
         pager.Free(115, 1000);
-
-        // 为PendingDB的root分配了1116，Pending了3、4、5、115
         tx.Commit();
     }
     {
         auto tx = db_impl->Update();
-
         auto pgid = pager.Alloc(1);
-        ASSERT_EQ(pgid, 1117);
-
-        // root触发了Copy分配了1118，Pending了2
+        ASSERT_EQ(pgid, 1116);
         tx.Commit();
     }
     {
-        // FreeDB释放3、4、5、115，为FreeDB分配了1119
         auto tx = db_impl->Update();
-
         auto pgid = pager.Alloc(1);
+        ASSERT_EQ(pgid, 2);
+        pgid = pager.Alloc(1);
         ASSERT_EQ(pgid, 3);
         pgid = pager.Alloc(1);
         ASSERT_EQ(pgid, 4);
-        pgid = pager.Alloc(1);
-        ASSERT_EQ(pgid, 5);
         pgid = pager.Alloc(998);
         ASSERT_EQ(pgid, 115);
         pgid = pager.Alloc(2);
         ASSERT_EQ(pgid, 1113);
-
         pgid = pager.Alloc(1);
-        ASSERT_EQ(pgid, 1120);
-
-        // root触发了Copy，分配了1121，Pending了1118
+        ASSERT_EQ(pgid, 1117);
+        tx.Commit();
+    }
+    {
+        auto tx = db_impl->Update();
+        auto pgid = pager.Alloc(1);
+        ASSERT_EQ(pgid, 1118);
+        pgid = pager.Alloc(1);
+        ASSERT_EQ(pgid, 1119);
         tx.Commit();
     }
 
     {
-        // FreeDB释放2时触发了Copy，分配了1122，Pending了1119
         auto tx = db_impl->Update();
-
-        auto pgid = pager.Alloc(1);
-        ASSERT_EQ(pgid, 2);
-
-        pgid = pager.Alloc(1);
-        ASSERT_EQ(pgid, 1123);
-        
-        // PendingDB的Root触发了Copy，分配了1124，Pending了1116
-        // root触发了Copy，分配了1124，Pending了1121
+        auto pgid = pager.Alloc(100);
+        ASSERT_EQ(pgid, 1120);
         tx.Commit();
     }
-
-}
-*/
-TEST(PagerTest, Clear) {
-
+    {
+        auto tx = db_impl->Update();
+        pager.Free(1120, 50);
+        tx.Commit();
+    }
+    {
+        auto tx = db_impl->Update();
+        pager.Free(1170, 50);
+        tx.Commit();
+    }
+    {
+        auto tx = db_impl->Update();
+        auto pgid = pager.Alloc(1);
+        ASSERT_EQ(pgid, 1120);
+        db_impl->Checkpoint();
+        tx.Commit();
+    }
+    {
+        auto tx = db_impl->Update();
+        auto pgid = pager.Alloc(48);
+        ASSERT_EQ(pgid, 1122);
+        db_impl->Checkpoint();
+        tx.Commit();
+    }
 }
 
 } // namespace yudb

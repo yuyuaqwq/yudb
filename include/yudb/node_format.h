@@ -7,7 +7,6 @@
 namespace yudb {
 
 #pragma pack(push, 1)
-
 enum class NodeType : uint16_t {
     kInvalid = 0,
     kBranch,
@@ -35,7 +34,6 @@ struct NodeStruct {
     };
     Slot slots[1];
 };
-
 #pragma pack(pop)
 
 } // namespace

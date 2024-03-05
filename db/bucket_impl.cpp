@@ -13,7 +13,7 @@ BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool w
     writable_{ writable },
     btree_{ this, root_pgid, comparator }
 {}
-
+BucketImpl::~BucketImpl() = default;
 
 bool BucketImpl::Empty() const {
     return btree_.Empty();
@@ -26,14 +26,6 @@ BucketImpl::Iterator BucketImpl::Get(const void* key_buf, size_t key_size) {
 BucketImpl::Iterator BucketImpl::LowerBound(const void* key_buf, size_t key_size) {
     return Iterator{ btree_.LowerBound({ reinterpret_cast<const uint8_t*>(key_buf), key_size }) };
 }
-
-//void BucketImpl::Insert(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
-//    std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
-//    std::span<const uint8_t> value_span{ reinterpret_cast<const uint8_t*>(value_buf), value_size };
-//    tx_->AppendInsertLog(bucket_id_, key_span, value_span);
-//
-//    btree_.Insert(key_span, value_span);
-//}
 
 void BucketImpl::Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
@@ -50,13 +42,11 @@ void BucketImpl::Update(Iterator* iter, const void* value_buf, size_t value_size
     btree_.Update(&iter->iterator_, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
 }
 
-
 bool BucketImpl::Delete(const void* key_buf, size_t key_size) {
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
     tx_->AppendDeleteLog(bucket_id_, key_span);
     return btree_.Delete(key_span);
 }
-
 
 void BucketImpl::Delete(Iterator* iter) {
     btree_.Delete(&iter->iterator_);
@@ -85,22 +75,21 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable, Comparato
     return tx_->AtSubBucket(bucket_id);
 }
 
-
 BucketImpl::Iterator BucketImpl::begin() noexcept {
     return Iterator{ btree_.begin() };
 }
+
 BucketImpl::Iterator BucketImpl::end() noexcept {
     return Iterator{ btree_.end() };
 }
 
 void BucketImpl::Print(bool str) { btree_.Print(str); }
 
-
 Pager& BucketImpl::pager() const { return tx_->pager(); }
 
 
-
 ViewBucket::ViewBucket(BucketImpl* bucket) : bucket_{ bucket } {};
+
 ViewBucket::~ViewBucket() = default;
 
 ViewBucket ViewBucket::SubViewBucket(std::string_view key, const Comparator& comparator) {
@@ -131,17 +120,12 @@ ViewBucket::Iterator ViewBucket::end() const noexcept {
     return bucket_->end();
 }
 
-void ViewBucket::Print(bool str) const {
-    bucket_->Print(str);
-}
-
 
 UpdateBucket::~UpdateBucket() = default;
 
 UpdateBucket UpdateBucket::SubUpdateBucket(std::string_view key, const Comparator& comparator) {
     return UpdateBucket{ &bucket_->SubBucket(key, true, comparator) };
 }
-
 
 void UpdateBucket::Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
     bucket_->Put(key_buf, key_size, value_buf, value_size);
@@ -158,6 +142,5 @@ bool UpdateBucket::Delete(const void* key_buf, size_t key_size) {
 bool UpdateBucket::Delete(std::string_view key) {
     return bucket_->Delete(key.data(), key.size());
 }
-
 
 } // namespace yudb

@@ -5,8 +5,6 @@
 
 namespace yudb {
 
-
-
 Pager::Pager(DBImpl* db, PageSize page_size) : db_{ db },
     page_size_{ page_size },
     cache_manager_{ this },
@@ -15,7 +13,6 @@ Pager::Pager(DBImpl* db, PageSize page_size) : db_{ db },
 Pager::~Pager() {
     operator delete(tmp_page_);
 }
-
 
 void Pager::Read(PageId pgid, uint8_t* cache, PageCount count) {
     ReadByBytes(pgid, 0, cache, page_size_);
@@ -110,7 +107,6 @@ void Pager::Free(PageId free_pgid, PageCount free_count) {
     assert(free_pgid != kPageInvalidId);
 }
 
-
 Page Pager::Copy(const Page& page) {
     auto new_pgid = Alloc(1);
     auto new_page = Reference(new_pgid, true);
@@ -147,7 +143,6 @@ PageId Pager::GetPageIdByCache(const uint8_t* page_cache) {
     return cache_manager_.GetPageIdByCache(page_cache);
 }
 
-
 void Pager::Rollback() {
     const auto& update_tx = db_->tx_manager().update_tx();
     for (auto& alloc_pair : alloc_records_) {
@@ -176,7 +171,6 @@ void Pager::FreePending(TxId min_view_txid) {
         pending_map_.erase(iter++);
     }
 }
-
 
 void Pager::BuildFreeMap() {
     auto& update_tx = db_->tx_manager().update_tx();
