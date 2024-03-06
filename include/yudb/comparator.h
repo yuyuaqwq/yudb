@@ -1,3 +1,8 @@
+#pragma once
+
+#include <cassert>
+
+#include <span>
 
 namespace yudb {
 
@@ -20,7 +25,7 @@ inline std::strong_ordering UInt64Comparator(std::span<const uint8_t> key1, std:
     return key1_ <=> key2_;
 }
 
-inline std::strong_ordering DefaultComparator(std::span<const uint8_t> key1, std::span<const uint8_t> key2) {
+inline std::strong_ordering ByteArrayComparator(std::span<const uint8_t> key1, std::span<const uint8_t> key2) {
     auto res = std::memcmp(key1.data(), key2.data(), std::min(key1.size(), key2.size()));
     if (res == 0) {
         if (key1.size() == key2.size()) {

@@ -9,7 +9,7 @@ namespace yudb {
 
 TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
     tx_manager_{ tx_manager },
-    user_bucket_{ this, kUserBucketId, &meta_format_.user_root, writable, DefaultComparator },
+    user_bucket_{ this, kUserBucketId, &meta_format_.user_root, writable, tx_manager->db().options()->defaluit_comparator },
     writable_{ writable }
 {
     CopyMetaInfo(&meta_format_, meta);
@@ -73,7 +73,7 @@ ViewTx::~ViewTx() {
 
 ViewBucket ViewTx::UserBucket(Comparator comparator) {
     if (comparator == nullptr) {
-        comparator = DefaultComparator;
+        comparator = tx_.tx_manager().db().options()->defaluit_comparator;
     }
     auto& root_bucket = tx_.user_bucket();
     return ViewBucket{ &root_bucket };
@@ -90,7 +90,7 @@ UpdateTx::~UpdateTx() {
 
 UpdateBucket UpdateTx::UserBucket(Comparator comparator) {
     if (comparator == nullptr) {
-        comparator = DefaultComparator;
+        comparator = tx_->tx_manager().db().options()->defaluit_comparator;
     }
     auto& root_bucket = tx_->user_bucket();
     return UpdateBucket{ &root_bucket };

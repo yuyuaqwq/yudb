@@ -16,7 +16,10 @@ public:
 
     bool Load();
     void Save();
+
     void Switch();
+    void Set(const MetaStruct& meta_struct);
+    void Get(MetaStruct* meta_struct);
 
     const auto& meta_format() const { return meta_struct_; }
     auto& meta_format() { return meta_struct_; }

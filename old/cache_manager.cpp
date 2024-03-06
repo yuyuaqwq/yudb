@@ -24,7 +24,7 @@ CacheManager::~CacheManager() {
     }
 }
 
-std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
+std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid, bool dirty) {
     auto fast_map_index = pgid % kCacheFastMapPoolCount;
     if (fast_map_[fast_map_index].first == pgid) {
         const auto cache_id = fast_map_[fast_map_index].second;
@@ -100,6 +100,9 @@ std::pair<CacheInfo*, uint8_t*> CacheManager::Reference(PageId pgid) {
     }
     fast_map_[fast_map_index].second = cache_id;
     ++cache_info->reference_count;
+    if (cache_info->dirty == false && dirty == true) {
+        cache_info->dirty = true;
+    }
     return { cache_info, &page_pool_[cache_id * pager_->page_size()] };
 }
 

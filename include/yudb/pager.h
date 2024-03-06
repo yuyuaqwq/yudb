@@ -4,6 +4,7 @@
 #include <map>
 #include <unordered_set>
 #include <vector>
+#include <mutex>
 
 #include "yudb/page.h"
 #include "yudb/tx_format.h"
@@ -20,7 +21,6 @@ public:
     Pager(DBImpl* db, PageSize page_size);
     ~Pager();
 
-    // 非线程安全函数，仅写事务使用
     void Read(PageId pgid, uint8_t* cache, PageCount count);
     void ReadByBytes(PageId pgid, size_t offset, uint8_t* cache, size_t bytes);
     void Write(PageId pgid, const uint8_t* cache, PageCount count);
@@ -39,23 +39,24 @@ public:
     void BuildFreeMap();
     void UpdateFreeList();
 
-    // 线程安全函数
+    PageId GetPageIdByCache(const uint8_t* page_cache);
+
     Page Reference(PageId pgid, bool dirty);
     Page AddReference(uint8_t* page_cache);
     void Dereference(const uint8_t* page_cache);
-    PageId GetPageIdByCache(const uint8_t* page_cache);
-
+    
     auto& db() const { return *db_; }
+    auto& cache_manager() { return cache_manager_; }
     auto& page_size() const { return page_size_; }
     auto& tmp_page() { return tmp_page_; }
 
 private:
-    void FreeToFreeMap(PageId pgid, PageCount count);
-    void FreeToFreeDB(PageId pgid, PageCount count);
+    void FreeToMap(PageId pgid, PageCount count);
 
 private:
     DBImpl* const db_;
     const PageSize page_size_;
+    std::mutex lock_;
     CacheManager cache_manager_;
 
     using PagePair = std::pair<PageId, PageCount>;

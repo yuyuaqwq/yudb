@@ -4,6 +4,7 @@
 #include <optional>
 #include <memory>
 
+#include "third_party/mio.hpp"
 #include "yudb/db.h"
 #include "yudb/file.h"
 #include "yudb/log_writer.h"
@@ -55,7 +56,9 @@ private:
     std::optional<const Options> options_;
     bool recovering_{ false };
 
-    File file_;
+    // File file_;
+    mio::mmap_sink file_;
+
     Meta meta_{ this };
     std::optional<Pager> pager_;
     TxManager tx_manager_{ this };

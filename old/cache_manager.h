@@ -20,7 +20,7 @@ public:
     explicit CacheManager(Pager* pager);
     ~CacheManager();
 
-    std::pair<CacheInfo*, uint8_t*> Reference(PageId pgid);
+    std::pair<CacheInfo*, uint8_t*> Reference(PageId pgid, bool dirty);
     void AddReference(const uint8_t* page_cache);
     void Dereference(const uint8_t* page_cache);
     PageId GetPageIdByCache(const uint8_t* page_cache);

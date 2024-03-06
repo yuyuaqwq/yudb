@@ -19,6 +19,8 @@ TxManager::~TxManager() {
 }
 
 UpdateTx TxManager::Update() {
+    update_lock_.lock();
+
     assert(!update_tx_.has_value());
     AppendBeginLog();
     update_tx_.emplace(this, db_->meta().meta_format(), true);
@@ -78,15 +80,8 @@ void TxManager::Commit() {
 
     update_tx_ = std::nullopt;
     committed_ = false;
-}
 
-TxImpl& TxManager::update_tx() {
-    assert(update_tx_.has_value());
-    return *update_tx_;
-}
-
-Pager& TxManager::pager() const {
-    return db_->pager();
+    update_lock_.unlock();
 }
 
 void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
@@ -119,6 +114,19 @@ void TxManager::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key
     arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketDeleteLogHeaderSize };
     arr[1] = key;
     db_->AppendLog(arr.begin(), arr.end());
+}
+
+DBImpl& TxManager::db() {
+    return *db_;
+}
+
+TxImpl& TxManager::update_tx() {
+    assert(update_tx_.has_value());
+    return *update_tx_;
+}
+
+Pager& TxManager::pager() const {
+    return db_->pager();
 }
 
 void TxManager::AppendBeginLog() {

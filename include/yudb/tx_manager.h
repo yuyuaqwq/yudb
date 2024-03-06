@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <map>
+#include <mutex>
 
 #include "yudb/noncopyable.h"
 #include "yudb/log_writer.h"
@@ -23,13 +24,13 @@ public:
     void RollBack(TxId view_txid);
     void Commit();
 
-    TxImpl& update_tx();
-    bool has_update_tx() { return update_tx_.has_value(); };
-
     void AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
     void AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
     void AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key);
 
+    DBImpl& db();
+    TxImpl& update_tx();
+    bool has_update_tx() { return update_tx_.has_value(); };
     Pager& pager() const;
     bool committed() const { return committed_; }
 
@@ -44,6 +45,8 @@ private:
     std::optional<TxImpl> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;
     bool committed_{ false };
+
+    std::mutex update_lock_;
 };
 
 } // namespace yudb

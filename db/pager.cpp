@@ -45,12 +45,20 @@ void Pager::WriteAllDirtyPages() {
     }
     std::sort(sort_arr.begin(), sort_arr.end());
     for (auto& pgid : sort_arr) {
-        auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
+        auto [cache_info, page_cache] = cache_manager_.Reference(pgid, true);
         Write(pgid, page_cache, 1);
         assert(cache_info->dirty);
         cache_info->dirty = false;
         cache_manager_.Dereference(page_cache);
     }
+}
+
+void Pager::Rollback() {
+    const auto& update_tx = db_->tx_manager().update_tx();
+    for (auto& alloc_pair : alloc_records_) {
+        FreeToMap(alloc_pair.first, alloc_pair.second);
+    }
+    alloc_records_.clear();
 }
 
 PageId Pager::Alloc(PageCount count) {
@@ -120,37 +128,6 @@ Page Pager::Copy(PageId pgid) {
     return Copy(std::move(page));
 }
 
-Page Pager::Reference(PageId pgid, bool dirty) {
-    assert(pgid >= 2);
-    assert(pgid != kPageInvalidId);
-    auto [cache_info, page_cache] = cache_manager_.Reference(pgid);
-    if (cache_info->dirty == false && dirty == true) {
-        cache_info->dirty = true;
-    }
-    return Page{ this, page_cache };
-}
-
-Page Pager::AddReference(uint8_t* page_cache) {
-    cache_manager_.AddReference(page_cache);
-    return Page{ this, page_cache };
-}
-
-void Pager::Dereference(const uint8_t* page_cache) {
-    cache_manager_.Dereference(page_cache);
-}
-
-PageId Pager::GetPageIdByCache(const uint8_t* page_cache) {
-    return cache_manager_.GetPageIdByCache(page_cache);
-}
-
-void Pager::Rollback() {
-    const auto& update_tx = db_->tx_manager().update_tx();
-    for (auto& alloc_pair : alloc_records_) {
-        FreeToFreeMap(alloc_pair.first, alloc_pair.second);
-    }
-    alloc_records_.clear();
-}
-
 void Pager::FreePending(TxId min_view_txid) {
     alloc_records_.clear();
 
@@ -164,9 +141,9 @@ void Pager::FreePending(TxId min_view_txid) {
     for (auto iter = pending_map_.begin(); iter != pending_map_.end(); ) {
         if (iter->first >= min_view_txid) {
             break;
-        } 
+        }
         for (auto& [free_pgid, free_count] : iter->second) {
-            FreeToFreeMap(free_pgid, free_count);
+            FreeToMap(free_pgid, free_count);
         }
         pending_map_.erase(iter++);
     }
@@ -183,10 +160,8 @@ void Pager::BuildFreeMap() {
     ReadByBytes(meta.free_list_pgid, 0, buf.data(), buf.size());
     auto free_list = reinterpret_cast<const PagePair*>(buf.data());
     for (size_t i = 0; i < meta.free_pair_count; ++i) {
-        //auto [_, success] = free_map_.insert({ free_list->first, free_list->second });
-        //assert(success);
-        // 因为可能存在未经过合并的pending page，这里将其合并到FreeMap
-        FreeToFreeMap(free_list->first, free_list->second);
+        // 因为可能存在未经过合并的pending pages，这里将其合并到free map
+        FreeToMap(free_list->first, free_list->second);
     }
 }
 
@@ -224,7 +199,29 @@ void Pager::UpdateFreeList() {
     WriteByBytes(meta.free_list_pgid, 0, buf.data(), meta.free_pair_count * sizeof(PagePair));
 }
 
-void Pager::FreeToFreeMap(PageId pgid, PageCount count) {
+PageId Pager::GetPageIdByCache(const uint8_t* page_cache) {
+    return cache_manager_.GetPageIdByCache(page_cache);
+}
+
+Page Pager::Reference(PageId pgid, bool dirty) {
+    std::lock_guard lock{ lock_ };
+    assert(pgid >= 2);
+    assert(pgid != kPageInvalidId);
+    auto [_, page_cache] = cache_manager_.Reference(pgid, dirty);
+    return Page{ this, page_cache };
+}
+
+Page Pager::AddReference(uint8_t* page_cache) {
+    std::lock_guard lock{ lock_ };
+    cache_manager_.AddReference(page_cache);
+    return Page{ this, page_cache };
+}
+
+void Pager::Dereference(const uint8_t* page_cache) {
+    cache_manager_.Dereference(page_cache);
+}
+
+void Pager::FreeToMap(PageId pgid, PageCount count) {
 #ifndef NDEBUG
     for (auto i = 0; i < count; ++i) {
         auto [_, success] = debug_free_set_.insert(pgid + i);

@@ -1,5 +1,6 @@
 #include "yudb/db_impl.h"
 
+#include <fstream>
 #include <filesystem>
 
 #include "yudb/log_reader.h"
@@ -8,11 +9,22 @@
 
 namespace yudb{
 
+namespace fs = std::filesystem;
+
  DB::~DB() = default;
 
  std::unique_ptr<DB> DB::Open(const Options& options, std::string_view path) {
      auto db = std::make_unique<DBImpl>();
      db->options_.emplace(options);
+
+     if (!fs::exists(path)) {
+         std::fstream fs;
+         fs.open(path, std::ios_base::out | std::ios_base::binary);
+         if (!fs.is_open()) {
+             return {};
+         }
+     }
+
      if (!db->file().Open(path, false)) {
          return {};
      }
