@@ -21,12 +21,12 @@ public:
     void Set(const MetaStruct& meta_struct);
     void Get(MetaStruct* meta_struct);
 
-    const auto& meta_struct() const { return *meta_struct_; }
-    auto& meta_struct() { return *meta_struct_; }
+    const auto& meta_struct() const { return meta_struct_; }
+    auto& meta_struct() { return meta_struct_; }
 
 private:
     DBImpl* const db_;
-    MetaStruct* meta_struct_{ nullptr };
+    MetaStruct meta_struct_;
     uint32_t cur_meta_index_{ 0 };
 };
 

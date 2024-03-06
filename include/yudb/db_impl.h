@@ -23,6 +23,7 @@ public:
     ViewTx View() override;
     void Checkpoint();
     void Mmap(uint64_t new_size);
+    void ClearMmapPending();
 
     template<typename Iter>
     void AppendLog(const Iter begin, const Iter end) {
@@ -62,8 +63,10 @@ private:
 
     std::string db_path_;
     tinyio::file db_file_;
-    mio::mmap_sink db_file_mmap_;
     std::shared_mutex db_file_mmap_lock_;
+    mio::mmap_sink db_file_mmap_;
+    std::vector<mio::mmap_sink> db_file_mmap_pending_;
+
     mio::mmap_sink lock_file_mmap_;
 
     Meta meta_{ this };

@@ -22,9 +22,6 @@ public:
     ~Pager();
 
     uint8_t* GetPtr(PageId pgid, size_t offset);
-
-    //void Read(PageId pgid, uint8_t* cache, PageCount count);
-    //void ReadByBytes(PageId pgid, size_t offset, uint8_t* buf, size_t bytes);
     void Write(PageId pgid, const uint8_t* cache, PageCount count);
     void WriteByBytes(PageId pgid, size_t offset, const uint8_t* buf, size_t bytes);
     void WriteAllDirtyPages();
@@ -41,7 +38,7 @@ public:
     void BuildFreeMap();
     void UpdateFreeList();
 
-    PageId GetPageIdByCache(const uint8_t* page_cache);
+    PageId GetPageIdByPtr(const uint8_t* page_ptr);
 
     Page Reference(PageId pgid, bool dirty);
     Page AddReference(uint8_t* page_buf);

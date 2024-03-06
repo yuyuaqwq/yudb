@@ -83,6 +83,8 @@ void TxManager::Commit() {
     committed_ = false;
 
     update_lock_.unlock();
+
+    db_->ClearMmapPending();
 }
 
 void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {

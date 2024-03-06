@@ -23,13 +23,14 @@ public:
     Page AddReference() const;
 
     auto& page_buf() const { return page_buf_; }
-    PageId page_id() const;
+    PageId page_id() const { return page_id_; };
 
 protected:
     void Dereference();
 
 protected:
     Pager* const pager_;
+    PageId page_id_;
     uint8_t* page_buf_;
 };
 

@@ -13,10 +13,6 @@ Pager::~Pager() {
     operator delete(tmp_page_);
 }
 
-//void Pager::Read(PageId pgid, uint8_t* cache, PageCount count) {
-//    ReadByBytes(pgid, 0, cache, page_size_);
-//}
-//
 uint8_t* Pager::GetPtr(PageId pgid, size_t offset) {
     auto ptr = db().db_file_mmap().data();
     return reinterpret_cast<uint8_t*>(ptr + (pgid * page_size_));
@@ -28,7 +24,6 @@ void Pager::Write(PageId pgid, const uint8_t* cache, PageCount count) {
 
 void Pager::WriteByBytes(PageId pgid, size_t offset, const uint8_t* buf, size_t bytes) {
     auto dst = GetPtr(pgid, offset);
-    // 检查是否需要扩展
     std::memcpy(dst, buf, bytes);
 }
 
@@ -103,8 +98,6 @@ PageId Pager::Alloc(PageCount count) {
         if (min_size > map_size) {
             db_->Mmap(min_size);
         }
-        
-
     }
     return pgid;
 }
@@ -205,9 +198,9 @@ void Pager::UpdateFreeList() {
     WriteByBytes(meta.free_list_pgid, 0, buf.data(), meta.free_pair_count * sizeof(PagePair));
 }
 
-PageId Pager::GetPageIdByCache(const uint8_t* page_cache) {
+PageId Pager::GetPageIdByPtr(const uint8_t* page_ptr) {
     auto ptr = db().db_file_mmap().data();
-    const auto diff = page_cache - reinterpret_cast<const uint8_t*>(ptr);
+    const auto diff = page_ptr - reinterpret_cast<const uint8_t*>(ptr);
     const PageId page_id = diff / page_size_;
     return page_id;
 }
@@ -215,6 +208,7 @@ PageId Pager::GetPageIdByCache(const uint8_t* page_cache) {
 Page Pager::Reference(PageId pgid, bool dirty) {
     assert(pgid >= 2);
     assert(pgid != kPageInvalidId);
+    assert(pgid < kPageMaxCount);
     return Page{ this, GetPtr(pgid, 0) };
 }
 

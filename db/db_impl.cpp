@@ -128,7 +128,7 @@ namespace fs = std::filesystem;
 
  void DBImpl::Mmap(uint64_t new_size) {
      std::unique_lock lock{ db_file_mmap_lock_ };
-     db_file_mmap_.unmap();
+     db_file_mmap_pending_.emplace_back(std::move(db_file_mmap_));
      // 1GB之前二倍扩展
      uint64_t map_size;
      const uint64_t max_expand_size = 1024 * 1024 * 1024;
@@ -155,6 +155,13 @@ namespace fs = std::filesystem;
      if (ec) {
          throw IoError{ "unable to map db file."};
      }
+ }
+
+ void DBImpl::ClearMmapPending() {
+     for (auto& mmap : db_file_mmap_pending_) {
+         mmap.unmap();
+     }
+     db_file_mmap_pending_.clear();
  }
 
 void DBImpl::Recover(std::string_view path) {
