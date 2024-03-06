@@ -27,34 +27,19 @@ namespace fs = std::filesystem;
          }
      }
 
-     std::error_code error_code;
-     db->db_file_.open(path, tinyio::access_mode::write, error_code);
-     if (error_code) {
-         throw IoError{ "unable to open db file." };
-     }
-     db->db_file_.lock(tinyio::share_mode::exclusive, error_code);
-     if (error_code) {
-         throw IoError{ "unable to lock db file." };
-     }
-     auto size = db->db_file_.size(error_code);
-     if (error_code) {
-         throw IoError{ "unable to query size db file." };
-     }
+     db->db_file_.open(path, tinyio::access_mode::write);
+     db->db_file_.lock(tinyio::share_mode::exclusive);
+     auto size = db->db_file_.size();
 
      bool init = false;
      if (size < mio::page_size() * kPageInitCount) {
-         db->db_file_.resize(mio::page_size() * kPageInitCount, error_code);
-         if (error_code) {
-             throw IoError{ "unable to resize db file." };
-         }
+         db->db_file_.resize(mio::page_size() * kPageInitCount);
          init = true;
      }
-     db->db_file_.unlock(error_code);
-     if (error_code) {
-         throw IoError{ "unable to unlock db file." };
-     }
+     db->db_file_.unlock();
 
      db->db_path_ = path;
+     std::error_code error_code;
      db->db_file_mmap_ = mio::make_mmap_sink(db->db_path_, error_code);
      if (error_code) {
          throw IoError{ "unable to map db file." };
@@ -97,6 +82,7 @@ namespace fs = std::filesystem;
  }
 
  UpdateTx DBImpl::Update() {
+
      return tx_manager_.Update();
  }
 
@@ -105,7 +91,7 @@ namespace fs = std::filesystem;
      return tx_manager_.View();
  }
 
- void DBImpl::Checkpoint() {
+void DBImpl::Checkpoint() {
      if (!tx_manager_.has_update_tx()) {
          throw CheckpointError{ "checkpoint execution is not allowed when there is a write transaction." };
      }
@@ -126,8 +112,7 @@ namespace fs = std::filesystem;
      log_writer_.Reset();
  }
 
- void DBImpl::Mmap(uint64_t new_size) {
-     std::unique_lock lock{ db_file_mmap_lock_ };
+void DBImpl::Mmap(uint64_t new_size) {
      db_file_mmap_pending_.emplace_back(std::move(db_file_mmap_));
      // 1GB之前二倍扩展
      uint64_t map_size;
@@ -140,24 +125,21 @@ namespace fs = std::filesystem;
                  break;
              }
          }
-     }
-     else {
+     } else {
          map_size = new_size + (new_size % max_expand_size);
      }
      assert(map_size % pager_->page_size() == 0);
 
+     db_file_.resize(map_size);
      std::error_code ec;
-     db_file_.resize(map_size, ec);
-     if (ec) {
-         throw IoError{ "unable to resize db file." };
-     }
      db_file_mmap_.map(db_path_, ec);
      if (ec) {
          throw IoError{ "unable to map db file."};
      }
  }
 
- void DBImpl::ClearMmapPending() {
+void DBImpl::ClearMmapPending() {
+    std::unique_lock lock{ db_file_mmap_lock_ };
      for (auto& mmap : db_file_mmap_pending_) {
          mmap.unmap();
      }

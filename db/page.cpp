@@ -25,6 +25,7 @@ void Page::operator=(Page&& right) noexcept {
     Dereference();
     assert(pager_ == right.pager_);
     page_buf_ = right.page_buf_;
+    page_id_ = right.page_id_;
     right.page_buf_ = nullptr;
 }
 

@@ -14,16 +14,9 @@ Reader::Reader() :
 Reader::~Reader() = default;
 
 void Reader::Open(std::string_view path) {
-    std::error_code error_code;
-    file_.open(path, tinyio::access_mode::write, error_code);
-    if (error_code) {
-        throw IoError{ "failed to open log file." };
-    }
+    file_.open(path, tinyio::access_mode::write);
     buffer_.resize(kBlockSize);
-    file_.seekg(0, error_code);
-    if (error_code) {
-        throw IoError{ "failed to seekg log file." };
-    }
+    file_.seekg(0);
     buffer_.resize(kBlockSize);
 }
 
@@ -80,11 +73,7 @@ const LogRecord* Reader::ReadPhysicalRecord() {
         if (size_ < kHeaderSize) {
             if (!eof_) {
                 offset_ = 0;
-                std::error_code error_code;
-                file_.read(&buffer_[0], kBlockSize, error_code);
-                if (error_code) {
-                    throw IoError{ "failed to read log file." };
-                }
+                file_.read(&buffer_[0], kBlockSize);
                 if (size_ == 0) {
                     // 到达文件末尾
                     eof_ = true;

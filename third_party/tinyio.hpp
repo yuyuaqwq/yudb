@@ -99,6 +99,16 @@ inline file_handle_type open_file(const std::filesystem::path& path, const acces
     return handle;
 }
 
+inline file_handle_type open_file(const std::filesystem::path& path, const access_mode mode) {
+    std::error_code ec;
+    auto handle = open_file(path, mode, ec);
+    if (ec) {
+        throw std::ios_base::failure{"tinyio::detail::win::open_file"};
+    }
+    return handle;
+}
+
+
 inline size_t query_file_size(file_handle_type handle, std::error_code& error) {
     error.clear();
 #ifdef _WIN32
@@ -135,6 +145,11 @@ public:
         handle_ = detail::open_file(path, mode, error_code);
     }
 
+    void open(const std::filesystem::path& path, const access_mode mode) {
+        close();
+        handle_ = detail::open_file(path, mode);
+    }
+
     bool is_open() {
         return handle_ != invalid_handle;
     }
@@ -162,6 +177,14 @@ public:
             error_code = detail::last_error();
         }
 #endif
+    }
+
+    void seekg(uint64_t pos) {
+        std::error_code ec;
+        seekg(pos, ec);
+        if (ec) {
+            throw std::ios_base::failure{ "tinyio::file::seekg" };
+        }
     }
 
     void seekg(uint64_t off, std::ios::seekdir dir, std::error_code& error_code) {
@@ -207,6 +230,14 @@ public:
 #endif
     }
 
+    void seekg(uint64_t off, std::ios::seekdir dir) {
+        std::error_code ec;
+        seekg(off, dir, ec);
+        if (ec) {
+            throw std::ios_base::failure{ "tinyio::file::seekg" };
+        }
+    }
+
     uint64_t tellg(std::error_code& error_code) {
         error_code.clear();
 #ifdef _WIN32
@@ -227,8 +258,26 @@ public:
 #endif
     }
 
+    uint64_t tellg() {
+        std::error_code ec;
+        auto res = tellg(ec);
+        if (ec) {
+            throw std::ios_base::failure{ "tinyio::file::tellg" };
+        }
+        return res;
+    }
+
     uint64_t size(std::error_code& error_code) {
         return detail::query_file_size(handle_, error_code);
+    }
+
+    uint64_t size() {
+        std::error_code ec;
+        auto res = size(ec);
+        if (ec) {
+            throw std::ios_base::failure{ "tinyio::file::size" };
+        }
+        return res;
     }
 
     void resize(uint64_t new_size, std::error_code& error_code) {
@@ -245,6 +294,14 @@ public:
             error_code = detail::last_error();
         }
 #endif
+    }
+
+    void resize(uint64_t new_size) {
+        std::error_code ec;
+        resize(new_size, ec);
+        if (ec) {
+            throw std::ios_base::failure{ "tinyio::file::resize" };
+        }
     }
 
     size_t read(void* buf, size_t length, std::error_code& error_code) {
@@ -266,6 +323,15 @@ public:
 #endif
     }
 
+    size_t read(void* buf, size_t length) {
+        std::error_code ec;
+        auto res = read(buf, length, ec);
+        if (ec) {
+            throw std::ios_base::failure{ "tinyio::file::read" };
+        }
+        return res;
+    }
+
     size_t write(const void* buf, size_t size, std::error_code& error_code) {
         error_code.clear();
 #ifdef _WIN32
@@ -285,6 +351,15 @@ public:
 #endif
     }
 
+    size_t write(const void* buf, size_t size) {
+        std::error_code ec;
+        auto res = write(buf, size, ec);
+        if (ec) {
+            throw std::ios_base::failure{ "tinyio::file::write" };
+        }
+        return res;
+    }
+
     void sync(std::error_code& error_code) {
         error_code.clear();
 #ifdef _WIN32
@@ -297,6 +372,14 @@ public:
             error_code = detail::last_error();
         }
 #endif
+    }
+
+    void sync() {
+        std::error_code ec;
+        sync();
+        if (ec) {
+            throw std::ios_base::failure{ "tinyio::file::sync" };
+        }
     }
 
     void lock(const share_mode& mode, std::error_code& error_code) {
@@ -337,6 +420,14 @@ public:
 #endif
     }
 
+    void lock(const share_mode& mode) {
+        std::error_code ec;
+        lock(mode, ec);
+        if (ec) {
+            throw std::ios_base::failure{ "tinyio::file::lock" };
+        }
+    }
+
     void unlock(std::error_code& error_code) {
         error_code.clear();
 #ifdef _WIN32
@@ -350,6 +441,14 @@ public:
             error_code = detail::last_error();
         }
 #endif
+    }
+
+    void unlock() {
+        std::error_code ec;
+        unlock(ec);
+        if (ec) {
+            throw std::ios_base::failure{ "tinyio::file::unlock" };
+        }
     }
 
 private:

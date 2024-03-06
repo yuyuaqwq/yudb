@@ -206,7 +206,6 @@ PageId Pager::GetPageIdByPtr(const uint8_t* page_ptr) {
 }
 
 Page Pager::Reference(PageId pgid, bool dirty) {
-    assert(pgid >= 2);
     assert(pgid != kPageInvalidId);
     assert(pgid < kPageMaxCount);
     return Page{ this, GetPtr(pgid, 0) };
@@ -224,6 +223,9 @@ void Pager::FreeToMap(PageId pgid, PageCount count) {
 #ifndef NDEBUG
     for (auto i = 0; i < count; ++i) {
         auto [_, success] = debug_free_set_.insert(pgid + i);
+        if (!success) {
+            printf("?????");
+        }
         assert(success);
     }
 #endif
