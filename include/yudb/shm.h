@@ -24,7 +24,7 @@ public:
     }
 
     void UpdateUnlock() {
-        shm_->update_lock_.clear();
+        shm_->update_lock_.clear(std::memory_order_release);
     }
 
 private:
