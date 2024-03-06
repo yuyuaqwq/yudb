@@ -11,6 +11,7 @@
 #include "yudb/meta.h"
 #include "yudb/pager.h"
 #include "yudb/tx_manager.h"
+#include "yudb/shm.h"
 
 namespace yudb {
 
@@ -40,8 +41,10 @@ public:
     auto& options() { return options_; }
     auto& db_file_mmap() const { return db_file_mmap_; }
     auto& db_file_mmap() { return db_file_mmap_; }
-    auto& db_file_mmap_lock() { return db_file_mmap_lock_; }
     auto& db_file_mmap_lock() const { return db_file_mmap_lock_; }
+    auto& db_file_mmap_lock() { return db_file_mmap_lock_; }
+    auto& shm() const { return shm_; }
+    auto& shm() { return shm_; }
     auto& meta() const { return meta_; }
     auto& meta() { return meta_; }
     auto& pager() const { assert(pager_.has_value()); return *pager_; }
@@ -67,7 +70,8 @@ private:
     mio::mmap_sink db_file_mmap_;
     std::vector<mio::mmap_sink> db_file_mmap_pending_;
 
-    mio::mmap_sink lock_file_mmap_;
+    mio::mmap_sink shm_file_mmap_;
+    std::optional<Shm> shm_;
 
     Meta meta_{ this };
     std::optional<Pager> pager_;

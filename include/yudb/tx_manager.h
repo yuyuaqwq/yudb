@@ -2,7 +2,6 @@
 
 #include <optional>
 #include <map>
-#include <mutex>
 
 #include "yudb/noncopyable.h"
 #include "yudb/log_writer.h"
@@ -31,6 +30,7 @@ public:
     DBImpl& db();
     TxImpl& update_tx();
     bool has_update_tx() { return update_tx_.has_value(); };
+    bool has_view_tx() { return !view_tx_map_.empty(); }
     Pager& pager() const;
     bool committed() const { return committed_; }
 
@@ -45,8 +45,6 @@ private:
     std::optional<TxImpl> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;
     bool committed_{ false };
-
-    std::mutex update_lock_;
 };
 
 } // namespace yudb

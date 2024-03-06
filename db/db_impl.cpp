@@ -29,11 +29,18 @@ namespace fs = std::filesystem;
 
      db->db_file_.open(path, tinyio::access_mode::write);
      db->db_file_.lock(tinyio::share_mode::exclusive);
-     auto size = db->db_file_.size();
-
      bool init = false;
-     if (size < mio::page_size() * kPageInitCount) {
+     if (db->db_file_.size() < mio::page_size() * kPageInitCount) {
          db->db_file_.resize(mio::page_size() * kPageInitCount);
+         init = true;
+     }
+
+     std::string shm_path = path.data();
+     shm_path += "-shm";
+     tinyio::file shm_file;
+     shm_file.open(shm_path, tinyio::access_mode::write);
+     if (shm_file.size() < mio::page_size() * kPageInitCount) {
+         shm_file.resize(mio::page_size());
          init = true;
      }
      db->db_file_.unlock();
@@ -44,6 +51,11 @@ namespace fs = std::filesystem;
      if (error_code) {
          throw IoError{ "unable to map db file." };
      }
+     db->shm_file_mmap_ = mio::make_mmap_sink(shm_path, error_code);
+     if (error_code) {
+         throw IoError{ "unable to map shm file." };
+     }
+     db->shm_.emplace(reinterpret_cast<ShmStruct*>(db->shm_file_mmap_.data()));
      db->pager_.emplace(db.get(), db->options_->page_size);
 
      if (init) {
@@ -68,20 +80,26 @@ namespace fs = std::filesystem;
 
  DBImpl::~DBImpl() {
      if (pager_.has_value()) {
+         if (tx_manager_.has_update_tx() || tx_manager_.has_view_tx()) {
+             throw IoError{ "unexpected database shutdown during transaction execution phase." };
+         }
          pager_->WriteAllDirtyPages();
          meta_.Switch();
          meta_.Save();
          std::error_code code;
          db_file_mmap_.sync(code);
          if (code) {
-             throw IoError{ "db file sync error." };
+             throw IoError{ "unable to sync db file." };
          }
+         db_file_mmap_.unmap();
+         shm_file_mmap_.unmap();
+         std::filesystem::remove(db_path_ + "-shm");
          log_writer_.Close();
          std::filesystem::remove(log_writer_.path());
      }
  }
 
- UpdateTx DBImpl::Update() {
+UpdateTx DBImpl::Update() {
 
      return tx_manager_.Update();
  }

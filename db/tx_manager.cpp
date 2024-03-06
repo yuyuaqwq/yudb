@@ -19,7 +19,7 @@ TxManager::~TxManager() {
 }
 
 UpdateTx TxManager::Update() {
-    update_lock_.lock();
+    db_->shm()->UpdateLock();
 
     assert(!update_tx_.has_value());
     AppendBeginLog();
@@ -82,8 +82,7 @@ void TxManager::Commit() {
     update_tx_ = std::nullopt;
     committed_ = false;
 
-    update_lock_.unlock();
-
+    db_->shm()->UpdateUnlock();
     db_->ClearMmapPending();
 }
 
