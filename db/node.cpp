@@ -47,17 +47,7 @@ bool Node::IsBranch() const {
 std::span<const uint8_t> Node::GetKey(SlotId slot_id) {
     assert(slot_id < count());
     auto& slot = struct_->slots[slot_id];
-    if (!slot.is_overflow_pages) {
-        return { GetRecordPtr(slot_id), slot.key_length };
-    }
-    if (cached_slot_id_ != slot_id || cached_key_page_.has_value()) {
-        auto overflow_record = reinterpret_cast<OverflowRecord*>(GetRecordPtr(slot_id));
-        auto& pager = btree_->bucket().pager();
-        cached_key_page_ = pager.Reference(overflow_record->pgid, false);
-        cached_slot_id_ = slot_id;
-    }
-    assert(cached_key_page_.has_value());
-    return { reinterpret_cast<const uint8_t*>(cached_key_page_->page_buf()), slot.key_length };
+    return { GetRecordPtr(slot_id), slot.key_length };
 }
 
 std::pair<SlotId, bool> Node::LowerBound(std::span<const uint8_t> key) {
@@ -180,8 +170,14 @@ uint8_t* Node::Ptr() {
 }
 
 uint8_t* Node::GetRecordPtr(SlotId slot_id) {
-    assert(slot_id < count()); 
-    return Ptr() + struct_->slots[slot_id].record_offset;
+    auto& slot = struct_->slots[slot_id];
+    if (!slot.is_overflow_pages) {
+        assert(slot_id < count());
+        return Ptr() + slot.record_offset;
+    }
+    auto& pager = btree_->bucket().pager();
+    auto overflow_record = reinterpret_cast<OverflowRecord*>(GetRecordPtr(slot_id));
+    return pager.GetPtr(overflow_record->pgid, 0);
 }
 
 PageId Node::StoreRecordToOverflowPages(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
@@ -217,42 +213,6 @@ PageId Node::StoreRecordToOverflowPages(SlotId slot_id, std::span<const uint8_t>
         }
     }
     return pgid;
-}
-
-void Node::LoadRecordFromOverflowPages(SlotId slot_id) {
-    auto& slot = struct_->slots[slot_id];
-    assert(slot.is_overflow_pages);
-    
-    auto& pager = btree_->bucket().pager();
-
-    auto overflow_record = reinterpret_cast<OverflowRecord*>(GetRecordPtr(slot_id));
-
-    size_t length = slot.key_length;
-    if (IsLeaf()) length += slot.value_length;
-
-    auto page_size_ = page_size();
-    auto page_count = length / page_size_;
-    if (length % page_size_) ++page_count;
-
-    uint32_t remaining_length = length;
-    cached_record_.resize(length);
-    if (page_count <= kMaxCachedPageCount) {
-        for (uint32_t i = 0; i < page_count; i++) {
-            auto page_ref = pager.Reference(overflow_record->pgid + i, false);
-            auto page_buf = page_ref.page_buf();
-            auto copy_length = std::min(static_cast<uint32_t>(page_size_), remaining_length);
-            std::memcpy(&cached_record_[i * page_size_], page_buf, copy_length);
-            remaining_length -= copy_length;
-            if (i == 0) {
-                cached_key_page_ = std::move(page_ref);
-            }
-        }
-    } else {
-        cached_key_page_ = pager.Reference(overflow_record->pgid, false);
-        pager.ReadByBytes(overflow_record->pgid + 1, 0, reinterpret_cast<uint8_t*>(cached_record_.data()), length);
-        std::memcpy(cached_record_.data(), cached_key_page_->page_buf(), page_size_);
-    }
-    cached_slot_id_ = slot_id;
 }
 
 void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
@@ -516,15 +476,7 @@ Slot& LeafNode::GetSlot(SlotId slot_id) {
 std::span<const uint8_t> LeafNode::GetValue(SlotId slot_id) {
     assert(slot_id < count());
     auto& slot = struct_->slots[slot_id];
-    if (!slot.is_overflow_pages) {
-        return { GetRecordPtr(slot_id) + slot.key_length, slot.value_length }; 
-    }
-    if (cached_slot_id_ != slot_id) {
-        LoadRecordFromOverflowPages(slot_id);
-    }
-    assert(cached_record_.size() == slot.key_length + slot.value_length);
-    return { reinterpret_cast<const uint8_t*>(cached_record_.data()) + slot.key_length, slot.value_length };
-    
+    return { GetRecordPtr(slot_id) + slot.key_length, slot.value_length };
 }
 
 bool LeafNode::Update(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {

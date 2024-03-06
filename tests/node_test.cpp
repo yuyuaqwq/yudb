@@ -7,8 +7,6 @@ namespace yudb {
 
 TEST(NodeTest, Slot) {
     yudb::Options options{
-        .page_size = 1024,
-        .cache_pool_page_count = 1024,
         .log_file_limit_bytes = 1024 * 1024 * 64,
     };
     auto db = yudb::DB::Open(options, "Z:/pager_test.ydb");

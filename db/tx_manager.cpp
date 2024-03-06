@@ -23,7 +23,7 @@ UpdateTx TxManager::Update() {
 
     assert(!update_tx_.has_value());
     AppendBeginLog();
-    update_tx_.emplace(this, db_->meta().meta_format(), true);
+    update_tx_.emplace(this, db_->meta().meta_struct(), true);
     update_tx_->set_txid(update_tx_->txid() + 1);
     if (update_tx_->txid() == kTxInvalidId) {
         throw TxManagerError("txid overflow.");
@@ -42,13 +42,13 @@ UpdateTx TxManager::Update() {
 }
 
 ViewTx TxManager::View() {
-    const auto iter = view_tx_map_.find(db_->meta().meta_format().txid);
+    const auto iter = view_tx_map_.find(db_->meta().meta_struct().txid);
     if (iter == view_tx_map_.end()) {
-        view_tx_map_.insert({ db_->meta().meta_format().txid , 1});
+        view_tx_map_.insert({ db_->meta().meta_struct().txid , 1});
     } else {
         ++iter->second;
     }
-    return ViewTx{ this, db_->meta().meta_format()};
+    return ViewTx{ this, db_->meta().meta_struct()};
 }
 
 void TxManager::RollBack() {
@@ -58,6 +58,7 @@ void TxManager::RollBack() {
 }
 
 void TxManager::RollBack(TxId view_txid) {
+    db_->db_file_mmap_lock().unlock_shared();
     const auto iter = view_tx_map_.find(view_txid);
     assert(iter != view_tx_map_.end());
     assert(iter->second > 0);
@@ -74,7 +75,7 @@ void TxManager::Commit() {
     // db_->meta().Switch();
     // db_->meta().Save();
 
-    CopyMetaInfo(&db_->meta().meta_format(), update_tx_->meta_format());
+    CopyMetaInfo(&db_->meta().meta_struct(), update_tx_->meta_format());
 
     AppendCommitLog();
 

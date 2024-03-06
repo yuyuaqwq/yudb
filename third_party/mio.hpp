@@ -46,6 +46,9 @@
 #define MIO_PAGE_HEADER
 
 #ifdef _WIN32
+# ifndef NOMINMAX
+#  define NOMINMAX
+# endif // NOMINMAX
 # include <windows.h>
 #else
 # include <unistd.h>
@@ -77,7 +80,7 @@ inline size_t page_size()
 #ifdef _WIN32
         SYSTEM_INFO SystemInfo;
         GetSystemInfo(&SystemInfo);
-        return SystemInfo.dwAllocationGranularity;
+        return SystemInfo.dwPageSize;
 #else
         return sysconf(_SC_PAGE_SIZE);
 #endif

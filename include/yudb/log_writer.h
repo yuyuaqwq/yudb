@@ -5,9 +5,9 @@
 #include <span>
 #include <filesystem>
 
+#include "third_party/tinyio.hpp"
 #include "yudb/log_format.h"
 #include "yudb/noncopyable.h"
-#include "yudb/file.h"
 
 namespace yudb {
 namespace log {
@@ -32,9 +32,9 @@ private:
     void EmitPhysicalRecord(RecordType type, const uint8_t* ptr, size_t size);
 
 private:
-    File file_;
-    size_t size_{ 0 };
+    tinyio::file file_;
     std::string path_;
+    size_t size_{ 0 };
     size_t block_offset_{ 0 };
     std::vector<uint8_t> rep_;
 };

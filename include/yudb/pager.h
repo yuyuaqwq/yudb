@@ -5,10 +5,10 @@
 #include <unordered_set>
 #include <vector>
 #include <mutex>
+#include <forward_list>
 
 #include "yudb/page.h"
 #include "yudb/tx_format.h"
-#include "yudb/cache_manager.h"
 #include "yudb/noncopyable.h"
 
 namespace yudb {
@@ -21,10 +21,12 @@ public:
     Pager(DBImpl* db, PageSize page_size);
     ~Pager();
 
-    void Read(PageId pgid, uint8_t* cache, PageCount count);
-    void ReadByBytes(PageId pgid, size_t offset, uint8_t* cache, size_t bytes);
+    uint8_t* GetPtr(PageId pgid, size_t offset);
+
+    //void Read(PageId pgid, uint8_t* cache, PageCount count);
+    //void ReadByBytes(PageId pgid, size_t offset, uint8_t* buf, size_t bytes);
     void Write(PageId pgid, const uint8_t* cache, PageCount count);
-    void WriteByBytes(PageId pgid, size_t offset, const uint8_t* cache, size_t bytes);
+    void WriteByBytes(PageId pgid, size_t offset, const uint8_t* buf, size_t bytes);
     void WriteAllDirtyPages();
 
     void Rollback();
@@ -42,11 +44,10 @@ public:
     PageId GetPageIdByCache(const uint8_t* page_cache);
 
     Page Reference(PageId pgid, bool dirty);
-    Page AddReference(uint8_t* page_cache);
-    void Dereference(const uint8_t* page_cache);
+    Page AddReference(uint8_t* page_buf);
+    void Dereference(const uint8_t* page_buf);
     
     auto& db() const { return *db_; }
-    auto& cache_manager() { return cache_manager_; }
     auto& page_size() const { return page_size_; }
     auto& tmp_page() { return tmp_page_; }
 
@@ -56,8 +57,6 @@ private:
 private:
     DBImpl* const db_;
     const PageSize page_size_;
-    std::mutex lock_;
-    CacheManager cache_manager_;
 
     using PagePair = std::pair<PageId, PageCount>;
     std::map<TxId, std::vector<PagePair>> pending_map_;

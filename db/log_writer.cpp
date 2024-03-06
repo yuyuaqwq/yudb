@@ -10,16 +10,21 @@ Writer::Writer() = default;
 Writer::~Writer() = default;
 
 void Writer::Open(std::string_view path) {
-    if (!file_.Open(path, true)) {
+    std::error_code error_code;
+    file_.open(path, tinyio::access_mode::write, error_code);
+    if (error_code) {
         throw IoError{ "failed to open log file." };
     }
     path_ = path;
-    file_.Seek(0, File::PointerMode::kDbFilePointerSet);
+    file_.seekg(0, error_code);
+    if (error_code) {
+        throw IoError{ "failed to seekg log file." };
+    }
     rep_.reserve(kBlockSize);
 }
 
 void Writer::Close() {
-    file_.Close();
+    file_.close();
     block_offset_ = 0;
     size_ = 0;
 }
@@ -65,7 +70,11 @@ void Writer::AppendRecordToBuffer(std::string_view data) {
 
 void Writer::WriteBuffer() {
     if (rep_.size() > 0) {
-        file_.Write(rep_.data(), rep_.size());
+        std::error_code error_code;
+        file_.write(rep_.data(), rep_.size(), error_code);
+        if (error_code) {
+            throw IoError{ "failed to write log file." };
+        }
         rep_.resize(0);
     }
 }
@@ -79,7 +88,11 @@ void Writer::AppendRecord(std::span<const uint8_t> data) {
         const size_t leftover = kBlockSize - block_offset_;
         if (leftover < kHeaderSize) {
             if (leftover > 0) {
-                file_.Write(kBlockPadding, leftover);
+                std::error_code error_code;
+                file_.write(kBlockPadding, leftover, error_code);
+                if (error_code) {
+                    throw IoError{ "failed to write log file." };
+                }
             }
             block_offset_ = 0;
         }
@@ -120,9 +133,15 @@ void Writer::EmitPhysicalRecord(RecordType type, const uint8_t* ptr, size_t size
     crc32.Append(ptr, size);
     record->checksum = crc32.End();
 
-    file_.Write(buf, kHeaderSize);
-    file_.Write(ptr, size);
-
+    std::error_code error_code;
+    file_.write(buf, kHeaderSize, error_code);
+    if (error_code) {
+        throw IoError{ "failed to write log file." };
+    }
+    file_.write(ptr, size, error_code);
+    if (error_code) {
+        throw IoError{ "failed to write log file." };
+    }
     block_offset_ += kHeaderSize + size;
 }
 

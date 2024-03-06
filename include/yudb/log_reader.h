@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "yudb/file.h"
+#include "third_party/tinyio.hpp"
 #include "yudb/log_format.h"
 #include "yudb/noncopyable.h"
 
@@ -22,7 +22,7 @@ private:
     const LogRecord* ReadPhysicalRecord();
 
 private:
-    File file_;
+    tinyio::file file_;
     std::vector<uint8_t> buffer_;
     size_t size_;
     size_t offset_;

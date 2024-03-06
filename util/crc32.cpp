@@ -6,6 +6,10 @@ Crc32::Crc32() = default;
 
 Crc32::~Crc32() = default;
 
+void Crc32::Clear() {
+    value_ = 0xffffffff;
+}
+
 void Crc32::Append(const void* buf, size_t size) {
     static const uint32_t crc32_table[] = {
         0x00000000L, 0x77073096L, 0xee0e612cL, 0x990951baL,

@@ -11,91 +11,60 @@ Meta::Meta(DBImpl* db) : db_{ db } {};
 Meta::~Meta() = default;
 
 bool Meta::Load() {
-    if (db_->options()->page_size < kPageMinSize) {
-        return false;
-    }
+    auto ptr = db_->db_file_mmap().data();
 
-    db_->file().Seek(0, File::PointerMode::kDbFilePointerSet);
-    const auto success = db_->file().Read(&meta_struct_, sizeof(meta_struct_));
-    if (!success) {
-        // Initialize Meta Information
-        meta_struct_.sign = YUDB_SIGN;
-        meta_struct_.min_version = YUDB_VERSION;
-        meta_struct_.page_size = db_->options()->page_size;
-        meta_struct_.page_count = 2;
-        meta_struct_.txid = 1;
-        meta_struct_.user_root = kPageInvalidId;
-        meta_struct_.free_list_pgid = kPageInvalidId;
-        meta_struct_.free_pair_count = 0;
-        meta_struct_.free_list_page_count = 0;
-        //meta_struct_.systemdb_root = kPageInvalidId;
-        Crc32 crc32;
-        crc32.Append(&meta_struct_, kMetaSize - sizeof(uint32_t));
-        auto crc32_value = crc32.End();
-        meta_struct_.crc32 = crc32_value;
-
-        db_->file().Seek(0, File::PointerMode::kDbFilePointerSet);
-        db_->file().Write(&meta_struct_, kMetaSize);
-
-        meta_struct_.txid = 0;
-        db_->file().Seek(db_->options()->page_size, File::PointerMode::kDbFilePointerSet);
-        db_->file().Write(&meta_struct_, kMetaSize);
-
-        meta_struct_.txid = 1;
-        return true;
-    }
 
     // 校验可用元信息
-    MetaStruct meta_list[2];
-    std::memcpy(&meta_list[0], &meta_struct_, kMetaSize);
+    auto first = reinterpret_cast<MetaStruct*>(ptr);
+    auto second = reinterpret_cast<MetaStruct*>(ptr + db_->pager().page_size());
 
-    db_->file().Seek(db_->options()->page_size, File::PointerMode::kDbFilePointerSet);
-    if (db_->file().Read(&meta_list[1], kMetaSize) != kMetaSize) {
+    if (first->sign != YUDB_SIGN && second->sign != YUDB_SIGN) {
         return false;
     }
-    if (meta_list[0].sign != YUDB_SIGN && meta_list[1].sign != YUDB_SIGN) {
-        return false;
-    }
-    if (YUDB_VERSION < meta_list[0].min_version) {
+    if (YUDB_VERSION < first->min_version) {
         return false;
     }
 
-    // 选择最新的持久化版本元信息
+    // 优先选择新版本
     cur_meta_index_ = 0;
-    if (meta_list[0].txid < meta_list[1].txid) {
+    if (first->txid < second->txid) {
         cur_meta_index_ = 1;
+        meta_struct_ = second;
+    } else {
+        meta_struct_ = first;
     }
 
     // 校验元信息是否完整，不完整则使用另一个
     Crc32 crc32;
-    crc32.Append(&meta_list[cur_meta_index_], kMetaSize - sizeof(uint32_t));
+    crc32.Append(meta_struct_, kMetaSize - sizeof(uint32_t));
     auto crc32_value = crc32.End();
-    if (crc32_value != meta_list[cur_meta_index_].crc32) {
+    if (crc32_value != meta_struct_->crc32) {
         if (cur_meta_index_ == 1) {
-            return false;
+            cur_meta_index_ = 0;
+            meta_struct_ = first;
+        } else {
+            cur_meta_index_ = 1;
+            meta_struct_ = second;
         }
-        
-        crc32.Append(&meta_list[1], kMetaSize - sizeof(uint32_t));
+        crc32.Append(meta_struct_, kMetaSize - sizeof(uint32_t));
         crc32_value = crc32.End();
-        if (crc32_value != meta_list[1].crc32) {
+        if (crc32_value != meta_struct_->crc32) {
             return false;
         }
     }
 
-    // 页面尺寸不匹配则不允许打开
-    if (meta_list[cur_meta_index_].page_size != db_->options()->page_size) {
+    // 页面尺寸要求一致
+    if (meta_struct_->page_size != db_->options()->page_size) {
         return false;
     }
-    std::memcpy(&meta_struct_, &meta_list[cur_meta_index_], kMetaSize);
+
     return true;
 }
 
 void Meta::Save() {
     Crc32 crc32;
-    crc32.Append(&meta_struct_, kMetaSize - sizeof(uint32_t));
-    meta_struct_.crc32 = crc32.End();
-    db_->file().Seek(cur_meta_index_ * db_->options()->page_size, File::PointerMode::kDbFilePointerSet);
-    db_->file().Write(&meta_struct_, kMetaSize);
+    crc32.Append(meta_struct_, kMetaSize - sizeof(uint32_t));
+    meta_struct_->crc32 = crc32.End();
 }
 
 void Meta::Switch() { 
@@ -103,11 +72,11 @@ void Meta::Switch() {
 }
 
 void Meta::Set(const MetaStruct& meta_struct) {
-    CopyMetaInfo(&meta_struct_, meta_struct);
+    CopyMetaInfo(meta_struct_, meta_struct);
 }
 
 void Meta::Get(MetaStruct* meta_struct) {
-    CopyMetaInfo(meta_struct, meta_struct_);
+    CopyMetaInfo(meta_struct, *meta_struct_);
 }
 
 } // namespace yudb

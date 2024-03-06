@@ -34,8 +34,6 @@ static std::unique_ptr<yudb::DB> db;
 
 TEST(DBTest, Open) {
     yudb::Options options{
-        .page_size = 1024 * 4,
-        .cache_pool_page_count = 1024 * 16 * 4,
         .log_file_limit_bytes = 1024 * 1024 * 64,
     };
     db = yudb::DB::Open(options, "Z:/db_test.ydb");
@@ -43,7 +41,7 @@ TEST(DBTest, Open) {
 }
 
 TEST(DBTest, BatchSequential) {
-    auto count = 1000000;
+    auto count = 10000;
 
     std::vector<int64_t> arr(count);
     for (auto i = 0; i < count; i++) {

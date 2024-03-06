@@ -22,7 +22,6 @@ public:
 
     Page AddReference() const;
 
-    auto& page_buf() { return page_buf_; }
     auto& page_buf() const { return page_buf_; }
     PageId page_id() const;
 

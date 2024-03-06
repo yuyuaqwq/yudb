@@ -59,7 +59,6 @@ protected:
     uint8_t* GetRecordPtr(SlotId slot_id);
 
     PageId StoreRecordToOverflowPages(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
-    void LoadRecordFromOverflowPages(SlotId slot_id);
     void StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
     void CopyRecordRange(Node* dst);
     void DeleteRecord(SlotId slot_id);
@@ -73,8 +72,6 @@ protected:
     std::optional<Page> page_;
     NodeStruct* struct_;
 
-    std::optional<Page> cached_key_page_;
-    std::vector<uint8_t> cached_record_;
     SlotId cached_slot_id_{ kSlotInvalidId };
 };
 

@@ -10,8 +10,8 @@ namespace yudb {
 #pragma pack(push, 1)
 struct MetaStruct {
     uint32_t sign;
-    uint32_t min_version;
     PageSize page_size;
+    uint32_t min_version;
     PageCount page_count;
     PageId user_root;
     PageId free_list_pgid;

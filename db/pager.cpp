@@ -7,50 +7,49 @@ namespace yudb {
 
 Pager::Pager(DBImpl* db, PageSize page_size) : db_{ db },
     page_size_{ page_size },
-    cache_manager_{ this },
     tmp_page_{ reinterpret_cast<uint8_t*>(operator new(page_size)) } {}
 
 Pager::~Pager() {
     operator delete(tmp_page_);
 }
 
-void Pager::Read(PageId pgid, uint8_t* cache, PageCount count) {
-    ReadByBytes(pgid, 0, cache, page_size_);
-}
-
-void Pager::ReadByBytes(PageId pgid, size_t offset, uint8_t* cache, size_t bytes) {
-    db_->file().Seek(pgid * page_size() + offset, File::PointerMode::kDbFilePointerSet);
-    const auto read_size = db_->file().Read(cache + offset, bytes);
-    //assert(read_size == 0 || read_size == bytes);
+//void Pager::Read(PageId pgid, uint8_t* cache, PageCount count) {
+//    ReadByBytes(pgid, 0, cache, page_size_);
+//}
+//
+uint8_t* Pager::GetPtr(PageId pgid, size_t offset) {
+    auto ptr = db().db_file_mmap().data();
+    return reinterpret_cast<uint8_t*>(ptr + (pgid * page_size_));
 }
 
 void Pager::Write(PageId pgid, const uint8_t* cache, PageCount count) {
     WriteByBytes(pgid, 0, cache, page_size_ * count);
 }
 
-void Pager::WriteByBytes(PageId pgid, size_t offset, const uint8_t* cache, size_t bytes) {
-    db_->file().Seek(pgid * page_size() + offset, File::PointerMode::kDbFilePointerSet);
-    db_->file().Write(cache, bytes);
+void Pager::WriteByBytes(PageId pgid, size_t offset, const uint8_t* buf, size_t bytes) {
+    auto dst = GetPtr(pgid, offset);
+    // 检查是否需要扩展
+    std::memcpy(dst, buf, bytes);
 }
 
 void Pager::WriteAllDirtyPages() {
-    std::vector<PageCount> sort_arr;
-    sort_arr.reserve(db_->options()->cache_pool_page_count);
-    auto& lru_list = cache_manager_.lru_list();
-    for (auto& iter : lru_list) {
-        if (iter.value().dirty) {
-            assert(iter.value().reference_count == 0);
-            sort_arr.push_back(iter.key());
-        }
-    }
-    std::sort(sort_arr.begin(), sort_arr.end());
-    for (auto& pgid : sort_arr) {
-        auto [cache_info, page_cache] = cache_manager_.Reference(pgid, true);
-        Write(pgid, page_cache, 1);
-        assert(cache_info->dirty);
-        cache_info->dirty = false;
-        cache_manager_.Dereference(page_cache);
-    }
+    //std::vector<PageCount> sort_arr;
+    //sort_arr.reserve(db_->options()->cache_pool_page_count);
+    //auto& lru_list = cache_manager_.lru_list();
+    //for (auto& iter : lru_list) {
+    //    if (iter.value().dirty) {
+    //        assert(iter.value().reference_count == 0);
+    //        sort_arr.push_back(iter.key());
+    //    }
+    //}
+    //std::sort(sort_arr.begin(), sort_arr.end());
+    //for (auto& pgid : sort_arr) {
+    //    auto [cache_info, page_cache] = cache_manager_.Reference(pgid, true);
+    //    Write(pgid, page_cache, 1);
+    //    assert(cache_info->dirty);
+    //    cache_info->dirty = false;
+    //    cache_manager_.Dereference(page_cache);
+    //}
 }
 
 void Pager::Rollback() {
@@ -98,6 +97,14 @@ PageId Pager::Alloc(PageCount count) {
         }
         pgid = page_count;
         page_count += count;
+
+        size_t min_size = page_count * page_size_;
+        auto map_size = db_->db_file_mmap().size();
+        if (min_size > map_size) {
+            db_->Mmap(min_size);
+        }
+        
+
     }
     return pgid;
 }
@@ -156,9 +163,8 @@ void Pager::BuildFreeMap() {
         return;
     }
     size_t bytes = meta.free_pair_count * sizeof(PagePair);
-    std::vector<uint8_t> buf(bytes);
-    ReadByBytes(meta.free_list_pgid, 0, buf.data(), buf.size());
-    auto free_list = reinterpret_cast<const PagePair*>(buf.data());
+    auto ptr = GetPtr(meta.free_list_pgid, 0);
+    auto free_list = reinterpret_cast<const PagePair*>(ptr);
     for (size_t i = 0; i < meta.free_pair_count; ++i) {
         // 因为可能存在未经过合并的pending pages，这里将其合并到free map
         FreeToMap(free_list->first, free_list->second);
@@ -200,25 +206,24 @@ void Pager::UpdateFreeList() {
 }
 
 PageId Pager::GetPageIdByCache(const uint8_t* page_cache) {
-    return cache_manager_.GetPageIdByCache(page_cache);
+    auto ptr = db().db_file_mmap().data();
+    const auto diff = page_cache - reinterpret_cast<const uint8_t*>(ptr);
+    const PageId page_id = diff / page_size_;
+    return page_id;
 }
 
 Page Pager::Reference(PageId pgid, bool dirty) {
-    std::lock_guard lock{ lock_ };
     assert(pgid >= 2);
     assert(pgid != kPageInvalidId);
-    auto [_, page_cache] = cache_manager_.Reference(pgid, dirty);
-    return Page{ this, page_cache };
+    return Page{ this, GetPtr(pgid, 0) };
 }
 
-Page Pager::AddReference(uint8_t* page_cache) {
-    std::lock_guard lock{ lock_ };
-    cache_manager_.AddReference(page_cache);
-    return Page{ this, page_cache };
+Page Pager::AddReference(uint8_t* page_buf) {
+    return Page{ this, page_buf };
 }
 
-void Pager::Dereference(const uint8_t* page_cache) {
-    cache_manager_.Dereference(page_cache);
+void Pager::Dereference(const uint8_t* page_buf) {
+
 }
 
 void Pager::FreeToMap(PageId pgid, PageCount count) {

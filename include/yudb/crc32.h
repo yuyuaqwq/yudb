@@ -14,6 +14,7 @@ public:
     Crc32();
     ~Crc32();
 
+    void Clear();
     void Append(const void* buf, size_t size);
     uint32_t End();
 

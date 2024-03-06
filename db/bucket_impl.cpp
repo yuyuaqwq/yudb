@@ -13,6 +13,7 @@ BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool w
     writable_{ writable },
     btree_{ this, root_pgid, comparator }
 {}
+
 BucketImpl::~BucketImpl() = default;
 
 bool BucketImpl::Empty() const {

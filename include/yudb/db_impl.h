@@ -3,10 +3,10 @@
 #include <string>
 #include <optional>
 #include <memory>
+#include <shared_mutex>
 
 #include "third_party/mio.hpp"
 #include "yudb/db.h"
-#include "yudb/file.h"
 #include "yudb/log_writer.h"
 #include "yudb/meta.h"
 #include "yudb/pager.h"
@@ -22,6 +22,7 @@ public:
     UpdateTx Update() override;
     ViewTx View() override;
     void Checkpoint();
+    void Mmap(uint64_t new_size);
 
     template<typename Iter>
     void AppendLog(const Iter begin, const Iter end) {
@@ -36,8 +37,10 @@ public:
 
     auto& options() const { return options_; }
     auto& options() { return options_; }
-    auto& file() const { return file_; }
-    auto& file() { return file_; }
+    auto& db_file_mmap() const { return db_file_mmap_; }
+    auto& db_file_mmap() { return db_file_mmap_; }
+    auto& db_file_mmap_lock() { return db_file_mmap_lock_; }
+    auto& db_file_mmap_lock() const { return db_file_mmap_lock_; }
     auto& meta() const { return meta_; }
     auto& meta() { return meta_; }
     auto& pager() const { assert(pager_.has_value()); return *pager_; }
@@ -49,15 +52,19 @@ public:
 
 private:
     void Recover(std::string_view log_path);
+    void InitMeta();
     
 private:
     friend class DB;
 
-    std::optional<const Options> options_;
+    std::optional<Options> options_;
     bool recovering_{ false };
 
-    // File file_;
-    mio::mmap_sink file_;
+    std::string db_path_;
+    tinyio::file db_file_;
+    mio::mmap_sink db_file_mmap_;
+    std::shared_mutex db_file_mmap_lock_;
+    mio::mmap_sink lock_file_mmap_;
 
     Meta meta_{ this };
     std::optional<Pager> pager_;
