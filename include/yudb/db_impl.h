@@ -33,13 +33,15 @@ public:
         for (auto it = begin; it != end; ++it) {
             log_writer_.AppendRecordToBuffer(*it);
         }
-        if (log_writer_.size() >= options_->checkpoint_wal_threshold && tx_manager_.committed()) {
+        if (log_writer_.size() >= options_->checkpoint_wal_threshold && tx_manager_.committing()) {
             Checkpoint();
         }
     }
 
     auto& options() const { return options_; }
     auto& options() { return options_; }
+    auto& db_file() const { return db_file_; }
+    auto& db_file() { return db_file_; }
     auto& db_file_mmap() const { return db_mmap_; }
     auto& db_file_mmap() { return db_mmap_; }
     auto& db_file_mmap_lock() const { return db_mmap_lock_; }
@@ -56,8 +58,8 @@ public:
     auto& log_writer() { return log_writer_; }
 
 private:
-    void Init();
     void Recover(std::string_view log_path);
+    void AppendInitLog();
     
 private:
     friend class DB;

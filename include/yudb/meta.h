@@ -14,6 +14,7 @@ public:
     Meta(DBImpl* db);
     ~Meta();
 
+    void Init();
     bool Load();
     void Save();
     void Switch();

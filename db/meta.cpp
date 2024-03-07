@@ -10,9 +10,29 @@ Meta::Meta(DBImpl* db) : db_{ db } {};
 
 Meta::~Meta() = default;
 
+void Meta::Init() {
+    cur_meta_index_ = 0;
+
+    auto first = &meta_struct_;
+    first->sign = YUDB_SIGN;
+    first->page_size = mio::page_size();
+    first->min_version = YUDB_VERSION;
+    first->page_count = 2;
+    first->txid = 1;
+    first->user_root = kPageInvalidId;
+    first->free_list_pgid = kPageInvalidId;
+    first->free_pair_count = 0;
+    first->free_list_page_count = 0;
+
+    Crc32 crc32;
+    crc32.Append(first, kMetaSize - sizeof(uint32_t));
+    first->crc32 = crc32.End();
+
+    Save();
+}
+
 bool Meta::Load() {
     auto ptr = db_->db_file_mmap().data();
-
 
     // 校验可用元信息
     auto first = reinterpret_cast<MetaStruct*>(ptr);
@@ -67,8 +87,9 @@ void Meta::Save() {
     Crc32 crc32;
     crc32.Append(&meta_struct_, kMetaSize - sizeof(uint32_t));
     meta_struct_.crc32 = crc32.End();
-    auto page = db_->pager().Reference(cur_meta_index_, true);
-    std::memcpy(page.page_buf(), &meta_struct_, kMetaSize);
+    db_->db_file().seekg(cur_meta_index_ * meta_struct_.page_size);
+    db_->db_file().write(&meta_struct_, kMetaSize);
+    db_->db_file().sync();
 }
 
 void Meta::Switch() { 

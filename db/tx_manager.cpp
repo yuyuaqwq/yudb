@@ -19,7 +19,7 @@ TxManager::~TxManager() {
     }
 }
 
-UpdateTx TxManager::Update() {
+TxImpl& TxManager::Update() {
     db_->shm()->LockUpdate();
     assert(!update_tx_.has_value());
     AppendBeginLog();
@@ -43,7 +43,7 @@ UpdateTx TxManager::Update() {
     }
     pager().Release(min_txid - 1);
     meta_lock_.unlock();
-    return UpdateTx{ &*update_tx_ };
+    return *update_tx_;
 }
 
 ViewTx TxManager::View() {
@@ -79,13 +79,13 @@ void TxManager::RollBack(TxId view_txid) {
 }
 
 void TxManager::Commit() {
-    committed_ = true;
+    committing_ = true;
 
     db_->meta().Reset(update_tx_->meta_format());
     AppendCommitLog();
 
     update_tx_ = std::nullopt;
-    committed_ = false;
+    committing_ = false;
 
     db_->shm()->UnlockUpdate();
     db_->ClearMmap();

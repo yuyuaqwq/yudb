@@ -6,7 +6,7 @@
 
 namespace yudb {
 
-class ViewTx {
+class ViewTx : noncopyable {
 public:
     ViewTx(TxManager* tx_manager, const MetaStruct& meta);
     ~ViewTx();
@@ -17,7 +17,7 @@ private:
     TxImpl tx_;
 };
 
-class UpdateTx {
+class UpdateTx : noncopyable {
 public:
     explicit UpdateTx(TxImpl* tx);
     ~UpdateTx();

@@ -27,12 +27,12 @@ namespace fs = std::filesystem;
      db->db_path_ = path;
      db->db_file_.open(path, tinyio::access_mode::write);
      db->db_file_.lock(tinyio::share_mode::exclusive);
-     bool db_init = false;
+
+     bool init_meta = false;
      if (db->db_file_.size() < mio::page_size() * kPageInitCount) {
          db->db_file_.resize(mio::page_size() * kPageInitCount);
-         db_init = true;
+         init_meta = true;
      }
-     db->db_file_.unlock();
      std::error_code error_code;
      db->db_mmap_ = mio::make_mmap_sink(db->db_path_, error_code);
      if (error_code) {
@@ -43,43 +43,42 @@ namespace fs = std::filesystem;
      shm_path += "-shm";
      tinyio::file shm_file;
      shm_file.open(shm_path, tinyio::access_mode::write);
-     shm_file.lock(tinyio::share_mode::exclusive);
-     bool shm_init = false;
-     if (shm_file.size() == 0) {
-         shm_file.resize(mio::page_size());
+     bool init_shm = false;
+     if (shm_file.size() < sizeof(ShmStruct)) {
+         shm_file.resize(sizeof(ShmStruct));
+         init_shm = true;
      }
-     shm_file.unlock();
      db->shm_mmap_ = mio::make_mmap_sink(shm_path, error_code);
      if (error_code) {
          throw IoError{ "unable to map shm file." };
      }
      db->shm_.emplace(reinterpret_cast<ShmStruct*>(db->shm_mmap_.data()));
-     if (shm_init) {
+     if (init_shm) {
          db->shm_->Init();
      }
 
      db->pager_.emplace(db.get(), db->options_->page_size);
-     if (db_init) {
-         db->Init();
+     if (init_meta) {
+         db->meta().Init();
+     } else {
+         if (!db->meta().Load()) {
+             return {};
+         }
      }
-     if (!db->meta().Load()) {
-         return {};
-     }
-
      std::string log_path = path.data();
      log_path += "-wal";
      tinyio::file log_file;
      log_file.open(log_path, tinyio::access_mode::write);
-     log_file.lock(tinyio::share_mode::exclusive);
      if (log_file.size() > 0) {
          db->shm_->Init();
          db->Recover(log_path);
          log_file.resize(0);
      }
-     log_file.unlock();
      log_file.close();
 
+     db->db_file_.unlock();
      db->log_writer().Open(log_path);
+     db->AppendInitLog();
      return db;
  }
 
@@ -99,10 +98,10 @@ namespace fs = std::filesystem;
  }
 
 UpdateTx DBImpl::Update() {
-     return tx_manager_.Update();
+    return UpdateTx{ &tx_manager_.Update() };
  }
 
- ViewTx DBImpl::View() {
+ViewTx DBImpl::View() {
      db_mmap_lock_.lock_shared();
      return tx_manager_.View();
  }
@@ -117,15 +116,15 @@ void DBImpl::Checkpoint() {
      meta_.Reset(tx.meta_format());
 
      pager_->WriteAllDirtyPages();
-     meta_.Switch();
-     meta_.Save();
      std::error_code error_code;
      db_mmap_.sync(error_code);
      if (error_code) {
          throw IoError{ "failed to sync db file." };
      }
-
+     meta_.Switch();
+     meta_.Save();
      log_writer_.Reset();
+     AppendInitLog();
  }
 
 void DBImpl::Mmap(uint64_t new_size) {
@@ -162,39 +161,16 @@ void DBImpl::ClearMmap() {
      db_mmap_pending_.clear();
  }
 
-void DBImpl::Init() {
-    auto ptr = db_mmap_.data();
-    auto first = reinterpret_cast<MetaStruct*>(ptr);
-    first->sign = YUDB_SIGN;
-    first->page_size = mio::page_size();
-    first->min_version = YUDB_VERSION;
-    first->page_count = 2;
-    first->txid = 1;
-    first->user_root = kPageInvalidId;
-    first->free_list_pgid = kPageInvalidId;
-    first->free_pair_count = 0;
-    first->free_list_page_count = 0;
-
-    Crc32 crc32;
-    crc32.Append(first, kMetaSize - sizeof(uint32_t));
-    first->crc32 = crc32.End();
-
-    auto second = reinterpret_cast<MetaStruct*>(ptr + pager_->page_size());
-    std::memcpy(second, first, kMetaSize - sizeof(uint32_t));
-    second->txid = 2;
-
-    crc32.Clear();
-    crc32.Append(second, kMetaSize - sizeof(uint32_t));
-    second->crc32 = crc32.End();
-}
-
 void DBImpl::Recover(std::string_view path) {
-    // 实际上的恢复过程还需要判断是否已经进行了恢复但中途又发生了崩溃
     recovering_ = true;
     yudb::log::Reader reader;
     reader.Open(path);
     std::optional<UpdateTx> current_tx;
+    bool end = false, init = false;
     do {
+        if (end) {
+            break;
+        }
         auto record = reader.ReadRecord();
         if (!record) {
             break;
@@ -202,17 +178,30 @@ void DBImpl::Recover(std::string_view path) {
         if (record->size() < sizeof(OperationType)) {
             break;
         }
-        bool end = false;
         auto type = *reinterpret_cast<OperationType*>(record->data());
         switch (type) {
+        case OperationType::kInit: {
+            auto format = reinterpret_cast<InitLogHeader*>(record->data());
+            if (format->txid <= meta_.meta_struct().txid) {
+                end = true;
+            }
+            init = true;
+            break;
+        }
         case OperationType::kBegin: {
+            if (!init) {
+                throw RecoverError{ "abnormal logging." };
+            }
             if (current_tx.has_value()) {
                 throw RecoverError{ "abnormal logging." };
             }
-            current_tx = Update();
+            current_tx.emplace(&tx_manager_.Update());
             break;
         }
         case OperationType::kRollback: {
+            if (!init) {
+                throw RecoverError{ "abnormal logging." };
+            }
             if (!current_tx.has_value()) {
                 throw RecoverError{ "abnormal logging." };
             }
@@ -221,6 +210,9 @@ void DBImpl::Recover(std::string_view path) {
             break;
         }
         case OperationType::kCommit: {
+            if (!init) {
+                throw RecoverError{ "abnormal logging." };
+            }
             if (!current_tx.has_value()) {
                 throw RecoverError{ "abnormal logging." };
             }
@@ -229,10 +221,18 @@ void DBImpl::Recover(std::string_view path) {
             break;
         }
         case OperationType::kPut: {
+            if (!init) {
+                throw RecoverError{ "abnormal logging." };
+            }
             assert(record->size() == kBucketPutLogHeaderSize);
             auto format = reinterpret_cast<BucketLogHeader*>(record->data());
             auto& tx = tx_manager_.update_tx();
-            auto& bucket = tx.AtSubBucket(format->bucket_id);
+            BucketImpl* bucket;
+            if (format->bucket_id == kUserRootBucketId) {
+                bucket = &tx.user_bucket();
+            } else {
+                bucket = &tx.AtSubBucket(format->bucket_id);
+            }
             auto key = reader.ReadRecord();
             if (!key) {
                 end = true;
@@ -243,10 +243,13 @@ void DBImpl::Recover(std::string_view path) {
                 end = true;
                 break;
             }
-            bucket.Put(key->data(), key->size(), value->data(), value->size());
+            bucket->Put(key->data(), key->size(), value->data(), value->size());
             break;
         }
         case OperationType::kDelete: {
+            if (!init) {
+                throw RecoverError{ "abnormal logging." };
+            }
             assert(record->size() == kBucketDeleteLogHeaderSize);
             auto format = reinterpret_cast<BucketLogHeader*>(record->data());
             auto& tx = tx_manager_.update_tx();
@@ -267,12 +270,22 @@ void DBImpl::Recover(std::string_view path) {
         // 不完整的日志记录，丢弃最后的事务
         current_tx->RollBack();
     }
-    meta_.Save();
     std::error_code error_code;
     db_mmap_.sync(error_code);
     if (error_code) {
         throw IoError{ "failed to sync db file." };
     }
+    meta_.Switch();
+    meta_.Save();
+}
+
+void DBImpl::AppendInitLog() {
+    InitLogHeader format;
+    format.type = OperationType::kInit;
+    format.txid = meta().meta_struct().txid + 1;
+    std::array<std::span<const uint8_t>, 1> arr;
+    arr[0] = { reinterpret_cast<const uint8_t*>(&format), sizeof(InitLogHeader)};
+    AppendLog(arr.begin(), arr.end());
 }
 
 } // namespace yudb

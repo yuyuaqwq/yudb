@@ -17,7 +17,7 @@ public:
     explicit TxManager(DBImpl* db);
     ~TxManager();
 
-    UpdateTx Update();
+    TxImpl& Update();
     ViewTx View();
 
     void RollBack();
@@ -32,7 +32,7 @@ public:
     TxImpl& update_tx();
     bool has_update_tx() const { return update_tx_.has_value(); };
     Pager& pager() const;
-    bool committed() const { return committing_; }
+    bool committing() const { return committing_; }
 
 private:
     void AppendBeginLog();

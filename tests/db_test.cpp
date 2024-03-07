@@ -55,10 +55,9 @@ TEST(DBTest, BatchSequential) {
             auto bucket = tx.UserBucket(yudb::UInt64Comparator);
 
             auto j = 0;
-            std::string_view value{ nullptr, 0 };
             for (auto& iter : arr) {
                 //printf("%d\n", i);
-                bucket.Put(&iter, sizeof(iter), &value, sizeof(value));
+                bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
                 //bucket.Print(); printf("\n\n\n\n");
                 ++j;
             }
@@ -110,10 +109,8 @@ TEST(DBTest, BatchSequential) {
     }
 }
 
-
 TEST(DBTest, BatchRandom) {
     // 需要注意这里用的比较器不同了
-
     srand(10);
 
     auto count = 1000000;
@@ -193,12 +190,11 @@ TEST(DBTest, Sequential) {
         auto start_time = std::chrono::high_resolution_clock::now();
         {
             auto j = 0;
-            std::string_view value{ nullptr, 0 };
             for (auto& iter : arr) {
                 auto tx = db->Update();
                 auto bucket = tx.UserBucket(yudb::UInt64Comparator);
                 //printf("%d\n", i);
-                bucket.Put(&iter, sizeof(iter), &value, sizeof(value));
+                bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
                 //bucket.Print(); printf("\n\n\n\n");
                 ++j;
                 tx.Commit();
@@ -250,6 +246,40 @@ TEST(DBTest, Sequential) {
 
         std::reverse(arr.begin(), arr.end());
     }
+}
+
+TEST(DBTest, Recover) {
+    yudb::Options options{
+        .checkpoint_wal_threshold = 1024 * 1024 * 64,
+    };
+    db = yudb::DB::Open(options, "Z:/db_test.ydb");
+    ASSERT_FALSE(!db);
+
+    auto count = 100;
+
+    std::vector<int64_t> arr(count);
+    for (auto i = 0; i < count; i++) {
+        arr[i] = i;
+    }
+    auto start_time = std::chrono::high_resolution_clock::now();
+    {
+        auto tx = db->Update();
+        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+
+        auto j = 0;
+        for (auto& iter : arr) {
+            //printf("%d\n", i);
+            bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
+            //bucket.Print(); printf("\n\n\n\n");
+            ++j;
+        }
+        //bucket.Print();
+        tx.Commit();
+    }
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    std::cout << "insert: " << duration.count() << " ms" << std::endl;
+
 }
 
 } // namespace yudb

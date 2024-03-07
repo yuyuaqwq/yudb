@@ -9,7 +9,7 @@ namespace yudb {
 
 TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
     tx_manager_{ tx_manager },
-    user_bucket_{ this, kUserBucketId, &meta_format_.user_root, writable, tx_manager->db().options()->defaluit_comparator },
+    user_bucket_{ this, kUserRootBucketId, &meta_format_.user_root, writable, tx_manager->db().options()->defaluit_comparator },
     writable_{ writable }
 {
     CopyMetaInfo(&meta_format_, meta);

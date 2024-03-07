@@ -376,7 +376,7 @@ public:
 
     void sync() {
         std::error_code ec;
-        sync();
+        sync(ec);
         if (ec) {
             throw std::ios_base::failure{ "tinyio::file::sync" };
         }
