@@ -48,8 +48,8 @@ public:
     auto& db_file_mmap_lock() { return db_mmap_lock_; }
     auto& shm() const { return shm_; }
     auto& shm() { return shm_; }
-    auto& meta() const { return meta_; }
-    auto& meta() { return meta_; }
+    auto& meta() const { assert(meta_.has_value()); return *meta_; }
+    auto& meta() { assert(meta_.has_value()); return *meta_; }
     auto& pager() const { assert(pager_.has_value()); return *pager_; }
     auto& pager() { assert(pager_.has_value()); return *pager_; }
     auto& tx_manager() const { return tx_manager_; }
@@ -58,6 +58,10 @@ public:
     auto& log_writer() { return log_writer_; }
 
 private:
+    void InitDBMmap();
+    void InitShmMmap();
+    void InitLog();
+
     void Recover(std::string_view log_path);
     void AppendInitLog();
     
@@ -76,7 +80,7 @@ private:
     mio::mmap_sink shm_mmap_;
     std::optional<Shm> shm_;
 
-    Meta meta_{ this };
+    std::optional<Meta> meta_;
     std::optional<Pager> pager_;
     TxManager tx_manager_{ this };
     log::Writer log_writer_;

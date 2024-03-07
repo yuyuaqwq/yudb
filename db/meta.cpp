@@ -6,14 +6,16 @@
 
 namespace yudb {
 
-Meta::Meta(DBImpl* db) : db_{ db } {};
+Meta::Meta(DBImpl* db, MetaStruct* meta_struct) : 
+    db_{ db }, 
+    meta_struct_{ meta_struct } {}
 
 Meta::~Meta() = default;
 
 void Meta::Init() {
     cur_meta_index_ = 0;
 
-    auto first = &meta_struct_;
+    auto first = meta_struct_;
     first->sign = YUDB_SIGN;
     first->page_size = mio::page_size();
     first->min_version = YUDB_VERSION;
@@ -23,12 +25,13 @@ void Meta::Init() {
     first->free_list_pgid = kPageInvalidId;
     first->free_pair_count = 0;
     first->free_list_page_count = 0;
-
-    Crc32 crc32;
-    crc32.Append(first, kMetaSize - sizeof(uint32_t));
-    first->crc32 = crc32.End();
-
     Save();
+
+    Switch();
+    first->txid = 0;
+    Save();
+
+    Switch();
 }
 
 bool Meta::Load() {
@@ -36,7 +39,7 @@ bool Meta::Load() {
 
     // 校验可用元信息
     auto first = reinterpret_cast<MetaStruct*>(ptr);
-    auto second = reinterpret_cast<MetaStruct*>(ptr + db_->pager().page_size());
+    auto second = reinterpret_cast<MetaStruct*>(ptr + db_->options()->page_size);
 
     if (first->sign != YUDB_SIGN && second->sign != YUDB_SIGN) {
         return false;
@@ -85,10 +88,10 @@ bool Meta::Load() {
 
 void Meta::Save() {
     Crc32 crc32;
-    crc32.Append(&meta_struct_, kMetaSize - sizeof(uint32_t));
-    meta_struct_.crc32 = crc32.End();
-    db_->db_file().seekg(cur_meta_index_ * meta_struct_.page_size);
-    db_->db_file().write(&meta_struct_, kMetaSize);
+    crc32.Append(meta_struct_, kMetaSize - sizeof(uint32_t));
+    meta_struct_->crc32 = crc32.End();
+    db_->db_file().seekg(cur_meta_index_ * meta_struct_->page_size);
+    db_->db_file().write(meta_struct_, kMetaSize);
     db_->db_file().sync();
 }
 
@@ -97,7 +100,7 @@ void Meta::Switch() {
 }
 
 void Meta::Reset(const MetaStruct& meta_struct) {
-    CopyMetaInfo(&meta_struct_, meta_struct);
+    CopyMetaInfo(meta_struct_, meta_struct);
 }
 
 } // namespace yudb

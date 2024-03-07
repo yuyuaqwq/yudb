@@ -24,80 +24,60 @@ namespace fs = std::filesystem;
          }
      }
 
+     bool init_meta = false;
+
      db->db_path_ = path;
      db->db_file_.open(path, tinyio::access_mode::write);
-     db->db_file_.lock(tinyio::share_mode::exclusive);
-
-     bool init_meta = false;
-     if (db->db_file_.size() < mio::page_size() * kPageInitCount) {
-         db->db_file_.resize(mio::page_size() * kPageInitCount);
-         init_meta = true;
-     }
-     std::error_code error_code;
-     db->db_mmap_ = mio::make_mmap_sink(db->db_path_, error_code);
-     if (error_code) {
-         throw IoError{ "unable to map db file." };
-     }
-
-     std::string shm_path = path.data();
-     shm_path += "-shm";
-     tinyio::file shm_file;
-     shm_file.open(shm_path, tinyio::access_mode::write);
-     bool init_shm = false;
-     if (shm_file.size() < sizeof(ShmStruct)) {
-         shm_file.resize(sizeof(ShmStruct));
-         init_shm = true;
-     }
-     db->shm_mmap_ = mio::make_mmap_sink(shm_path, error_code);
-     if (error_code) {
-         throw IoError{ "unable to map shm file." };
-     }
-     db->shm_.emplace(reinterpret_cast<ShmStruct*>(db->shm_mmap_.data()));
-     if (init_shm) {
-         db->shm_->Init();
-     }
-
-     db->pager_.emplace(db.get(), db->options_->page_size);
-     if (init_meta) {
-         db->meta().Init();
+     if (db->options_->read_only) {
+         db->db_file_.lock(tinyio::share_mode::shared);
      } else {
-         if (!db->meta().Load()) {
+         db->db_file_.lock(tinyio::share_mode::exclusive);
+         if (db->db_file_.size() == 0) {
+             db->db_file_.resize(mio::page_size() * kPageInitCount);
+             init_meta = true;
+         }
+     }
+     
+     db->InitDBMmap();
+     db->InitShmMmap();
+     db->meta_.emplace(db.get(), &db->shm_->shm_struct().meta);
+     if (init_meta) {
+         db->meta_->Init();
+     } else {
+         if (!db->meta_->Load()) {
              return {};
          }
      }
-     std::string log_path = path.data();
-     log_path += "-wal";
-     tinyio::file log_file;
-     log_file.open(log_path, tinyio::access_mode::write);
-     if (log_file.size() > 0) {
-         db->shm_->Init();
-         db->Recover(log_path);
-         log_file.resize(0);
-     }
-     log_file.close();
+     db->pager_.emplace(db.get(), db->options_->page_size);
 
-     db->db_file_.unlock();
-     db->log_writer().Open(log_path);
-     db->AppendInitLog();
+     db->InitLog();
+     //db->db_file_.unlock();
      return db;
  }
 
 
  DBImpl::~DBImpl() {
-     if (pager_.has_value()) {
-         auto tx = Update();
-         Checkpoint();
-         tx.Commit();
-         
+     if (options_.has_value()) {
+         if (!options_->read_only) {
+             auto tx = Update();
+             Checkpoint();
+             tx.Commit();
+         }
          db_mmap_.unmap();
          shm_mmap_.unmap();
-         std::filesystem::remove(db_path_ + "-shm");
-         log_writer_.Close();
-         std::filesystem::remove(log_writer_.path());
+         if (!options_->read_only) {
+             std::filesystem::remove(db_path_ + "-shm");
+             log_writer_.Close();
+             std::filesystem::remove(log_writer_.path());
+         }
+         db_file_.unlock();
      }
  }
 
 UpdateTx DBImpl::Update() {
+    if (options_->read_only) {
+        throw InvalidArgumentError{ "the database is read-only." };
+    }
     return UpdateTx{ &tx_manager_.Update() };
  }
 
@@ -113,7 +93,7 @@ void DBImpl::Checkpoint() {
 
      pager_->SaveFreeList();
      auto& tx = tx_manager_.update_tx();
-     meta_.Reset(tx.meta_format());
+     meta_->Reset(tx.meta_format());
 
      pager_->WriteAllDirtyPages();
      std::error_code error_code;
@@ -121,8 +101,8 @@ void DBImpl::Checkpoint() {
      if (error_code) {
          throw IoError{ "failed to sync db file." };
      }
-     meta_.Switch();
-     meta_.Save();
+     meta_->Switch();
+     meta_->Save();
      log_writer_.Reset();
      AppendInitLog();
  }
@@ -182,7 +162,7 @@ void DBImpl::Recover(std::string_view path) {
         switch (type) {
         case OperationType::kInit: {
             auto format = reinterpret_cast<InitLogHeader*>(record->data());
-            if (format->txid <= meta_.meta_struct().txid) {
+            if (format->txid <= meta_->meta_struct().txid) {
                 end = true;
             }
             init = true;
@@ -275,17 +255,62 @@ void DBImpl::Recover(std::string_view path) {
     if (error_code) {
         throw IoError{ "failed to sync db file." };
     }
-    meta_.Switch();
-    meta_.Save();
+    meta_->Switch();
+    meta_->Save();
 }
 
 void DBImpl::AppendInitLog() {
     InitLogHeader format;
     format.type = OperationType::kInit;
-    format.txid = meta().meta_struct().txid + 1;
+    format.txid = meta_->meta_struct().txid + 1;
     std::array<std::span<const uint8_t>, 1> arr;
     arr[0] = { reinterpret_cast<const uint8_t*>(&format), sizeof(InitLogHeader)};
     AppendLog(arr.begin(), arr.end());
+}
+
+
+void DBImpl::InitDBMmap() {
+    std::error_code error_code;
+    db_mmap_ = mio::make_mmap_sink(db_path_, error_code);
+    if (error_code) {
+        throw IoError{ "unable to map db file." };
+    }
+}
+void DBImpl::InitShmMmap() {
+    std::string shm_path = db_path_ + "-shm";
+    tinyio::file shm_file;
+    shm_file.open(shm_path, tinyio::access_mode::write);
+    bool init_shm = false;
+    if (shm_file.size() < sizeof(ShmStruct)) {
+        shm_file.resize(sizeof(ShmStruct));
+        init_shm = true;
+    }
+    std::error_code error_code;
+    shm_mmap_ = mio::make_mmap_sink(shm_path, error_code);
+    if (error_code) {
+        throw IoError{ "unable to map shm file." };
+    }
+    shm_.emplace(reinterpret_cast<ShmStruct*>(shm_mmap_.data()));
+    if (init_shm) {
+        shm_->Init();
+    }
+}
+
+void DBImpl::InitLog() {
+    if (options_->read_only) {
+        return;
+    }
+
+    std::string log_path = db_path_ + "-wal";
+    tinyio::file log_file;
+    log_file.open(log_path, tinyio::access_mode::write);
+    if (log_file.size() > 0) {
+        shm_->Init();
+        Recover(log_path);
+        log_file.resize(0);
+    }
+    log_writer().Open(log_path);
+    AppendInitLog();
 }
 
 } // namespace yudb

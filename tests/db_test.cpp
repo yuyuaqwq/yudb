@@ -35,6 +35,7 @@ static std::unique_ptr<yudb::DB> db;
 TEST(DBTest, Open) {
     yudb::Options options{
         .checkpoint_wal_threshold = 1024 * 1024 * 64,
+        //.read_only = true,
     };
     db = yudb::DB::Open(options, "Z:/db_test.ydb");
     ASSERT_FALSE(!db);
@@ -249,12 +250,6 @@ TEST(DBTest, Sequential) {
 }
 
 TEST(DBTest, Recover) {
-    yudb::Options options{
-        .checkpoint_wal_threshold = 1024 * 1024 * 64,
-    };
-    db = yudb::DB::Open(options, "Z:/db_test.ydb");
-    ASSERT_FALSE(!db);
-
     auto count = 100;
 
     std::vector<int64_t> arr(count);

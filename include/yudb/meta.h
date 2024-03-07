@@ -11,7 +11,7 @@ class DBImpl;
 
 class Meta : noncopyable {
 public:
-    Meta(DBImpl* db);
+    Meta(DBImpl* db, MetaStruct* meta_struct);
     ~Meta();
 
     void Init();
@@ -20,12 +20,12 @@ public:
     void Switch();
     void Reset(const MetaStruct& meta_struct);
 
-    const auto& meta_struct() const { return meta_struct_; }
-    auto& meta_struct() { return meta_struct_; }
+    const auto& meta_struct() const { return *meta_struct_; }
+    auto& meta_struct() { return *meta_struct_; }
 
 private:
     DBImpl* const db_;
-    MetaStruct meta_struct_;
+    MetaStruct* meta_struct_;
     uint32_t cur_meta_index_{ 0 };
 };
 

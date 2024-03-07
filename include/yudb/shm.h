@@ -3,18 +3,20 @@
 #include <atomic>
 
 #include "yudb/noncopyable.h"
+#include "yudb/meta_format.h"
 
 namespace yudb {
 
 #pragma pack(push, 1)
 struct ShmStruct {
-    std::atomic_flag update_lock_;
+    std::atomic_flag update_lock;
+    MetaStruct meta;
 };
 #pragma pack(pop)
 
 class Shm : noncopyable {
 public:
-    Shm(ShmStruct* shm) : shm_{ shm } {}
+    Shm(ShmStruct* shm_struct) : shm_struct_{ shm_struct } {}
     ~Shm() = default;
 
     void Init() {
@@ -22,17 +24,19 @@ public:
     }
 
     void LockUpdate() {
-        while (shm_->update_lock_.test_and_set(std::memory_order_acquire)) {
+        while (shm_struct_->update_lock.test_and_set(std::memory_order_acquire)) {
             std::this_thread::yield();
         }
     }
 
     void UnlockUpdate() {
-        shm_->update_lock_.clear(std::memory_order_release);
+        shm_struct_->update_lock.clear(std::memory_order_release);
     }
 
+    auto& shm_struct() const { return *shm_struct_; }
+
 private:
-    ShmStruct* shm_;
+    ShmStruct* shm_struct_;
 };
 
 } // namespace yudb
