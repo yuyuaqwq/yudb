@@ -114,7 +114,7 @@ void DBImpl::Checkpoint() {
 
      pager_->SaveFreeList();
      auto& tx = tx_manager_.update_tx();
-     meta_.Set(tx.meta_format());
+     meta_.Reset(tx.meta_format());
 
      pager_->WriteAllDirtyPages();
      meta_.Switch();

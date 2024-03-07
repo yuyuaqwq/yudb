@@ -41,7 +41,7 @@ TEST(DBTest, Open) {
 }
 
 TEST(DBTest, BatchSequential) {
-    auto count = 100000;
+    auto count = 1000000;
 
     std::vector<int64_t> arr(count);
     for (auto i = 0; i < count; i++) {
@@ -116,7 +116,7 @@ TEST(DBTest, BatchRandom) {
 
     srand(10);
 
-    auto count = 100000;
+    auto count = 1000000;
     std::vector<std::string> arr(count);
 
     for (auto i = 0; i < count; i++) {
@@ -182,7 +182,7 @@ TEST(DBTest, BatchRandom) {
 }
 
 TEST(DBTest, Sequential) {
-    auto count = 100000;
+    auto count = 1000000;
 
     std::vector<int64_t> arr(count);
     for (auto i = 0; i < count; i++) {

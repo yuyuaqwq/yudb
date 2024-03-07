@@ -81,7 +81,7 @@ void TxManager::RollBack(TxId view_txid) {
 void TxManager::Commit() {
     committed_ = true;
 
-    db_->meta().Set(update_tx_->meta_format());
+    db_->meta().Reset(update_tx_->meta_format());
     AppendCommitLog();
 
     update_tx_ = std::nullopt;

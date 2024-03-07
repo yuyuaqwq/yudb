@@ -31,9 +31,8 @@ public:
     DBImpl& db();
     TxImpl& update_tx();
     bool has_update_tx() const { return update_tx_.has_value(); };
-    bool has_view_tx() const { return !view_tx_map_.empty(); }
     Pager& pager() const;
-    bool committed() const { return committed_; }
+    bool committed() const { return committing_; }
 
 private:
     void AppendBeginLog();
@@ -48,7 +47,7 @@ private:
     std::optional<TxImpl> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;
 
-    bool committed_{ false };
+    bool committing_{ false };
 };
 
 } // namespace yudb

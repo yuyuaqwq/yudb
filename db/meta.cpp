@@ -75,12 +75,8 @@ void Meta::Switch() {
     cur_meta_index_ = cur_meta_index_ == 0 ? 1 : 0;
 }
 
-void Meta::Set(const MetaStruct& meta_struct) {
+void Meta::Reset(const MetaStruct& meta_struct) {
     CopyMetaInfo(&meta_struct_, meta_struct);
-}
-
-void Meta::Get(MetaStruct* meta_struct) {
-    CopyMetaInfo(meta_struct, meta_struct_);
 }
 
 } // namespace yudb
