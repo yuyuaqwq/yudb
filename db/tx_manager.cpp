@@ -62,6 +62,7 @@ void TxManager::RollBack() {
     AppendRollbackLog();
     pager().Rollback();
     update_tx_ = std::nullopt;
+    db_->shm()->UnlockUpdate();
 }
 
 void TxManager::RollBack(TxId view_txid) {
