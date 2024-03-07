@@ -33,10 +33,10 @@ public:
     Page Copy(const Page& page_ref);
     Page Copy(PageId pgid);
 
-    void FreePending(TxId min_view_txid);
+    void Release(TxId releasable_txid);
 
-    void BuildFreeMap();
-    void UpdateFreeList();
+    void LoadFreeList();
+    void SaveFreeList();
 
     PageId GetPageIdByPtr(const uint8_t* page_ptr);
 

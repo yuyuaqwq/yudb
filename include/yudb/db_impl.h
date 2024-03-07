@@ -23,8 +23,9 @@ public:
     UpdateTx Update() override;
     ViewTx View() override;
     void Checkpoint();
+
     void Mmap(uint64_t new_size);
-    void ClearMmapPending();
+    void ClearMmap();
 
     template<typename Iter>
     void AppendLog(const Iter begin, const Iter end) {
@@ -32,17 +33,17 @@ public:
         for (auto it = begin; it != end; ++it) {
             log_writer_.AppendRecordToBuffer(*it);
         }
-        if (log_writer_.size() >= options_->log_file_limit_bytes && tx_manager_.committed()) {
+        if (log_writer_.size() >= options_->checkpoint_wal_threshold && tx_manager_.committed()) {
             Checkpoint();
         }
     }
 
     auto& options() const { return options_; }
     auto& options() { return options_; }
-    auto& db_file_mmap() const { return db_file_mmap_; }
-    auto& db_file_mmap() { return db_file_mmap_; }
-    auto& db_file_mmap_lock() const { return db_file_mmap_lock_; }
-    auto& db_file_mmap_lock() { return db_file_mmap_lock_; }
+    auto& db_file_mmap() const { return db_mmap_; }
+    auto& db_file_mmap() { return db_mmap_; }
+    auto& db_file_mmap_lock() const { return db_mmap_lock_; }
+    auto& db_file_mmap_lock() { return db_mmap_lock_; }
     auto& shm() const { return shm_; }
     auto& shm() { return shm_; }
     auto& meta() const { return meta_; }
@@ -55,8 +56,8 @@ public:
     auto& log_writer() { return log_writer_; }
 
 private:
+    void Init();
     void Recover(std::string_view log_path);
-    void InitMeta();
     
 private:
     friend class DB;
@@ -66,11 +67,11 @@ private:
 
     std::string db_path_;
     tinyio::file db_file_;
-    std::shared_mutex db_file_mmap_lock_;
-    mio::mmap_sink db_file_mmap_;
-    std::vector<mio::mmap_sink> db_file_mmap_pending_;
+    mio::mmap_sink db_mmap_;
+    std::shared_mutex db_mmap_lock_;
+    std::vector<mio::mmap_sink> db_mmap_pending_;
 
-    mio::mmap_sink shm_file_mmap_;
+    mio::mmap_sink shm_mmap_;
     std::optional<Shm> shm_;
 
     Meta meta_{ this };

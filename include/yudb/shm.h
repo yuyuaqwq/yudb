@@ -17,13 +17,17 @@ public:
     Shm(ShmStruct* shm) : shm_{ shm } {}
     ~Shm() = default;
 
-    void UpdateLock() {
+    void Init() {
+        UnlockUpdate();
+    }
+
+    void LockUpdate() {
         while (shm_->update_lock_.test_and_set(std::memory_order_acquire)) {
             std::this_thread::yield();
         }
     }
 
-    void UpdateUnlock() {
+    void UnlockUpdate() {
         shm_->update_lock_.clear(std::memory_order_release);
     }
 

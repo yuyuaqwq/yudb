@@ -31,7 +31,7 @@ void Writer::AppendRecordToBuffer(std::span<const uint8_t> data) {
     auto length = kHeaderSize + data.size();
     size_ += length;
     if (block_offset_ + length > kBlockSize) {
-        WriteBuffer();
+        FlushBuffer();
         AppendRecord(data);
         return;
     }
@@ -60,7 +60,7 @@ void Writer::AppendRecordToBuffer(std::string_view data) {
     AppendRecordToBuffer({ reinterpret_cast<const uint8_t*>(data.data()), data.size() });
 }
 
-void Writer::WriteBuffer() {
+void Writer::FlushBuffer() {
     if (rep_.size() > 0) {
         file_.write(rep_.data(), rep_.size());
         rep_.resize(0);

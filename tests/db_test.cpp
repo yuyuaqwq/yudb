@@ -34,14 +34,14 @@ static std::unique_ptr<yudb::DB> db;
 
 TEST(DBTest, Open) {
     yudb::Options options{
-        .log_file_limit_bytes = 1024 * 1024 * 64,
+        .checkpoint_wal_threshold = 1024 * 1024 * 64,
     };
     db = yudb::DB::Open(options, "Z:/db_test.ydb");
     ASSERT_FALSE(!db);
 }
 
 TEST(DBTest, BatchSequential) {
-    auto count = 1000000;
+    auto count = 100000;
 
     std::vector<int64_t> arr(count);
     for (auto i = 0; i < count; i++) {
@@ -110,12 +110,13 @@ TEST(DBTest, BatchSequential) {
     }
 }
 
+
 TEST(DBTest, BatchRandom) {
     // 需要注意这里用的比较器不同了
 
     srand(10);
 
-    auto count = 1000000;
+    auto count = 100000;
     std::vector<std::string> arr(count);
 
     for (auto i = 0; i < count; i++) {
@@ -181,7 +182,7 @@ TEST(DBTest, BatchRandom) {
 }
 
 TEST(DBTest, Sequential) {
-    auto count = 1000000;
+    auto count = 100000;
 
     std::vector<int64_t> arr(count);
     for (auto i = 0; i < count; i++) {

@@ -8,7 +8,7 @@ static std::unique_ptr<yudb::DB> db;
 
 TEST(PagerTest, AllocAndFree) {
     yudb::Options options{
-        .log_file_limit_bytes = 1024 * 1024 * 64,
+        .checkpoint_wal_threshold = 1024 * 1024 * 64,
     };
     db = yudb::DB::Open(options, "Z:/pager_test.ydb");
     ASSERT_TRUE(db.operator bool());

@@ -22,7 +22,7 @@ public:
     void Reset();
     void AppendRecordToBuffer(std::span<const uint8_t> data);
     void AppendRecordToBuffer(std::string_view data);
-    void WriteBuffer();
+    void FlushBuffer();
 
     std::string_view path() { return path_; }
     size_t size() { return size_; }

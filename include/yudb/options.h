@@ -7,7 +7,7 @@ namespace yudb {
 
 struct Options {
     PageSize page_size{ 0 };
-    const size_t log_file_limit_bytes{ 1024 * 1024 * 64 };
+    const size_t checkpoint_wal_threshold{ 1024 * 1024 * 64 };
     const Comparator defaluit_comparator{ ByteArrayComparator };
 };
 

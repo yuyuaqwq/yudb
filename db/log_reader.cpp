@@ -73,7 +73,7 @@ const LogRecord* Reader::ReadPhysicalRecord() {
         if (size_ < kHeaderSize) {
             if (!eof_) {
                 offset_ = 0;
-                file_.read(&buffer_[0], kBlockSize);
+                size_ = file_.read(&buffer_[0], kBlockSize);
                 if (size_ == 0) {
                     // 到达文件末尾
                     eof_ = true;

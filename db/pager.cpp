@@ -128,18 +128,10 @@ Page Pager::Copy(PageId pgid) {
     return Copy(std::move(page));
 }
 
-void Pager::FreePending(TxId min_view_txid) {
+void Pager::Release(TxId releasable_txid) {
     alloc_records_.clear();
-
-    auto& update_tx = db_->tx_manager().update_tx();
-    auto& root = update_tx.user_bucket();
-    if (min_view_txid == kTxInvalidId) {
-        // 上一个写事务pending的页面还不能释放，因为当前写事务进行时，其他线程可能会开启新的读事务
-        min_view_txid = update_tx.txid() - 1;
-        assert(min_view_txid != kTxInvalidId);
-    }
     for (auto iter = pending_map_.begin(); iter != pending_map_.end(); ) {
-        if (iter->first >= min_view_txid) {
+        if (iter->first >= releasable_txid) {
             break;
         }
         for (auto& [free_pgid, free_count] : iter->second) {
@@ -149,7 +141,7 @@ void Pager::FreePending(TxId min_view_txid) {
     }
 }
 
-void Pager::BuildFreeMap() {
+void Pager::LoadFreeList() {
     auto& update_tx = db_->tx_manager().update_tx();
     auto& meta = update_tx.meta_format();
     if (meta.free_list_pgid == kPageInvalidId) {
@@ -159,12 +151,13 @@ void Pager::BuildFreeMap() {
     auto ptr = GetPtr(meta.free_list_pgid, 0);
     auto free_list = reinterpret_cast<const PagePair*>(ptr);
     for (size_t i = 0; i < meta.free_pair_count; ++i) {
-        // 因为可能存在未经过合并的pending pages，这里将其合并到free map
-        FreeToMap(free_list->first, free_list->second);
+        // SaveFreeList会直接保存未合并的pending pages
+        // 这里将其合并到free map
+        FreeToMap(free_list[i].first, free_list[i].second);
     }
 }
 
-void Pager::UpdateFreeList() {
+void Pager::SaveFreeList() {
     auto& update_tx = db_->tx_manager().update_tx();
     auto& meta = update_tx.meta_format();
 

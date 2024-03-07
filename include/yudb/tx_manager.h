@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <map>
+#include <mutex>
 
 #include "yudb/noncopyable.h"
 #include "yudb/log_writer.h"
@@ -29,8 +30,8 @@ public:
 
     DBImpl& db();
     TxImpl& update_tx();
-    bool has_update_tx() { return update_tx_.has_value(); };
-    bool has_view_tx() { return !view_tx_map_.empty(); }
+    bool has_update_tx() const { return update_tx_.has_value(); };
+    bool has_view_tx() const { return !view_tx_map_.empty(); }
     Pager& pager() const;
     bool committed() const { return committed_; }
 
@@ -42,8 +43,11 @@ private:
 private:
     DBImpl* const db_;
     bool first_{ true };
+
+    std::mutex meta_lock_;
     std::optional<TxImpl> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;
+
     bool committed_{ false };
 };
 

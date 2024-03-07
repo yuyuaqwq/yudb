@@ -15,6 +15,7 @@ TEST(LogTest, ReadWrite) {
         writer.AppendRecordToBuffer("hello world");
         writer.AppendRecordToBuffer("123213123321");
         writer.AppendRecordToBuffer(std::string(100000, '*'));
+        writer.FlushBuffer();
     }
 
     {

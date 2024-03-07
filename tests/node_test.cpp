@@ -7,7 +7,7 @@ namespace yudb {
 
 TEST(NodeTest, Slot) {
     yudb::Options options{
-        .log_file_limit_bytes = 1024 * 1024 * 64,
+        .checkpoint_wal_threshold = 1024 * 1024 * 64,
     };
     auto db = yudb::DB::Open(options, "Z:/pager_test.ydb");
     ASSERT_TRUE(db.operator bool());
@@ -22,8 +22,6 @@ TEST(NodeTest, Slot) {
         LeafNode leaf_node{ &user_bucket.btree(),pager.Alloc(1), true };
 
         //leaf_node.Append();
-
-
     }
 
 }
