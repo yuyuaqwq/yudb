@@ -1,40 +1,35 @@
 #pragma once
 
-#include <atomic>
+#include <mutex>
 
 #include "yudb/noncopyable.h"
 #include "yudb/meta_format.h"
+
 
 namespace yudb {
 
 #pragma pack(push, 1)
 struct ShmStruct {
-    std::atomic_flag update_lock;
-    MetaStruct meta;
+    std::mutex update_lock;
+    std::mutex meta_lock;
+    MetaStruct meta_struct;
 };
 #pragma pack(pop)
 
 class Shm : noncopyable {
 public:
-    Shm(ShmStruct* shm_struct) : shm_struct_{ shm_struct } {}
+    Shm(ShmStruct* shm_struct) : 
+        shm_struct_{ shm_struct } {}
     ~Shm() = default;
 
     void Init() {
-        UnlockUpdate();
+        std::construct_at(shm_struct_);
     }
-
-    void LockUpdate() {
-        while (shm_struct_->update_lock.test_and_set(std::memory_order_acquire)) {
-            std::this_thread::yield();
-        }
-    }
-
-    void UnlockUpdate() {
-        shm_struct_->update_lock.clear(std::memory_order_release);
-    }
-
-    auto& shm_struct() const { return *shm_struct_; }
-
+    
+    auto& meta_struct() { return shm_struct_->meta_struct; }
+    auto& update_lock() { return shm_struct_->update_lock; }
+    auto& meta_lock() { return shm_struct_->meta_lock; }
+    
 private:
     ShmStruct* shm_struct_;
 };

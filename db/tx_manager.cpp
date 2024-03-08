@@ -13,18 +13,20 @@ TxManager::~TxManager() {
     if (update_tx_.has_value()) {
         throw TxManagerError{ "there are write transactions that have not been exited." };
     }
-    std::lock_guard lock{ meta_lock_ };
+
+    std::unique_lock lock{ db_->shm()->meta_lock() };
     if (!view_tx_map_.empty()) {
         throw TxManagerError{ "there are read transactions that have not been exited." };
     }
 }
 
 TxImpl& TxManager::Update() {
-    db_->shm()->LockUpdate();
+    db_->shm()->update_lock().lock();
+
     assert(!update_tx_.has_value());
     AppendBeginLog();
 
-    meta_lock_.lock();
+    std::unique_lock lock{ db_->shm()->meta_lock() };
     update_tx_.emplace(this, db_->meta().meta_struct(), true);
     update_tx_->set_txid(update_tx_->txid() + 1);
     if (update_tx_->txid() == kTxInvalidId) {
@@ -32,6 +34,7 @@ TxImpl& TxManager::Update() {
     }
     if (first_) {
         first_ = false;
+
         pager().LoadFreeList();
     }
     const auto iter = view_tx_map_.cbegin();
@@ -42,12 +45,12 @@ TxImpl& TxManager::Update() {
         min_txid = update_tx_->txid();
     }
     pager().Release(min_txid - 1);
-    meta_lock_.unlock();
+
     return *update_tx_;
 }
 
 ViewTx TxManager::View() {
-    std::lock_guard lock{ meta_lock_ };
+    std::unique_lock lock{ db_->shm()->meta_lock() };
     auto txid = db_->meta().meta_struct().txid;
     const auto iter = view_tx_map_.find(txid);
     if (iter == view_tx_map_.end()) {
@@ -62,13 +65,13 @@ void TxManager::RollBack() {
     AppendRollbackLog();
     pager().Rollback();
     update_tx_ = std::nullopt;
-    db_->shm()->UnlockUpdate();
+    db_->shm()->update_lock().unlock();
 }
 
 void TxManager::RollBack(TxId view_txid) {
     db_->db_file_mmap_lock().unlock_shared();
 
-    std::lock_guard lock{ meta_lock_ };
+    std::unique_lock lock{ db_->shm()->meta_lock() };
     const auto iter = view_tx_map_.find(view_txid);
     assert(iter != view_tx_map_.end());
     assert(iter->second > 0);
@@ -87,7 +90,7 @@ void TxManager::Commit() {
     update_tx_ = std::nullopt;
     committing_ = false;
 
-    db_->shm()->UnlockUpdate();
+    db_->shm()->update_lock().unlock();
     db_->ClearMmap();
 }
 

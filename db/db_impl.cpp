@@ -24,23 +24,19 @@ namespace fs = std::filesystem;
          }
      }
 
-     bool init_meta = false;
-
      db->db_path_ = path;
      db->db_file_.open(path, tinyio::access_mode::write);
-     if (db->options_->read_only) {
-         db->db_file_.lock(tinyio::share_mode::shared);
-     } else {
-         db->db_file_.lock(tinyio::share_mode::exclusive);
+     db->db_file_.lock(tinyio::share_mode::exclusive);
+     bool init_meta = false;
+     if (!db->options_->read_only) {
          if (db->db_file_.size() == 0) {
              db->db_file_.resize(mio::page_size() * kPageInitCount);
              init_meta = true;
          }
      }
-     
      db->InitDBMmap();
      db->InitShmMmap();
-     db->meta_.emplace(db.get(), &db->shm_->shm_struct().meta);
+     db->meta_.emplace(db.get(), &db->shm_->meta_struct());
      if (init_meta) {
          db->meta_->Init();
      } else {
@@ -51,7 +47,10 @@ namespace fs = std::filesystem;
      db->pager_.emplace(db.get(), db->options_->page_size);
 
      db->InitLog();
-     //db->db_file_.unlock();
+     if (db->options_->read_only) {
+         db->db_file_.unlock();
+         db->db_file_.lock(tinyio::share_mode::shared);
+     }
      return db;
  }
 
@@ -268,7 +267,6 @@ void DBImpl::AppendInitLog() {
     AppendLog(arr.begin(), arr.end());
 }
 
-
 void DBImpl::InitDBMmap() {
     std::error_code error_code;
     db_mmap_ = mio::make_mmap_sink(db_path_, error_code);
@@ -276,6 +274,7 @@ void DBImpl::InitDBMmap() {
         throw IoError{ "unable to map db file." };
     }
 }
+
 void DBImpl::InitShmMmap() {
     std::string shm_path = db_path_ + "-shm";
     tinyio::file shm_file;
@@ -300,7 +299,6 @@ void DBImpl::InitLog() {
     if (options_->read_only) {
         return;
     }
-
     std::string log_path = db_path_ + "-wal";
     tinyio::file log_file;
     log_file.open(log_path, tinyio::access_mode::write);

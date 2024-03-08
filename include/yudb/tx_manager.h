@@ -2,7 +2,6 @@
 
 #include <optional>
 #include <map>
-#include <mutex>
 
 #include "yudb/noncopyable.h"
 #include "yudb/log_writer.h"
@@ -43,7 +42,6 @@ private:
     DBImpl* const db_;
     bool first_{ true };
 
-    std::mutex meta_lock_;
     std::optional<TxImpl> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;
 

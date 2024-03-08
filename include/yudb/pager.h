@@ -4,7 +4,6 @@
 #include <map>
 #include <unordered_set>
 #include <vector>
-#include <mutex>
 #include <forward_list>
 
 #include "yudb/page.h"
