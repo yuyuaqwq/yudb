@@ -10,7 +10,6 @@ Writer::~Writer() = default;
 
 void Writer::Open(std::string_view path) {
     file_.open(path, tinyio::access_mode::write);
-    path_ = path;
     file_.seekg(0);
     rep_.reserve(kBlockSize);
 }
@@ -21,11 +20,6 @@ void Writer::Close() {
     size_ = 0;
 }
 
-void Writer::Reset() {
-    Close();
-    std::filesystem::remove(path_);
-    Open(path_);
-}
 
 void Writer::AppendRecordToBuffer(std::span<const uint8_t> data) {
     auto length = kHeaderSize + data.size();

@@ -10,6 +10,7 @@ namespace yudb {
 
 #pragma pack(push, 1)
 struct ShmStruct {
+    uint32_t connections{ 0 };
     std::mutex update_lock;
     std::mutex meta_lock;
     MetaStruct meta_struct;
@@ -23,6 +24,7 @@ public:
     ~Shm() = default;
 
     void Recover() {
+        std::construct_at(&shm_struct_->connections);
         std::construct_at(&shm_struct_->meta_lock);
         std::construct_at(&shm_struct_->update_lock);
     }

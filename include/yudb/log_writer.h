@@ -19,12 +19,10 @@ public:
 
     void Open(std::string_view path);
     void Close();
-    void Reset();
     void AppendRecordToBuffer(std::span<const uint8_t> data);
     void AppendRecordToBuffer(std::string_view data);
     void FlushBuffer();
 
-    std::string_view path() { return path_; }
     size_t size() { return size_; }
 
 private:
@@ -33,7 +31,6 @@ private:
 
 private:
     tinyio::file file_;
-    std::string path_;
     size_t size_{ 0 };
     size_t block_offset_{ 0 };
     std::vector<uint8_t> rep_;

@@ -8,7 +8,7 @@ static std::unique_ptr<yudb::DB> db;
 
 TEST(PagerTest, AllocAndFree) {
     yudb::Options options{
-        .checkpoint_wal_threshold = 1024 * 1024 * 64,
+        .max_wal_size = 1024 * 1024 * 64,
     };
     db = yudb::DB::Open(options, "Z:/pager_test.ydb");
     ASSERT_TRUE(db.operator bool());
@@ -88,14 +88,14 @@ TEST(PagerTest, AllocAndFree) {
         auto tx = db_impl->Update();
         auto pgid = pager.Alloc(1);
         ASSERT_EQ(pgid, 1120);
-        db_impl->Checkpoint();
+        db_impl->logger()->Checkpoint();
         tx.Commit();
     }
     {
         auto tx = db_impl->Update();
         auto pgid = pager.Alloc(48);
         ASSERT_EQ(pgid, 1122);
-        db_impl->Checkpoint();
+        db_impl->logger()->Checkpoint();
         tx.Commit();
     }
 }

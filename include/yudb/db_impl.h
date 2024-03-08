@@ -7,7 +7,7 @@
 
 #include "third_party/mio.hpp"
 #include "yudb/db.h"
-#include "yudb/log_writer.h"
+#include "yudb/logger.h"
 #include "yudb/meta.h"
 #include "yudb/pager.h"
 #include "yudb/tx_manager.h"
@@ -22,21 +22,9 @@ public:
 
     UpdateTx Update() override;
     ViewTx View() override;
-    void Checkpoint();
 
     void Mmap(uint64_t new_size);
     void ClearMmap();
-
-    template<typename Iter>
-    void AppendLog(const Iter begin, const Iter end) {
-        if (recovering_) return;
-        for (auto it = begin; it != end; ++it) {
-            log_writer_.AppendRecordToBuffer(*it);
-        }
-        if (log_writer_.size() >= options_->checkpoint_wal_threshold && tx_manager_.committing()) {
-            Checkpoint();
-        }
-    }
 
     auto& options() const { return options_; }
     auto& options() { return options_; }
@@ -52,24 +40,20 @@ public:
     auto& meta() { assert(meta_.has_value()); return *meta_; }
     auto& pager() const { assert(pager_.has_value()); return *pager_; }
     auto& pager() { assert(pager_.has_value()); return *pager_; }
-    auto& tx_manager() const { return tx_manager_; }
-    auto& tx_manager() { return tx_manager_; }
-    auto& log_writer() const { return log_writer_; }
-    auto& log_writer() { return log_writer_; }
+    auto& tx_manager() const { assert(tx_manager_.has_value()); return *tx_manager_; }
+    auto& tx_manager() { assert(tx_manager_.has_value()); return *tx_manager_; }
+    auto& logger() const { return logger_; }
+    auto& logger() { return logger_; }
 
 private:
     void InitDBFile();
     void InitShmFile();
     void InitLogFile();
-
-    void Recover(std::string_view log_path);
-    void AppendPersistedLog();
     
 private:
     friend class DB;
 
     std::optional<Options> options_;
-    bool recovering_{ false };
 
     std::string db_path_;
     tinyio::file db_file_;
@@ -82,8 +66,8 @@ private:
 
     std::optional<Meta> meta_;
     std::optional<Pager> pager_;
-    TxManager tx_manager_{ this };
-    log::Writer log_writer_;
+    std::optional<TxManager> tx_manager_;
+    std::optional<Logger> logger_;
 };
 
 }

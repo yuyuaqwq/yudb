@@ -34,7 +34,7 @@ static std::unique_ptr<yudb::DB> db;
 
 TEST(DBTest, Open) {
     yudb::Options options{
-        .checkpoint_wal_threshold = 1024 * 1024 * 64,
+        .max_wal_size = 1024 * 1024 * 64,
     };
     db = yudb::DB::Open(options, "Z:/db_test.ydb");
     ASSERT_FALSE(!db);

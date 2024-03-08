@@ -98,32 +98,32 @@ void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, s
     BucketLogHeader format;
     format.type = LogType::kPut;
     format.bucket_id = bucket_id;
-    std::array<std::span<const uint8_t>, 3> arr;
+    std::span<const uint8_t> arr[3];
     arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketPutLogHeaderSize };
     arr[1] = key;
     arr[2] = value;
-    db_->AppendLog(arr.begin(), arr.end());
+    db_->logger()->AppendLog(std::begin(arr), std::end(arr));
 }
 
 void TxManager::AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     BucketLogHeader format;
     format.type = LogType::kInsert;
     format.bucket_id = bucket_id;
-    std::array<std::span<const uint8_t>, 3> arr;
+    std::span<const uint8_t> arr[3];
     arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketInsertLogHeaderSize };
     arr[1] = key;
     arr[2] = value;
-    db_->AppendLog(arr.begin(), arr.end());
+    db_->logger()->AppendLog(std::begin(arr), std::end(arr));
 }
 
 void TxManager::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {
     BucketLogHeader format;
     format.type = LogType::kDelete;
     format.bucket_id = bucket_id;
-    std::array<std::span<const uint8_t>, 2> arr;
+    std::span<const uint8_t> arr[2];
     arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketDeleteLogHeaderSize };
     arr[1] = key;
-    db_->AppendLog(arr.begin(), arr.end());
+    db_->logger()->AppendLog(std::begin(arr), std::end(arr));
 }
 
 DBImpl& TxManager::db() {
@@ -141,24 +141,24 @@ Pager& TxManager::pager() const {
 
 void TxManager::AppendBeginLog() {
     LogType type = LogType::kBegin;
-    std::array<std::span<const uint8_t>, 1> arr;
+    std::span<const uint8_t> arr[1];
     arr[0] = { reinterpret_cast<const uint8_t*>(&type), sizeof(type) };
-    db_->AppendLog(arr.begin(), arr.end());
+    db_->logger()->AppendLog(std::begin(arr), std::end(arr));
 }
 
 void TxManager::AppendRollbackLog() {
     LogType type = LogType::kRollback;
-    std::array<std::span<const uint8_t>, 1> arr;
+    std::span<const uint8_t> arr[1];
     arr[0] = { reinterpret_cast<const uint8_t*>(&type), sizeof(type) };
-    db_->AppendLog(arr.begin(), arr.end());
+    db_->logger()->AppendLog(std::begin(arr), std::end(arr));
 }
 
 void TxManager::AppendCommitLog() {
     LogType type = LogType::kCommit;
-    std::array<std::span<const uint8_t>, 1> arr;
+    std::span<const uint8_t> arr[1];
     arr[0] = { reinterpret_cast<const uint8_t*>(&type), sizeof(type) };
-    db_->AppendLog(arr.begin(), arr.end());
-    db_->log_writer().FlushBuffer();
+    db_->logger()->AppendLog(std::begin(arr), std::end(arr));
+    db_->logger()->FlushLog();
 }
 
 } // namespace yudb

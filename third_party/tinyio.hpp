@@ -431,7 +431,6 @@ public:
     void unlock(std::error_code& error_code) {
         error_code.clear();
 #ifdef _WIN32
-        DWORD flags;
         OVERLAPPED overlapped{ 0 };
         if (!UnlockFileEx(handle_, 0, 1, 0, &overlapped)) {
             error_code = detail::last_error();

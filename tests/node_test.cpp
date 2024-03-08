@@ -7,7 +7,7 @@ namespace yudb {
 
 TEST(NodeTest, Slot) {
     yudb::Options options{
-        .checkpoint_wal_threshold = 1024 * 1024 * 64,
+        .max_wal_size = 1024 * 1024 * 64,
     };
     auto db = yudb::DB::Open(options, "Z:/pager_test.ydb");
     ASSERT_TRUE(db.operator bool());

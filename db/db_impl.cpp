@@ -3,8 +3,6 @@
 #include "third_party/tinyio.hpp"
 #include "yudb/crc32.h"
 #include "yudb/error.h"
-#include "yudb/log_reader.h"
-#include "yudb/log_type.h"
 #include "yudb/version.h"
 
 namespace yudb{
@@ -45,6 +43,7 @@ namespace fs = std::filesystem;
          }
      }
      db->pager_.emplace(db.get(), db->options_->page_size);
+     db->tx_manager_.emplace(db.get());
 
      db->InitLogFile();
      if (db->options_->read_only) {
@@ -57,17 +56,15 @@ namespace fs = std::filesystem;
 
  DBImpl::~DBImpl() {
      if (options_.has_value()) {
-         if (!options_->read_only) {
-             auto tx = Update();
-             Checkpoint();
-             tx.Commit();
-         }
+         logger_.reset();
+         tx_manager_.reset();
+         pager_.reset();
+         meta_.reset();
+
          db_mmap_.unmap();
          shm_mmap_.unmap();
          if (!options_->read_only) {
              std::filesystem::remove(db_path_ + "-shm");
-             log_writer_.Close();
-             std::filesystem::remove(log_writer_.path());
          }
          db_file_.unlock();
      }
@@ -77,34 +74,14 @@ UpdateTx DBImpl::Update() {
     if (options_->read_only) {
         throw InvalidArgumentError{ "the database is read-only." };
     }
-    return UpdateTx{ &tx_manager_.Update() };
+    return UpdateTx{ &tx_manager_->Update() };
  }
 
 ViewTx DBImpl::View() {
      db_mmap_lock_.lock_shared();
-     return tx_manager_.View();
+     return tx_manager_->View();
  }
 
-void DBImpl::Checkpoint() {
-     if (!tx_manager_.has_update_tx()) {
-         throw CheckpointError{ "checkpoint execution is not allowed when there is a write transaction." };
-     }
-
-     pager_->SaveFreeList();
-     auto& tx = tx_manager_.update_tx();
-     meta_->Reset(tx.meta_format());
-
-     pager_->WriteAllDirtyPages();
-     std::error_code error_code;
-     db_mmap_.sync(error_code);
-     if (error_code) {
-         throw IoError{ "failed to sync db file." };
-     }
-     meta_->Switch();
-     meta_->Save();
-     log_writer_.Reset();
-     AppendPersistedLog();
- }
 
 void DBImpl::Mmap(uint64_t new_size) {
      db_mmap_pending_.emplace_back(std::move(db_mmap_));
@@ -139,133 +116,6 @@ void DBImpl::ClearMmap() {
      }
      db_mmap_pending_.clear();
  }
-
-void DBImpl::Recover(std::string_view path) {
-    recovering_ = true;
-    yudb::log::Reader reader;
-    reader.Open(path);
-    std::optional<UpdateTx> current_tx;
-    bool end = false, init = false;
-    do {
-        if (end) {
-            break;
-        }
-        auto record = reader.ReadRecord();
-        if (!record) {
-            break;
-        }
-        if (record->size() < sizeof(LogType)) {
-            break;
-        }
-        auto type = *reinterpret_cast<LogType*>(record->data());
-        switch (type) {
-        case LogType::kPersisted: {
-            auto log = reinterpret_cast<PersistedLogHeader*>(record->data());
-            if (meta_->meta_struct().txid > log->txid) {
-                end = true;
-            }
-            init = true;
-            break;
-        }
-        case LogType::kBegin: {
-            if (!init) {
-                throw RecoverError{ "abnormal logging." };
-            }
-            if (current_tx.has_value()) {
-                throw RecoverError{ "abnormal logging." };
-            }
-            current_tx.emplace(&tx_manager_.Update());
-            break;
-        }
-        case LogType::kRollback: {
-            if (!init) {
-                throw RecoverError{ "abnormal logging." };
-            }
-            if (!current_tx.has_value()) {
-                throw RecoverError{ "abnormal logging." };
-            }
-            current_tx->RollBack();
-            current_tx = std::nullopt;
-            break;
-        }
-        case LogType::kCommit: {
-            if (!init) {
-                throw RecoverError{ "abnormal logging." };
-            }
-            if (!current_tx.has_value()) {
-                throw RecoverError{ "abnormal logging." };
-            }
-            current_tx->Commit();
-            current_tx = std::nullopt;
-            break;
-        }
-        case LogType::kPut: {
-            if (!init) {
-                throw RecoverError{ "abnormal logging." };
-            }
-            assert(record->size() == kBucketPutLogHeaderSize);
-            auto log = reinterpret_cast<BucketLogHeader*>(record->data());
-            auto& tx = tx_manager_.update_tx();
-            BucketImpl* bucket;
-            if (log->bucket_id == kUserRootBucketId) {
-                bucket = &tx.user_bucket();
-            } else {
-                bucket = &tx.AtSubBucket(log->bucket_id);
-            }
-            auto key = reader.ReadRecord();
-            if (!key) {
-                end = true;
-                break;
-            }
-            auto value = reader.ReadRecord();
-            if (!value) {
-                end = true;
-                break;
-            }
-            bucket->Put(key->data(), key->size(), value->data(), value->size());
-            break;
-        }
-        case LogType::kDelete: {
-            if (!init) {
-                throw RecoverError{ "abnormal logging." };
-            }
-            assert(record->size() == kBucketDeleteLogHeaderSize);
-            auto log = reinterpret_cast<BucketLogHeader*>(record->data());
-            auto& tx = tx_manager_.update_tx();
-            auto& bucket = tx.AtSubBucket(log->bucket_id);
-            auto key = reader.ReadRecord();
-            if (!key) {
-                end = true;
-                break;
-            }
-            bucket.Delete(key->data(), key->size());
-            break;
-        }
-        }
-    } while (true);
-    recovering_ = false;
-    pager_->WriteAllDirtyPages();
-    if (current_tx.has_value()) {
-        // 不完整的日志记录，丢弃最后的事务
-        current_tx->RollBack();
-    }
-    std::error_code error_code;
-    db_mmap_.sync(error_code);
-    if (error_code) {
-        throw IoError{ "failed to sync db file." };
-    }
-    meta_->Switch();
-    meta_->Save();
-}
-
-void DBImpl::AppendPersistedLog() {
-    PersistedLogHeader format;
-    format.type = LogType::kPersisted;
-    format.txid = meta_->meta_struct().txid;
-    std::array<std::span<const uint8_t>, 1> arr;
-    arr[0] = { reinterpret_cast<const uint8_t*>(&format), sizeof(PersistedLogHeader)};
-    AppendLog(arr.begin(), arr.end());
-}
 
 void DBImpl::InitDBFile() {
     std::error_code error_code;
@@ -304,11 +154,11 @@ void DBImpl::InitLogFile() {
     log_file.open(log_path, tinyio::access_mode::write);
     if (log_file.size() > 0) {
         shm_->Recover();
-        Recover(log_path);
         log_file.resize(0);
     }
-    log_writer().Open(log_path);
-    AppendPersistedLog();
+    logger_.emplace(this, log_path);
+    logger_->Recover();
+    logger_->AppendPersistedLog();
 }
 
 } // namespace yudb
