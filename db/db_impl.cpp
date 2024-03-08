@@ -4,7 +4,7 @@
 #include "yudb/crc32.h"
 #include "yudb/error.h"
 #include "yudb/log_reader.h"
-#include "yudb/operator_log_format.h"
+#include "yudb/log_type.h"
 #include "yudb/version.h"
 
 namespace yudb{
@@ -34,8 +34,8 @@ namespace fs = std::filesystem;
              init_meta = true;
          }
      }
-     db->InitDBMmap();
-     db->InitShmMmap();
+     db->InitDBFile();
+     db->InitShmFile();
      db->meta_.emplace(db.get(), &db->shm_->meta_struct());
      if (init_meta) {
          db->meta_->Init();
@@ -46,7 +46,7 @@ namespace fs = std::filesystem;
      }
      db->pager_.emplace(db.get(), db->options_->page_size);
 
-     db->InitLog();
+     db->InitLogFile();
      if (db->options_->read_only) {
          db->db_file_.unlock();
          db->db_file_.lock(tinyio::share_mode::shared);
@@ -103,7 +103,7 @@ void DBImpl::Checkpoint() {
      meta_->Switch();
      meta_->Save();
      log_writer_.Reset();
-     AppendInitLog();
+     AppendPersistedLog();
  }
 
 void DBImpl::Mmap(uint64_t new_size) {
@@ -154,20 +154,20 @@ void DBImpl::Recover(std::string_view path) {
         if (!record) {
             break;
         }
-        if (record->size() < sizeof(OperationType)) {
+        if (record->size() < sizeof(LogType)) {
             break;
         }
-        auto type = *reinterpret_cast<OperationType*>(record->data());
+        auto type = *reinterpret_cast<LogType*>(record->data());
         switch (type) {
-        case OperationType::kInit: {
-            auto format = reinterpret_cast<InitLogHeader*>(record->data());
-            if (format->txid <= meta_->meta_struct().txid) {
+        case LogType::kPersisted: {
+            auto log = reinterpret_cast<PersistedLogHeader*>(record->data());
+            if (meta_->meta_struct().txid > log->txid) {
                 end = true;
             }
             init = true;
             break;
         }
-        case OperationType::kBegin: {
+        case LogType::kBegin: {
             if (!init) {
                 throw RecoverError{ "abnormal logging." };
             }
@@ -177,7 +177,7 @@ void DBImpl::Recover(std::string_view path) {
             current_tx.emplace(&tx_manager_.Update());
             break;
         }
-        case OperationType::kRollback: {
+        case LogType::kRollback: {
             if (!init) {
                 throw RecoverError{ "abnormal logging." };
             }
@@ -188,7 +188,7 @@ void DBImpl::Recover(std::string_view path) {
             current_tx = std::nullopt;
             break;
         }
-        case OperationType::kCommit: {
+        case LogType::kCommit: {
             if (!init) {
                 throw RecoverError{ "abnormal logging." };
             }
@@ -199,18 +199,18 @@ void DBImpl::Recover(std::string_view path) {
             current_tx = std::nullopt;
             break;
         }
-        case OperationType::kPut: {
+        case LogType::kPut: {
             if (!init) {
                 throw RecoverError{ "abnormal logging." };
             }
             assert(record->size() == kBucketPutLogHeaderSize);
-            auto format = reinterpret_cast<BucketLogHeader*>(record->data());
+            auto log = reinterpret_cast<BucketLogHeader*>(record->data());
             auto& tx = tx_manager_.update_tx();
             BucketImpl* bucket;
-            if (format->bucket_id == kUserRootBucketId) {
+            if (log->bucket_id == kUserRootBucketId) {
                 bucket = &tx.user_bucket();
             } else {
-                bucket = &tx.AtSubBucket(format->bucket_id);
+                bucket = &tx.AtSubBucket(log->bucket_id);
             }
             auto key = reader.ReadRecord();
             if (!key) {
@@ -225,14 +225,14 @@ void DBImpl::Recover(std::string_view path) {
             bucket->Put(key->data(), key->size(), value->data(), value->size());
             break;
         }
-        case OperationType::kDelete: {
+        case LogType::kDelete: {
             if (!init) {
                 throw RecoverError{ "abnormal logging." };
             }
             assert(record->size() == kBucketDeleteLogHeaderSize);
-            auto format = reinterpret_cast<BucketLogHeader*>(record->data());
+            auto log = reinterpret_cast<BucketLogHeader*>(record->data());
             auto& tx = tx_manager_.update_tx();
-            auto& bucket = tx.AtSubBucket(format->bucket_id);
+            auto& bucket = tx.AtSubBucket(log->bucket_id);
             auto key = reader.ReadRecord();
             if (!key) {
                 end = true;
@@ -258,16 +258,16 @@ void DBImpl::Recover(std::string_view path) {
     meta_->Save();
 }
 
-void DBImpl::AppendInitLog() {
-    InitLogHeader format;
-    format.type = OperationType::kInit;
-    format.txid = meta_->meta_struct().txid + 1;
+void DBImpl::AppendPersistedLog() {
+    PersistedLogHeader format;
+    format.type = LogType::kPersisted;
+    format.txid = meta_->meta_struct().txid;
     std::array<std::span<const uint8_t>, 1> arr;
-    arr[0] = { reinterpret_cast<const uint8_t*>(&format), sizeof(InitLogHeader)};
+    arr[0] = { reinterpret_cast<const uint8_t*>(&format), sizeof(PersistedLogHeader)};
     AppendLog(arr.begin(), arr.end());
 }
 
-void DBImpl::InitDBMmap() {
+void DBImpl::InitDBFile() {
     std::error_code error_code;
     db_mmap_ = mio::make_mmap_sink(db_path_, error_code);
     if (error_code) {
@@ -275,7 +275,7 @@ void DBImpl::InitDBMmap() {
     }
 }
 
-void DBImpl::InitShmMmap() {
+void DBImpl::InitShmFile() {
     std::string shm_path = db_path_ + "-shm";
     tinyio::file shm_file;
     shm_file.open(shm_path, tinyio::access_mode::write);
@@ -291,11 +291,11 @@ void DBImpl::InitShmMmap() {
     }
     shm_.emplace(reinterpret_cast<ShmStruct*>(shm_mmap_.data()));
     if (init_shm) {
-        shm_->Init();
+        shm_->Recover();
     }
 }
 
-void DBImpl::InitLog() {
+void DBImpl::InitLogFile() {
     if (options_->read_only) {
         return;
     }
@@ -303,12 +303,12 @@ void DBImpl::InitLog() {
     tinyio::file log_file;
     log_file.open(log_path, tinyio::access_mode::write);
     if (log_file.size() > 0) {
-        shm_->Init();
+        shm_->Recover();
         Recover(log_path);
         log_file.resize(0);
     }
     log_writer().Open(log_path);
-    AppendInitLog();
+    AppendPersistedLog();
 }
 
 } // namespace yudb

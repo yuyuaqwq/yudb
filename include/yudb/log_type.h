@@ -6,8 +6,8 @@
 
 namespace yudb {
 
-enum class OperationType : uint8_t {
-    kInit,
+enum class LogType : uint8_t {
+    kPersisted,
     kBegin,
     kRollback,
     kCommit,
@@ -17,13 +17,13 @@ enum class OperationType : uint8_t {
 };
 
 #pragma pack(push, 1)
-struct InitLogHeader {
-    OperationType type;
+struct PersistedLogHeader {
+    LogType type;
     TxId txid;
 };
 
 struct BucketLogHeader {
-    OperationType type;
+    LogType type;
     BucketId bucket_id;
 };
 #pragma pack(pop)

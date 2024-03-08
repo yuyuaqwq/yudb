@@ -3,7 +3,6 @@
 #include <cstdint>
 
 namespace yudb {
-
 namespace log {
 
 enum class RecordType : uint8_t {
@@ -28,5 +27,4 @@ static constexpr size_t kHeaderSize = sizeof(LogRecord) - sizeof(LogRecord::data
 static const char* kBlockPadding = "\x00\x00\x00\x00\x00\x00";
 
 } // namespace log
-
 } // namespace yudb

@@ -1,7 +1,7 @@
 #include "yudb/tx_manager.h"
 
 #include "yudb/db_impl.h"
-#include "yudb/operator_log_format.h"
+#include "yudb/log_type.h"
 #include "yudb/error.h"
 
 namespace yudb {
@@ -96,7 +96,7 @@ void TxManager::Commit() {
 
 void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     BucketLogHeader format;
-    format.type = OperationType::kPut;
+    format.type = LogType::kPut;
     format.bucket_id = bucket_id;
     std::array<std::span<const uint8_t>, 3> arr;
     arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketPutLogHeaderSize };
@@ -107,7 +107,7 @@ void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, s
 
 void TxManager::AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     BucketLogHeader format;
-    format.type = OperationType::kInsert;
+    format.type = LogType::kInsert;
     format.bucket_id = bucket_id;
     std::array<std::span<const uint8_t>, 3> arr;
     arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketInsertLogHeaderSize };
@@ -118,7 +118,7 @@ void TxManager::AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key
 
 void TxManager::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {
     BucketLogHeader format;
-    format.type = OperationType::kDelete;
+    format.type = LogType::kDelete;
     format.bucket_id = bucket_id;
     std::array<std::span<const uint8_t>, 2> arr;
     arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketDeleteLogHeaderSize };
@@ -140,21 +140,21 @@ Pager& TxManager::pager() const {
 }
 
 void TxManager::AppendBeginLog() {
-    OperationType type = OperationType::kBegin;
+    LogType type = LogType::kBegin;
     std::array<std::span<const uint8_t>, 1> arr;
     arr[0] = { reinterpret_cast<const uint8_t*>(&type), sizeof(type) };
     db_->AppendLog(arr.begin(), arr.end());
 }
 
 void TxManager::AppendRollbackLog() {
-    OperationType type = OperationType::kRollback;
+    LogType type = LogType::kRollback;
     std::array<std::span<const uint8_t>, 1> arr;
     arr[0] = { reinterpret_cast<const uint8_t*>(&type), sizeof(type) };
     db_->AppendLog(arr.begin(), arr.end());
 }
 
 void TxManager::AppendCommitLog() {
-    OperationType type = OperationType::kCommit;
+    LogType type = LogType::kCommit;
     std::array<std::span<const uint8_t>, 1> arr;
     arr[0] = { reinterpret_cast<const uint8_t*>(&type), sizeof(type) };
     db_->AppendLog(arr.begin(), arr.end());

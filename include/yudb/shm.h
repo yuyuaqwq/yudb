@@ -22,8 +22,9 @@ public:
         shm_struct_{ shm_struct } {}
     ~Shm() = default;
 
-    void Init() {
-        std::construct_at(shm_struct_);
+    void Recover() {
+        std::construct_at(&shm_struct_->meta_lock);
+        std::construct_at(&shm_struct_->update_lock);
     }
     
     auto& meta_struct() { return shm_struct_->meta_struct; }

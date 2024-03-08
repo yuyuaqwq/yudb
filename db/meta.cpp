@@ -82,7 +82,7 @@ bool Meta::Load() {
         return false;
     }
 
-    std::memcpy(&meta_struct_, select, kMetaSize);
+    std::memcpy(meta_struct_, select, kMetaSize);
     return true;
 }
 

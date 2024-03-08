@@ -58,12 +58,12 @@ public:
     auto& log_writer() { return log_writer_; }
 
 private:
-    void InitDBMmap();
-    void InitShmMmap();
-    void InitLog();
+    void InitDBFile();
+    void InitShmFile();
+    void InitLogFile();
 
     void Recover(std::string_view log_path);
-    void AppendInitLog();
+    void AppendPersistedLog();
     
 private:
     friend class DB;
