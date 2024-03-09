@@ -38,6 +38,7 @@ public:
     void SaveFreeList();
 
     PageId GetPageIdByPtr(const uint8_t* page_ptr);
+    PageCount GetPageCount(const size_t bytes);
 
     Page Reference(PageId pgid, bool dirty);
     Page AddReference(uint8_t* page_buf);

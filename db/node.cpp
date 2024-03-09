@@ -86,6 +86,18 @@ Page Node::Release() {
     return std::move(*page_);
 }
 
+bool Node::IsBucket(SlotId slot_id) const {
+    assert(IsLeaf());
+    assert(slot_id < count());
+    return slots()[slot_id].is_bucket;
+}
+
+void Node::SetIsBucket(SlotId slot_id, bool b) {
+    assert(IsLeaf());
+    assert(slot_id < count());
+    slots()[slot_id].is_bucket = b;
+}
+
 PageId Node::page_id() const {
     return page_->page_id();
 }
@@ -186,9 +198,7 @@ PageId Node::StoreRecordToOverflowPages(SlotId slot_id, std::span<const uint8_t>
     auto& pager = btree_->bucket().pager();
     auto page_size_ = page_size();
     auto length = key.size() + value.size();
-    auto page_count = length / page_size_;
-    if (length % page_size_) ++page_count;
-    auto pgid = pager.Alloc(page_count);
+    auto pgid = pager.Alloc(pager.GetPageCount(length));
     pager.WriteByBytes(pgid, 0, key.data(), key.size());
     if (!value.empty()) {
         auto key_page_count = key.size() / page_size_;
@@ -198,7 +208,7 @@ PageId Node::StoreRecordToOverflowPages(SlotId slot_id, std::span<const uint8_t>
 }
 
 void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
-    if (key.size() > page_size()) {
+    if (key.size() > page_size() || key.size() > kKeyMaxLength) {
         throw InvalidArgumentError("key length exceeds the limit.");
     }
 
@@ -411,6 +421,10 @@ void BranchNode::Delete(SlotId slot_id, bool right_child) {
     auto& slot = struct_->slots[slot_id];
     if (slot.is_overflow_pages) {
         struct_->header.space_used -= sizeof(OverflowRecord);
+        slot.is_overflow_pages = false;
+        auto overflow_record = reinterpret_cast<OverflowRecord*>(GetRecordPtr(slot_id));
+        auto& pager = btree_->bucket().pager();
+        pager.Free(overflow_record->pgid, pager.GetPageCount(slot.key_length));
     } else {
         struct_->header.space_used -= slot.key_length;
     }
@@ -501,6 +515,11 @@ void LeafNode::Delete(SlotId slot_id) {
     auto length = slot.key_length + slot.value_length;
     if (slot.is_overflow_pages) {
         struct_->header.space_used -= sizeof(OverflowRecord);
+        slot.is_overflow_pages = false;
+        auto overflow_record = reinterpret_cast<OverflowRecord*>(GetRecordPtr(slot_id));
+        auto& pager = btree_->bucket().pager();
+        pager.Free(overflow_record->pgid, pager.GetPageCount(length));
+        
     } else {
         struct_->header.space_used -= length;
     }

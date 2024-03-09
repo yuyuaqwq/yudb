@@ -31,12 +31,15 @@ public:
 
     std::span<const uint8_t> GetKey(SlotId slot_id);
     std::pair<SlotId, bool> LowerBound(std::span<const uint8_t> key);
+    bool IsBucket(SlotId slot_id) const;
+    void SetIsBucket(SlotId slot_id, bool b);
 
     double GetFillRate();
 
     Node Copy() const;
     Node AddReference() const;
     Page Release();
+
 
     uint16_t count() const;
     Slot* slots() const { return struct_->slots; }

@@ -21,12 +21,14 @@ public:
     bool Empty() const;
     Iterator Get(const void* key_buf, size_t key_size);
     Iterator LowerBound(const void* key_buf, size_t key_size);
-    void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size);
+    void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size, bool is_bucket);
     void Update(Iterator* iter, const void* value_buf, size_t value_size);
     bool Delete(const void* key_buf, size_t key_size);
     void Delete(Iterator* iter);
 
     BucketImpl& SubBucket(std::string_view key, bool writable, Comparator comparator);
+    void DeleteSubBucket(std::string_view key);
+    void DeleteSubBucket(Iterator* iter);
 
     Iterator begin() noexcept;
     Iterator end() noexcept;

@@ -36,11 +36,11 @@ void TxImpl::RollBack() {
 void TxImpl::Commit() {
     assert(writable_);
     for (auto& iter : user_bucket_.sub_bucket_map()) {
-        user_bucket_.Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second));
+        user_bucket_.Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second), true);
     }
     for (auto& bucket : sub_bucket_cache_) {
         for (auto& iter : bucket->sub_bucket_map()) {
-            bucket->Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second));
+            bucket->Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second), true);
         }
     }
     tx_manager_->Commit();

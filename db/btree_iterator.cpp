@@ -14,7 +14,7 @@ BTreeIterator::BTreeIterator(const BTreeIterator& right) : btree_{right.btree_} 
 }
 
 void BTreeIterator::operator=(const BTreeIterator& right) {
-    assert(btree_ == right.btree_);
+    btree_ = right.btree_;
     stack_ = right.stack_;
     status_ = right.status_;
     if (right.cached_node_.has_value()) {
@@ -85,6 +85,11 @@ std::string_view BTreeIterator::key() const {
 std::string_view BTreeIterator::value() const {
     auto span = GetValue();
     return { reinterpret_cast<const char*>(span.data()), span.size() };
+}
+
+bool BTreeIterator::is_bucket() const {
+    auto [node, slot_id] = GetLeafNode(false);
+    return node.IsBucket(slot_id);
 }
 
 std::pair<LeafNode&, SlotId> BTreeIterator::GetLeafNode(bool dirty) const {

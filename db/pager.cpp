@@ -201,6 +201,12 @@ PageId Pager::GetPageIdByPtr(const uint8_t* page_ptr) {
     return page_id;
 }
 
+PageCount Pager::GetPageCount(const size_t bytes) {
+    PageCount page_count = bytes / page_size_;
+    if (bytes % page_size_) ++page_count;
+    return page_count;
+}
+
 Page Pager::Reference(PageId pgid, bool dirty) {
     assert(pgid != kPageInvalidId);
     assert(pgid < kPageMaxCount);

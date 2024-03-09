@@ -134,7 +134,7 @@ void Logger::Recover() {
                 end = true;
                 break;
             }
-            bucket->Put(key->data(), key->size(), value->data(), value->size());
+            bucket->Put(key->data(), key->size(), value->data(), value->size(), false);
             break;
         }
         case LogType::kDelete: {

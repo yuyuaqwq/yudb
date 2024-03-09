@@ -28,19 +28,19 @@ BucketImpl::Iterator BucketImpl::LowerBound(const void* key_buf, size_t key_size
     return Iterator{ btree_.LowerBound({ reinterpret_cast<const uint8_t*>(key_buf), key_size }) };
 }
 
-void BucketImpl::Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
+void BucketImpl::Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size, bool is_bucket) {
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
     std::span<const uint8_t> value_span{ reinterpret_cast<const uint8_t*>(value_buf), value_size };
     tx_->AppendPutLog(bucket_id_, key_span, value_span);
 
-    btree_.Put(key_span, value_span);
+    btree_.Put(key_span, value_span, is_bucket);
 }
 
 void BucketImpl::Update(Iterator* iter, const void* value_buf, size_t value_size) {
     auto key = iter->key();
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key.data()), key.size()};
     tx_->AppendPutLog(bucket_id_, key_span, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
-    btree_.Update(&iter->iterator_, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
+    btree_.Update(&iter->iter_, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
 }
 
 bool BucketImpl::Delete(const void* key_buf, size_t key_size) {
@@ -50,7 +50,7 @@ bool BucketImpl::Delete(const void* key_buf, size_t key_size) {
 }
 
 void BucketImpl::Delete(Iterator* iter) {
-    btree_.Delete(&iter->iterator_);
+    btree_.Delete(&iter->iter_);
 }
 
 BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable, Comparator comparator) {
@@ -63,9 +63,11 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable, Comparato
         if (iter == end()) {
             // 提前预留空间，以避免Commit时的Put触发分裂
             PageId pgid = kPageInvalidId;
-            Put(key.data(), key.size(), &pgid, sizeof(pgid));
+            Put(key.data(), key.size(), &pgid, sizeof(pgid), true);
             iter = Get(key.data(), key.size());
+            assert(iter.is_bucket());
         } else {
+            assert(iter.is_bucket());
             map_iter->second.second = iter.value<PageId>();
         }
         bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable, comparator);
@@ -74,6 +76,16 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable, Comparato
         bucket_id = map_iter->second.first;
     }
     return tx_->AtSubBucket(bucket_id);
+}
+
+void BucketImpl::DeleteSubBucket(std::string_view key) {
+    auto iter = Get(key.data(), key.size());
+    DeleteSubBucket(&iter);
+}
+
+void BucketImpl::DeleteSubBucket(Iterator* iter) {
+    auto pgid = iter->value<PageId>();
+    pager().Free(pgid, 1);
 }
 
 BucketImpl::Iterator BucketImpl::begin() noexcept {
@@ -96,6 +108,11 @@ ViewBucket::~ViewBucket() = default;
 ViewBucket ViewBucket::SubViewBucket(std::string_view key, const Comparator& comparator) {
     return ViewBucket{ &bucket_->SubBucket(key, false, comparator) };
 }
+
+ViewBucket ViewBucket::SubViewBucket(std::string_view key) {
+    return ViewBucket{ &bucket_->SubBucket(key, false, bucket_->tx().tx_manager().db().options()->defaluit_comparator) };
+}
+
 
 ViewBucket::Iterator ViewBucket::Get(const void* key_buf, size_t key_size) const {
     return bucket_->Get(key_buf, key_size);
@@ -128,8 +145,12 @@ UpdateBucket UpdateBucket::SubUpdateBucket(std::string_view key, const Comparato
     return UpdateBucket{ &bucket_->SubBucket(key, true, comparator) };
 }
 
+UpdateBucket UpdateBucket::SubUpdateBucket(std::string_view key) {
+    return UpdateBucket{ &bucket_->SubBucket(key, true, bucket_->tx().tx_manager().db().options()->defaluit_comparator) };
+}
+
 void UpdateBucket::Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
-    bucket_->Put(key_buf, key_size, value_buf, value_size);
+    bucket_->Put(key_buf, key_size, value_buf, value_size, false);
 }
 
 void UpdateBucket::Put(std::string_view key, std::string_view value) {

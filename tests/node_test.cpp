@@ -43,26 +43,32 @@ TEST(NodeTest, Slot) {
         }
 
         {
+            bool success;
             LeafNode leaf_node{ &user_bucket.btree(),pager.Alloc(1), true };
             leaf_node.Build();
             std::string key1(1000, 'a');
             std::string value1(1031, 'b');
-            leaf_node.Append({ reinterpret_cast<uint8_t*>(key1.data()), key1.size() },
+            success = leaf_node.Append({ reinterpret_cast<uint8_t*>(key1.data()), key1.size() },
                 { reinterpret_cast<uint8_t*>(value1.data()), value1.size() });
+            ASSERT_TRUE(success);
             std::string key2(1000, 'c');
             std::string value2(1031, 'd');
-            leaf_node.Append({ reinterpret_cast<uint8_t*>(key2.data()), key2.size() },
+            success = leaf_node.Append({ reinterpret_cast<uint8_t*>(key2.data()), key2.size() },
                 { reinterpret_cast<uint8_t*>(value2.data()), value2.size() });
+            ASSERT_TRUE(success);
+            success = leaf_node.Append({ reinterpret_cast<uint8_t*>(key2.data()), key2.size() },
+                { reinterpret_cast<uint8_t*>(value2.data()), value2.size() });
+            ASSERT_FALSE(success);
 
             auto get_key1 = leaf_node.GetKey(0);
-            assert(std::string(reinterpret_cast<const char*>(get_key1.data()), get_key1.size()) == std::string(1000, 'a'));
+            ASSERT_EQ(std::string(reinterpret_cast<const char*>(get_key1.data()), get_key1.size()), std::string(1000, 'a'));
             auto get_value1 = leaf_node.GetValue(0);
-            assert(std::string(reinterpret_cast<const char*>(get_value1.data()), get_value1.size()) == std::string(1031, 'b'));
+            ASSERT_EQ(std::string(reinterpret_cast<const char*>(get_value1.data()), get_value1.size()), std::string(1031, 'b'));
 
             auto get_key2 = leaf_node.GetKey(1);
-            assert(std::string(reinterpret_cast<const char*>(get_key2.data()), get_key2.size()) == std::string(1000, 'c'));
+            ASSERT_EQ(std::string(reinterpret_cast<const char*>(get_key2.data()), get_key2.size()), std::string(1000, 'c'));
             auto get_value2 = leaf_node.GetValue(1);
-            assert(std::string(reinterpret_cast<const char*>(get_value2.data()), get_value2.size()) == std::string(1031, 'd'));
+            ASSERT_EQ(std::string(reinterpret_cast<const char*>(get_value2.data()), get_value2.size()), std::string(1031, 'd'));
         }
     }
 

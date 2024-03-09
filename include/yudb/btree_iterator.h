@@ -67,6 +67,7 @@ public:
     }
     std::string_view key() const;
     std::string_view value() const;
+    bool is_bucket() const;
     Status status() const { return status_; }
 
     void First(PageId pgid);
@@ -90,7 +91,7 @@ private:
     std::span<const uint8_t> GetValue() const;
 
 private:
-    BTree* const btree_;
+    BTree* btree_;
     Stack stack_;       // 索引必定是小于等于搜索时key的节点
     Status status_{ Status::kInvalid };
 

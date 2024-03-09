@@ -27,8 +27,8 @@ public:
     bool Empty() const;
     Iterator LowerBound(std::span<const uint8_t> key);
     Iterator Get(std::span<const uint8_t> key);
-    void Insert(std::span<const uint8_t> key, std::span<const uint8_t> value);
-    void Put(std::span<const uint8_t> key, std::span<const uint8_t> value);
+    void Insert(std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket);
+    void Put(std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket);
     void Update(Iterator* iter, std::span<const uint8_t> value);
     bool Delete(std::span<const uint8_t> key);
     void Delete(Iterator* iter);
@@ -77,12 +77,12 @@ private:
     * 叶子节点的分裂
     * 返回新右节点
     */
-    LeafNode Split(LeafNode* left, SlotId insert_slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
+    LeafNode Split(LeafNode* left, SlotId insert_slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket);
 
     /*
     * 叶子节点的插入
     */
-    void Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value, bool insert_only);
+    void Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value, bool insert_only, bool is_bucket);
 
 private:
     friend class BTreeIterator;

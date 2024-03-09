@@ -22,49 +22,62 @@ public:
     };
 
 public:
-    explicit BucketIterator(const BTreeIterator& iterator_) : iterator_{ iterator_ } {}
+    explicit BucketIterator(const BTreeIterator& iterator_) : iter_{ iterator_ } {}
 
     reference operator*() const noexcept {
         return *this;
     }
+
     const BucketIterator* operator->() const noexcept {
         return this;
     }
+
     BucketIterator& operator++() noexcept {
-        ++iterator_;
+        ++iter_;
         return *this;
     }
+
     BucketIterator operator++(int) noexcept {
         BucketIterator tmp = *this;
         ++tmp;
         return tmp;
     }
+
     BucketIterator& operator--() noexcept {
-        --iterator_;
+        --iter_;
         return *this;
     }
+
     BucketIterator operator--(int) noexcept {
         BucketIterator tmp = *this;
         --tmp;
         return tmp;
     }
+
     bool operator==(const BucketIterator& right) const noexcept {
-        return iterator_ == right.iterator_;
+        return iter_ == right.iter_;
     }
 
     template <class KeyT>
     KeyT key() const {
-        return iterator_.key<KeyT>();
+        return iter_.key<KeyT>();
     }
+
     template <class ValueT>
     ValueT value() const {
-        return iterator_.value<ValueT>();
+        return iter_.value<ValueT>();
     }
+
     std::string_view key() const {
-        return iterator_.key();
+        return iter_.key();
     }
+
     std::string_view value() const {
-        return iterator_.value();
+        return iter_.value();
+    }
+
+    bool is_bucket() const {
+        return iter_.is_bucket();
     }
 
 private:
@@ -75,7 +88,7 @@ private:
         kBTree = 1,
     };
 
-    BTreeIterator iterator_;
+    BTreeIterator iter_;
 };
 
 

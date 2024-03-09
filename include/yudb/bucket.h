@@ -17,6 +17,7 @@ public:
     ~ViewBucket();
 
     ViewBucket SubViewBucket(std::string_view key, const Comparator& comparator);
+    ViewBucket SubViewBucket(std::string_view key);
     Iterator Get(const void* key_buf, size_t key_size) const;
     Iterator Get(std::string_view key) const;
     Iterator LowerBound(const void* key_buf, size_t key_size) const;
@@ -39,6 +40,7 @@ public:
     ~UpdateBucket();
 
     UpdateBucket SubUpdateBucket(std::string_view key, const Comparator& comparator);
+    UpdateBucket SubUpdateBucket(std::string_view key);
 
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size);
     void Put(std::string_view key, std::string_view value);
