@@ -43,7 +43,6 @@ void BTree::Insert(std::span<const uint8_t> key, std::span<const uint8_t> value,
 void BTree::Put(std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket) {
     auto iter = LowerBound(key);
     iter.CopyAllPagesByPath();
-    assert(iter->is_bucket() == is_bucket);
     Put(&iter, key, value, false, is_bucket);
 }
 
@@ -60,7 +59,6 @@ bool BTree::Delete(std::span<const uint8_t> key) {
         return false;
     }
     iter.CopyAllPagesByPath();
-    assert(!iter->is_bucket());
     Delete(&iter);
     return true;
 }
@@ -267,6 +265,8 @@ void BTree::Merge(LeafNode&& left, LeafNode&& right) {
 }
 
 void BTree::Delete(Iterator* iter) {
+    assert(!iter->is_bucket());
+
     auto [pgid, pos] = iter->Front();
     LeafNode node{ this, pgid, true };
     node.Delete(pos);
@@ -513,6 +513,7 @@ void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const ui
     auto [pgid, slot_id] = iter->Front();
     LeafNode node{ this, pgid, true };
     if (!insert_only && iter->status() == Iterator::Status::kEq) {
+        assert(iter->is_bucket() == is_bucket);
         node.Update(slot_id, key, value);
         node.SetIsBucket(slot_id, is_bucket);
         return;
