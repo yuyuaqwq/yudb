@@ -25,7 +25,7 @@ public:
     }
 };
 
-class RecoverError : public Error {
+class LoggerError : public Error {
 public:
     using Error::Error;
     const char* what() const {

@@ -41,6 +41,10 @@ void Logger::Reset() {
     writer_.Open(log_path_);
 }
 
+bool Logger::NeedRecover() {
+    return writer_.file().size() > 0;
+}
+
 void Logger::Recover() {
     recovering_ = true;
     yudb::log::Reader reader;
@@ -50,6 +54,7 @@ void Logger::Recover() {
     auto& meta = db_->meta();
     auto& pager = db_->pager();
     auto& tx_manager = db_->tx_manager();
+    auto& raw_txid = meta.meta_struct().txid;
     do {
         if (end) {
             break;
@@ -64,6 +69,9 @@ void Logger::Recover() {
         auto type = *reinterpret_cast<LogType*>(record->data());
         switch (type) {
         case LogType::kPersisted: {
+            if (init) {
+                throw LoggerError{ "abnormal logging." };
+            }
             auto log = reinterpret_cast<PersistedLogHeader*>(record->data());
             if (meta.meta_struct().txid > log->txid) {
                 end = true;
@@ -73,20 +81,20 @@ void Logger::Recover() {
         }
         case LogType::kBegin: {
             if (!init) {
-                throw RecoverError{ "abnormal logging." };
+                throw LoggerError{ "abnormal logging." };
             }
             if (current_tx.has_value()) {
-                throw RecoverError{ "abnormal logging." };
+                throw LoggerError{ "abnormal logging." };
             }
             current_tx.emplace(&tx_manager.Update());
             break;
         }
         case LogType::kRollback: {
             if (!init) {
-                throw RecoverError{ "abnormal logging." };
+                throw LoggerError{ "abnormal logging." };
             }
             if (!current_tx.has_value()) {
-                throw RecoverError{ "abnormal logging." };
+                throw LoggerError{ "abnormal logging." };
             }
             current_tx->RollBack();
             current_tx = std::nullopt;
@@ -94,10 +102,10 @@ void Logger::Recover() {
         }
         case LogType::kCommit: {
             if (!init) {
-                throw RecoverError{ "abnormal logging." };
+                throw LoggerError{ "abnormal logging." };
             }
             if (!current_tx.has_value()) {
-                throw RecoverError{ "abnormal logging." };
+                throw LoggerError{ "abnormal logging." };
             }
             current_tx->Commit();
             current_tx = std::nullopt;
@@ -105,7 +113,7 @@ void Logger::Recover() {
         }
         case LogType::kPut: {
             if (!init) {
-                throw RecoverError{ "abnormal logging." };
+                throw LoggerError{ "abnormal logging." };
             }
             assert(record->size() == kBucketPutLogHeaderSize);
             auto log = reinterpret_cast<BucketLogHeader*>(record->data());
@@ -131,7 +139,7 @@ void Logger::Recover() {
         }
         case LogType::kDelete: {
             if (!init) {
-                throw RecoverError{ "abnormal logging." };
+                throw LoggerError{ "abnormal logging." };
             }
             assert(record->size() == kBucketDeleteLogHeaderSize);
             auto log = reinterpret_cast<BucketLogHeader*>(record->data());
@@ -153,13 +161,15 @@ void Logger::Recover() {
         // 不完整的日志记录，丢弃最后的事务
         current_tx->RollBack();
     }
-    std::error_code error_code;
-    db_->db_file_mmap().sync(error_code);
-    if (error_code) {
-        throw IoError{ "failed to sync db file." };
+    if (meta.meta_struct().txid > raw_txid) {
+        std::error_code error_code;
+        db_->db_file_mmap().sync(error_code);
+        if (error_code) {
+            throw IoError{ "failed to sync db file." };
+        }
+        meta.Switch();
+        meta.Save();
     }
-    meta.Switch();
-    meta.Save();
 }
 
 void Logger::Checkpoint() {
@@ -188,11 +198,11 @@ void Logger::Checkpoint() {
 }
 
 void Logger::AppendPersistedLog() {
-    PersistedLogHeader format;
-    format.type = LogType::kPersisted;
-    format.txid = db_->meta().meta_struct().txid;
+    PersistedLogHeader log;
+    log.type = LogType::kPersisted;
+    log.txid = db_->meta().meta_struct().txid;
     std::span<const uint8_t> arr[1];
-    arr[0] = { reinterpret_cast<const uint8_t*>(&format), sizeof(PersistedLogHeader) };
+    arr[0] = { reinterpret_cast<const uint8_t*>(&log), sizeof(PersistedLogHeader) };
     AppendLog(std::begin(arr), std::end(arr));
 }
 

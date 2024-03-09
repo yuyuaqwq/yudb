@@ -23,7 +23,8 @@ public:
     void AppendRecordToBuffer(std::string_view data);
     void FlushBuffer();
 
-    size_t size() { return size_; }
+    auto& file() { return file_; }
+    auto& size() const { return size_; }
 
 private:
     void AppendRecord(std::span<const uint8_t> data);

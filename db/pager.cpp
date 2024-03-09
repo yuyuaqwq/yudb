@@ -15,7 +15,7 @@ Pager::~Pager() {
 
 uint8_t* Pager::GetPtr(PageId pgid, size_t offset) {
     auto ptr = db().db_file_mmap().data();
-    return reinterpret_cast<uint8_t*>(ptr + (pgid * page_size_));
+    return reinterpret_cast<uint8_t*>(ptr + (pgid * page_size_) + offset);
 }
 
 void Pager::Write(PageId pgid, const uint8_t* cache, PageCount count) {
@@ -96,7 +96,7 @@ PageId Pager::Alloc(PageCount count) {
         size_t min_size = page_count * page_size_;
         auto map_size = db_->db_file_mmap().size();
         if (min_size > map_size) {
-            db_->Mmap(min_size);
+            db_->Remmap(min_size);
         }
     }
     return pgid;
@@ -153,6 +153,9 @@ void Pager::LoadFreeList() {
     for (size_t i = 0; i < meta.free_pair_count; ++i) {
         // SaveFreeList会直接保存未合并的pending pages
         // 这里将其合并到free map
+        if (free_list[i].second == 0) {
+            continue;
+        }
         FreeToMap(free_list[i].first, free_list[i].second);
     }
 }

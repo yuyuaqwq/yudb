@@ -139,12 +139,14 @@ size_t Node::SlotSpace() {
 }
 
 size_t Node::FreeSpace() {
+    assert(struct_->header.data_offset >= SlotSpace());
     auto free_space = struct_->header.data_offset - SlotSpace();
     assert(free_space < page_size());
     return free_space;
 }
 
 size_t Node::FreeSpaceAfterCompaction() {
+    assert(page_size() >= SlotSpace() + struct_->header.space_used);
     auto free_space = page_size() - SlotSpace() - struct_->header.space_used;
     assert(free_space < page_size());
     return free_space;
@@ -176,41 +178,21 @@ uint8_t* Node::GetRecordPtr(SlotId slot_id) {
         return Ptr() + slot.record_offset;
     }
     auto& pager = btree_->bucket().pager();
-    auto overflow_record = reinterpret_cast<OverflowRecord*>(GetRecordPtr(slot_id));
+    auto overflow_record = reinterpret_cast<OverflowRecord*>(Ptr() + slot.record_offset);
     return pager.GetPtr(overflow_record->pgid, 0);
 }
 
 PageId Node::StoreRecordToOverflowPages(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     auto& pager = btree_->bucket().pager();
     auto page_size_ = page_size();
-
     auto length = key.size() + value.size();
     auto page_count = length / page_size_;
     if (length % page_size_) ++page_count;
     auto pgid = pager.Alloc(page_count);
-    if (page_count <= kMaxCachedPageCount) {
-        uint32_t remaining_length = key.size();
-        auto* data = &key;
-        auto offset = 0;
-        for (uint32_t i = 0; i < page_count; i++) {
-            if (remaining_length == 0) {
-                assert(data == &key);
-                data = &value;
-                remaining_length = value.size();
-                offset = page_size_ - key.size() % page_size_;
-            }
-            auto page_ref = pager.Reference(pgid + i, true);
-            auto page_buf = page_ref.page_buf();
-            auto copy_length = std::min(static_cast<uint32_t>(page_size_), remaining_length);
-            std::memcpy(page_buf, &data->data()[i * page_size_ - offset], copy_length);
-            remaining_length -= copy_length;
-        }
-    } else {
-        pager.WriteByBytes(pgid, 0, key.data(), key.size());
-        if (!value.empty()) {
-            auto key_page_count = key.size() / page_size_;
-            pager.WriteByBytes(pgid + key_page_count, key.size() % page_size_, value.data(), value.size());
-        }
+    pager.WriteByBytes(pgid, 0, key.data(), key.size());
+    if (!value.empty()) {
+        auto key_page_count = key.size() / page_size_;
+        pager.WriteByBytes(pgid + key_page_count, key.size() % page_size_, value.data(), value.size());
     }
     return pgid;
 }
@@ -227,15 +209,17 @@ void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<c
         slot.value_length = value.size();
     }
 
-    // 需要创建overflow page存放
+    // 需要创建overflow pages存放
     if (SpaceNeeded(length) > MaxInlineRecordLength()) {
         auto pgid = StoreRecordToOverflowPages(slot_id, key, value);
         OverflowRecord record{ .pgid = pgid };
         struct_->header.data_offset -= sizeof(record);
         struct_->header.space_used += sizeof(record);
         slot.record_offset = struct_->header.data_offset;
+        slot.is_overflow_pages = false;
+        auto overflow_reocrd_ptr = GetRecordPtr(slot_id);
         slot.is_overflow_pages = true;
-        std::memcpy(GetRecordPtr(slot_id), &record, sizeof(record));
+        std::memcpy(overflow_reocrd_ptr, &record, sizeof(record));
     } else {
         struct_->header.data_offset -= length;
         struct_->header.space_used += length;

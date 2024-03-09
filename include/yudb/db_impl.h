@@ -23,7 +23,7 @@ public:
     UpdateTx Update() override;
     ViewTx View() override;
 
-    void Mmap(uint64_t new_size);
+    void Remmap(uint64_t new_size);
     void ClearMmap();
 
     auto& options() const { return options_; }

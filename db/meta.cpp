@@ -15,7 +15,7 @@ Meta::~Meta() = default;
 void Meta::Init() {
     cur_meta_index_ = 0;
 
-    auto first = meta_struct_;
+    auto const first = meta_struct_;
     first->sign = YUDB_SIGN;
     first->page_size = mio::page_size();
     first->min_version = YUDB_VERSION;

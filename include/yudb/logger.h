@@ -19,12 +19,13 @@ public:
 
     void Reset();
     void Checkpoint();
+    bool NeedRecover();
     void Recover();
 
 private:
     DBImpl* const db_;
 
-    std::string log_path_;
+    const std::string log_path_;
     log::Writer writer_;
     bool recovering_{ false };
 };

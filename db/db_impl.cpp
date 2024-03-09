@@ -7,11 +7,9 @@
 
 namespace yudb{
 
-namespace fs = std::filesystem;
-
  DB::~DB() = default;
 
- std::unique_ptr<DB> DB::Open(const Options& options, std::string_view path) {
+ std::unique_ptr<DB> DB::Open(const Options& options, const std::string_view path) {
      auto db = std::make_unique<DBImpl>();
      db->options_.emplace(options);
      if (db->options_->page_size == 0) {
@@ -54,12 +52,13 @@ namespace fs = std::filesystem;
  }
 
 
- DBImpl::~DBImpl() {
+DBImpl::~DBImpl() {
      if (options_.has_value()) {
          logger_.reset();
          tx_manager_.reset();
          pager_.reset();
          meta_.reset();
+         shm_.reset();
 
          db_mmap_.unmap();
          shm_mmap_.unmap();
@@ -83,7 +82,7 @@ ViewTx DBImpl::View() {
  }
 
 
-void DBImpl::Mmap(uint64_t new_size) {
+void DBImpl::Remmap(uint64_t new_size) {
      db_mmap_pending_.emplace_back(std::move(db_mmap_));
      // 1GB之前二倍扩展
      uint64_t map_size;
@@ -110,7 +109,7 @@ void DBImpl::Mmap(uint64_t new_size) {
  }
 
 void DBImpl::ClearMmap() {
-    std::unique_lock lock{ db_mmap_lock_ };
+     const std::unique_lock lock{ db_mmap_lock_ };
      for (auto& mmap : db_mmap_pending_) {
          mmap.unmap();
      }
@@ -126,12 +125,15 @@ void DBImpl::InitDBFile() {
 }
 
 void DBImpl::InitShmFile() {
-    std::string shm_path = db_path_ + "-shm";
+    const std::string shm_path = db_path_ + "-shm";
     tinyio::file shm_file;
     shm_file.open(shm_path, tinyio::access_mode::write);
     bool init_shm = false;
     if (shm_file.size() < sizeof(ShmStruct)) {
         shm_file.resize(sizeof(ShmStruct));
+        init_shm = true;
+    }
+    if (std::filesystem::exists(db_path_ + "-wal")) {
         init_shm = true;
     }
     std::error_code error_code;
@@ -143,21 +145,18 @@ void DBImpl::InitShmFile() {
     if (init_shm) {
         shm_->Recover();
     }
+    
 }
 
 void DBImpl::InitLogFile() {
     if (options_->read_only) {
         return;
     }
-    std::string log_path = db_path_ + "-wal";
-    tinyio::file log_file;
-    log_file.open(log_path, tinyio::access_mode::write);
-    if (log_file.size() > 0) {
-        shm_->Recover();
-        log_file.resize(0);
+    logger_.emplace(this, db_path_ + "-wal");
+    if (logger_->NeedRecover()) {
+        logger_->Recover();
+        logger_->Reset();
     }
-    logger_.emplace(this, log_path);
-    logger_->Recover();
     logger_->AppendPersistedLog();
 }
 
