@@ -43,6 +43,7 @@ void BTree::Insert(std::span<const uint8_t> key, std::span<const uint8_t> value,
 void BTree::Put(std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket) {
     auto iter = LowerBound(key);
     iter.CopyAllPagesByPath();
+    assert(iter->is_bucket() == is_bucket);
     Put(&iter, key, value, false, is_bucket);
 }
 
@@ -59,6 +60,7 @@ bool BTree::Delete(std::span<const uint8_t> key) {
         return false;
     }
     iter.CopyAllPagesByPath();
+    assert(!iter->is_bucket());
     Delete(&iter);
     return true;
 }
@@ -257,8 +259,8 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
 void BTree::Merge(LeafNode&& left, LeafNode&& right) {
     for (uint16_t i = 0; i < right.count(); i++) {
         bool success = left.Append(right.GetKey(i), right.GetValue(i));
-        left.SetIsBucket(left.count() - 1, right.IsBucket(i));
         assert(success);
+        left.SetIsBucket(left.count() - 1, right.IsBucket(i));
     }
     right.Destroy();
     bucket_->pager().Free(right.page_id(), 1);
@@ -465,13 +467,12 @@ LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uin
         if (!success) {
             success = left->Append(right.GetKey(0), right.GetValue(0));
             assert(success);
-            left->SetIsBucket(left->count() - 1, is_bucket);
+            left->SetIsBucket(left->count() - 1, right.IsBucket(0));
             right.Delete(0);
             success = right.Insert(insert_slot_id - left->count(), key, value);
             assert(success);
-        } else {
-            right.SetIsBucket(insert_slot_id - left->count(), is_bucket);
-        }
+        } 
+        right.SetIsBucket(insert_slot_id - left->count(), is_bucket);
     } else {
         auto success = left->Insert(insert_slot_id, key, value);
         assert(success);
@@ -483,11 +484,13 @@ LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uin
                 assert(success);
             } else {
                 // 不是的话就移动末尾元素插入到右侧并重试
-                right.Insert(0, left->GetKey(left->count() - 1), left->GetValue(left->count() - 1));
+                success = right.Insert(0, left->GetKey(left->count() - 1), left->GetValue(left->count() - 1));
+                assert(success);
                 right.SetIsBucket(0, left->IsBucket(left->count() - 1));
                 left->Pop();
                 success = left->Insert(insert_slot_id, key, value);
                 assert(success);
+                left->SetIsBucket(insert_slot_id, is_bucket);
             }
         }
         assert(success);
@@ -523,7 +526,6 @@ void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const ui
     // 需要分裂再向上插入
     LeafNode right = Split(&node, slot_id, key, value, is_bucket);
     
-
     iter->Pop();
     // 上升右节点的第一个节点
     Put(iter, std::move(node), std::move(right), right.GetKey(0));

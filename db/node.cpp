@@ -306,10 +306,6 @@ void BranchNode::Build(PageId tail_child) {
     header.last_modified_txid = btree_->bucket().tx().txid();
 }
 
-void BranchNode::Destroy() {
-
-}
-
 PageId BranchNode::GetLeftChild(SlotId slot_id) {
     assert(slot_id <= count());
     if (slot_id == count()) {
