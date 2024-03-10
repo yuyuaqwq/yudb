@@ -21,6 +21,7 @@ class DBTest : public testing::Test {
 public:
     std::unique_ptr<yudb::DB> db_;
     int seed_;
+    int count_{ 1000000 };
 
 public:
     DBTest() {
@@ -253,11 +254,9 @@ TEST_F(DBTest, SubBucket) {
 
 
 
-TEST_F(DBTest, BatchOrderedPut) {
-    auto count = 1000000;
-
-    std::vector<int64_t> arr(count);
-    for (auto i = 0; i < count; i++) {
+TEST_F(DBTest, BatchOrderPutDelete) {
+    std::vector<int64_t> arr(count_);
+    for (auto i = 0; i < count_; i++) {
         arr[i] = i;
     }
 
@@ -265,208 +264,279 @@ TEST_F(DBTest, BatchOrderedPut) {
     auto bucket = tx.UserBucket(yudb::UInt64Comparator);
 
     auto j = 0;
-    for (auto& iter : arr) {
-        bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
+    for (auto& data : arr) {
+        bucket.Put(&data, sizeof(data), &data, sizeof(data));
         ++j;
     }
+
+    j = 0;
+    for (auto& data : arr) {
+        auto iter = bucket.Get(&data, sizeof(data));
+        ASSERT_NE(iter, bucket.end());
+        ++j;
+    }
+
+    j = 0;
+    for (auto& data : arr) {
+        auto success = bucket.Delete(&data, sizeof(data));
+        ASSERT_TRUE(success);
+        ++j;
+    }
+
+    j = 0;
+    for (auto& data : arr) {
+        auto iter = bucket.Get(&data, sizeof(data));
+        ASSERT_EQ(iter, bucket.end());
+        ++j;
+    }
+
     tx.Commit();
 }
 
-//TEST_F(DBTest, BatchOrderedGet) {
-//    auto tx = View();
-//    auto bucket = tx.UserBucket(yudb::UInt64Comparator);
-//    auto j = 0;
-//    for (auto& iter : arr) {
-//        auto res = bucket.Get(&iter, sizeof(iter));
-//        ASSERT_NE(res, bucket.end());
-//        //assert(res.value() == iter);
-//        ++j;
-//        //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-//        //bucket.Print(); printf("\n\n\n\n\n");
-//    }
-//   
-//    
-//    auto tx = Update();
-//    auto bucket = tx.UserBucket(yudb::UInt64Comparator);
-//    auto j = 0;
-//    for (auto& iter : arr) {
-//        auto res = bucket.Delete(&iter, sizeof(iter));
-//        ASSERT_TRUE(res);
-//        //assert(res.value() == iter);
-//        ++j;
-//        //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-//        //bucket.Print(); printf("\n\n\n\n\n");
-//    }
-//    tx.Commit();
-//    
-//    std::reverse(arr.begin(), arr.end());
-//}
-//
-//TEST_F(DBTest, BatchRandomString) {
-//    srand(seed_);
-//
-//    auto count = 1000000;
-//    std::vector<std::string> arr(count);
-//
-//    for (auto i = 0; i < count; i++) {
-//        arr[i] = RandomString(16, 100);
-//    }
-//
-//    auto start_time = std::chrono::high_resolution_clock::now();
-//    {
-//        auto tx = Update();
-//        auto bucket = tx.UserBucket();
-//
-//        auto i = 0;
-//        std::string_view value{ nullptr, 0 };
-//        for (auto& iter : arr) {
-//            //printf("%d\n", i);
-//            bucket.Put(iter, value);
-//            //bucket.Print(); printf("\n\n\n\n");
-//            ++i;
-//        }
-//        //bucket.Print();
-//        tx.Commit();
-//    }
-//    auto end_time = std::chrono::high_resolution_clock::now();
-//    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-//    std::cout << "insert: " << duration.count() << " ms" << std::endl;
-//
-//    start_time = std::chrono::high_resolution_clock::now();
-//    {
-//        auto tx = View();
-//        auto bucket = tx.UserBucket();
-//        auto i = 0;
-//        for (auto& iter : arr) {
-//            auto res = bucket.Get(iter.c_str(), iter.size());
-//            ASSERT_NE(res, bucket.end());
-//            //assert(res.value() == iter);
-//            ++i;
-//            //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-//            //bucket.Print(); printf("\n\n\n\n\n");
-//        }
-//    }
-//    end_time = std::chrono::high_resolution_clock::now();
-//    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-//    std::cout << "get: " << duration.count() << " ms" << std::endl;
-//
-//    start_time = std::chrono::high_resolution_clock::now();
-//    {
-//        auto tx = Update();
-//        auto bucket = tx.UserBucket();
-//        auto i = 0;
-//        for (auto& iter : arr) {
-//            auto res = bucket.Delete(iter.c_str(), iter.size());
-//            ASSERT_TRUE(res);
-//            //assert(res.value() == iter);
-//            ++i;
-//            //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-//            //bucket.Print(); printf("\n\n\n\n\n");
-//        }
-//        tx.Commit();
-//    }
-//    end_time = std::chrono::high_resolution_clock::now();
-//    duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-//    std::cout << "delete: " << duration.count() << " ms" << std::endl;
-//}
-//
-//TEST_F(DBTest, Sequential) {
-//    auto count = 1000000;
-//
-//    std::vector<int64_t> arr(count);
-//    for (auto i = 0; i < count; i++) {
-//        arr[i] = i;
-//    }
-//
-//    for (auto i = 0; i < 2; i++) {
-//        auto start_time = std::chrono::high_resolution_clock::now();
-//        {
-//            auto j = 0;
-//            for (auto& iter : arr) {
-//                auto tx = Update();
-//                auto bucket = tx.UserBucket(yudb::UInt64Comparator);
-//                //printf("%d\n", i);
-//                bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
-//                //bucket.Print(); printf("\n\n\n\n");
-//                ++j;
-//                tx.Commit();
-//            }
-//            //bucket.Print();
-//
-//        }
-//        auto end_time = std::chrono::high_resolution_clock::now();
-//        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-//        std::cout << "insert: " << duration.count() << " ms" << std::endl;
-//
-//        start_time = std::chrono::high_resolution_clock::now();
-//        {
-//            auto j = 0;
-//            for (auto& iter : arr) {
-//                auto tx = View();
-//                auto bucket = tx.UserBucket(yudb::UInt64Comparator);
-//                auto res = bucket.Get(&iter, sizeof(iter));
-//                ASSERT_NE(res, bucket.end());
-//                //assert(res.value() == iter);
-//                ++j;
-//                //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-//                //bucket.Print(); printf("\n\n\n\n\n");
-//            }
-//        }
-//        end_time = std::chrono::high_resolution_clock::now();
-//        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-//        std::cout << "get: " << duration.count() << " ms" << std::endl;
-//
-//        start_time = std::chrono::high_resolution_clock::now();
-//        {
-//            auto j = 0;
-//            for (auto& iter : arr) {
-//                auto tx = Update();
-//                auto bucket = tx.UserBucket(yudb::UInt64Comparator);
-//                auto res = bucket.Delete(&iter, sizeof(iter));
-//                ASSERT_TRUE(res);
-//                //assert(res.value() == iter);
-//                ++j;
-//                //bucket.Put(&arr[i], sizeof(arr[i]), &arr[i], sizeof(arr[i]));
-//                //bucket.Print(); printf("\n\n\n\n\n");
-//                tx.Commit();
-//            }
-//
-//        }
-//        end_time = std::chrono::high_resolution_clock::now();
-//        duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-//        std::cout << "delete: " << duration.count() << " ms" << std::endl;
-//
-//        std::reverse(arr.begin(), arr.end());
-//    }
-//}
-//
-//TEST_F(DBTest, Recover) {
-//    auto count = 100;
-//
-//    std::vector<int64_t> arr(count);
-//    for (auto i = 0; i < count; i++) {
-//        arr[i] = i;
-//    }
-//    auto start_time = std::chrono::high_resolution_clock::now();
-//    {
-//        auto tx = Update();
-//        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
-//
-//        auto j = 0;
-//        for (auto& iter : arr) {
-//            //printf("%d\n", i);
-//            bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
-//            //bucket.Print(); printf("\n\n\n\n");
-//            ++j;
-//        }
-//        //bucket.Print();
-//        tx.Commit();
-//    }
-//    auto end_time = std::chrono::high_resolution_clock::now();
-//    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-//    std::cout << "insert: " << duration.count() << " ms" << std::endl;
-//
-//}
+TEST_F(DBTest, BatchReversePutDelete) {
+    std::vector<int64_t> arr(count_);
+    for (auto i = count_ - 1; i >= 0; --i) {
+        arr[i] = i;
+    }
+
+    auto tx = Update();
+    auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+    auto j = 0;
+    for (auto& data : arr) {
+        ++j;
+        bucket.Put(&data, sizeof(data), &data, sizeof(data));
+    }
+   
+    j = 0;
+    for (auto& data : arr) {
+        auto iter = bucket.Get(&data, sizeof(data));
+        ASSERT_NE(iter, bucket.end());
+        ++j;
+    }
+
+    j = 0;
+    for (auto& data : arr) {
+        auto success = bucket.Delete(&data, sizeof(data));
+        ASSERT_TRUE(success);
+        ++j;
+    }
+
+    j = 0;
+    for (auto& data : arr) {
+        auto iter = bucket.Get(&data, sizeof(data));
+        ASSERT_EQ(iter, bucket.end());
+        ++j;
+    }
+
+    tx.Commit();
+}
+
+TEST_F(DBTest, BatchRandomPutDelete) {
+    srand(seed_);
+
+    std::vector<std::string> arr(count_);
+    for (auto i = 0; i < count_; i++) {
+        arr[i] = RandomString(16, 100);
+    }
+
+    auto tx = Update();
+    auto bucket = tx.UserBucket();
+
+    auto i = 0;
+    for (auto& iter : arr) {
+        bucket.Put(iter, iter);
+        ++i;
+    }
+
+    i = 0;
+    for (auto& iter : arr) {
+        auto res = bucket.Get(iter);
+        ASSERT_NE(res, bucket.end());
+        ASSERT_EQ(res.key(), iter);
+        ASSERT_EQ(res.key(), res.value());
+        ++i;
+    }
+
+    i = 0;
+    for (auto& iter : arr) {
+        auto res = bucket.Delete(iter);
+        ASSERT_TRUE(res);
+        ++i;
+    }
+
+    i = 0;
+    for (auto& iter : arr) {
+        auto res = bucket.Get(iter);
+        ASSERT_EQ(res, bucket.end());
+        ++i;
+    }
+
+    tx.Commit();
+
+}
+
+TEST_F(DBTest, OrderPutDelete) {
+    std::vector<int64_t> arr(count_);
+    for (auto i = 0; i < count_; i++) {
+        arr[i] = i;
+    }
+
+    auto j = 0;
+    for (auto& iter : arr) {
+        auto tx = Update();
+        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
+        ++j;
+        tx.Commit();
+    }
+
+    j = 0;
+    for (auto& iter : arr) {
+        auto tx = View();
+        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto res = bucket.Get(&iter, sizeof(iter));
+        ASSERT_NE(res, bucket.end());
+        ++j;
+    }
+
+    j = 0;
+    for (auto& iter : arr) {
+        auto tx = Update();
+        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto res = bucket.Delete(&iter, sizeof(iter));
+        ASSERT_TRUE(res);
+        ++j;
+        tx.Commit();
+    }
+
+    j = 0;
+    for (auto& iter : arr) {
+        auto tx = View();
+        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto res = bucket.Get(&iter, sizeof(iter));
+        ASSERT_EQ(res, bucket.end());
+        ++j;
+    }
+
+}
+
+TEST_F(DBTest, ReversePutDelete) {
+    std::vector<int64_t> arr(count_);
+    for (auto i = count_ - 1; i >= 0; --i) {
+        arr[i] = i;
+    }
+
+    auto j = 0;
+    for (auto& iter : arr) {
+        auto tx = Update();
+        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
+        ++j;
+        tx.Commit();
+    }
+
+    j = 0;
+    for (auto& iter : arr) {
+        auto tx = View();
+        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto res = bucket.Get(&iter, sizeof(iter));
+        ASSERT_NE(res, bucket.end());
+        ++j;
+    }
+
+    j = 0;
+    for (auto& iter : arr) {
+        auto tx = Update();
+        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto res = bucket.Delete(&iter, sizeof(iter));
+        ASSERT_TRUE(res);
+        ++j;
+        tx.Commit();
+    }
+
+    j = 0;
+    for (auto& iter : arr) {
+        auto tx = View();
+        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto res = bucket.Get(&iter, sizeof(iter));
+        ASSERT_EQ(res, bucket.end());
+        ++j;
+    }
+
+}
+
+TEST_F(DBTest, RandomPutDelete) {
+    srand(seed_);
+
+    std::vector<std::string> arr(count_);
+    for (auto i = 0; i < count_; i++) {
+        arr[i] = RandomString(16, 100);
+    }
+
+    auto j = 0;
+    for (auto& iter : arr) {
+        auto tx = Update();
+        auto bucket = tx.UserBucket();
+        bucket.Put(iter, iter);
+        ++j;
+        tx.Commit();
+    }
+
+    j = 0;
+    for (auto& iter : arr) {
+        auto tx = View();
+        auto bucket = tx.UserBucket();
+        auto res = bucket.Get(iter);
+        ASSERT_NE(res, bucket.end());
+        ASSERT_EQ(res.key(), iter);
+        ASSERT_EQ(res.key(), res.value());
+        ++j;
+    }
+
+    j = 0;
+    for (auto& iter : arr) {
+        auto tx = Update();
+        auto bucket = tx.UserBucket();
+        auto res = bucket.Delete(iter);
+        ASSERT_TRUE(res);
+        ++j;
+        tx.Commit();
+    }
+
+    j = 0;
+    for (auto& iter : arr) {
+        auto tx = View();
+        auto bucket = tx.UserBucket();
+        auto res = bucket.Get(iter);
+        ASSERT_EQ(res, bucket.end());
+        ++j;
+    }
+
+}
+
+
+TEST_F(DBTest, Recover) {
+    std::vector<int64_t> arr(count_);
+    for (auto i = 0; i < count_; i++) {
+        arr[i] = i;
+    }
+    auto start_time = std::chrono::high_resolution_clock::now();
+    {
+        auto tx = Update();
+        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+
+        auto j = 0;
+        for (auto& iter : arr) {
+            //printf("%d\n", i);
+            bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
+            //bucket.Print(); printf("\n\n\n\n");
+            ++j;
+        }
+        //bucket.Print();
+        tx.Commit();
+    }
+
+}
 
 } // namespace yudb
 
