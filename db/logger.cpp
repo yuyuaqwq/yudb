@@ -196,6 +196,8 @@ void Logger::Checkpoint() {
     meta.Save();
     Reset();
     AppendPersistedLog();
+
+    if (need_checkpoint_) need_checkpoint_ = false;
 }
 
 void Logger::AppendPersistedLog() {
