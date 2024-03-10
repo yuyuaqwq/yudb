@@ -12,65 +12,41 @@ public:
 class IoError : public Error {
 public:
     using Error::Error;
-    const char* what() const {
-        return Error::what();
-    }
 };
 
 class InvalidArgumentError : public Error {
 public:
     using Error::Error;
-    const char* what() const {
-        return Error::what();
-    }
 };
 
 class LoggerError : public Error {
 public:
     using Error::Error;
-    const char* what() const {
-        return Error::what();
-    }
 };
 
 class CheckpointError : public Error {
 public:
     using Error::Error;
-    const char* what() const {
-        return Error::what();
-    }
 };
 
 class LogError : public Error {
 public:
     using Error::Error;
-    const char* what() const {
-        return Error::what();
-    }
 };
 
 class CacheManagerError : public Error {
 public:
     using Error::Error;
-    const char* what() const {
-        return Error::what();
-    }
 };
 
 class TxManagerError : public Error {
 public:
     using Error::Error;
-    const char* what() const {
-        return Error::what();
-    }
 };
 
 class PagerError : public Error {
 public:
     using Error::Error;
-    const char* what() const {
-        return Error::what();
-    }
 };
 
 } // namespace yudb
