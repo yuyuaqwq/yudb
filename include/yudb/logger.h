@@ -18,9 +18,11 @@ public:
     void FlushLog();
 
     void Reset();
+    bool NeedCheckPoint() const { return need_checkpoint_; }
     void Checkpoint();
     bool NeedRecover();
     void Recover();
+
 
 private:
     DBImpl* const db_;
@@ -28,6 +30,7 @@ private:
     const std::string log_path_;
     log::Writer writer_;
     bool recovering_{ false };
+    bool need_checkpoint_{ false };
 };
 
 } // namespace yudb

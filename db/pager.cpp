@@ -48,7 +48,6 @@ void Pager::WriteAllDirtyPages() {
 }
 
 void Pager::Rollback() {
-    const auto& update_tx = db_->tx_manager().update_tx();
     for (auto& alloc_pair : alloc_records_) {
         FreeToMap(alloc_pair.first, alloc_pair.second);
     }
@@ -86,7 +85,7 @@ PageId Pager::Alloc(PageCount count) {
 #endif
     
     if (pgid == kPageInvalidId) {
-        auto& page_count = update_tx.meta_format().page_count;
+        auto& page_count = update_tx.meta_struct().page_count;
         if (page_count + count < page_count) {
             throw PagerError{ "page allocation failed, there are not enough available pages." };
         }
@@ -143,7 +142,7 @@ void Pager::Release(TxId releasable_txid) {
 
 void Pager::LoadFreeList() {
     auto& update_tx = db_->tx_manager().update_tx();
-    auto& meta = update_tx.meta_format();
+    auto& meta = update_tx.meta_struct();
     if (meta.free_list_pgid == kPageInvalidId) {
         return;
     }
@@ -162,7 +161,7 @@ void Pager::LoadFreeList() {
 
 void Pager::SaveFreeList() {
     auto& update_tx = db_->tx_manager().update_tx();
-    auto& meta = update_tx.meta_format();
+    auto& meta = update_tx.meta_struct();
 
     //  Õ∑≈‘≠free_list
     if (meta.free_list_pgid != kPageInvalidId) {
@@ -225,9 +224,6 @@ void Pager::FreeToMap(PageId pgid, PageCount count) {
 #ifndef NDEBUG
     for (auto i = 0; i < count; ++i) {
         auto [_, success] = debug_free_set_.insert(pgid + i);
-        if (!success) {
-            printf("?????");
-        }
         assert(success);
     }
 #endif

@@ -88,15 +88,15 @@ TEST(PagerTest, AllocAndFree) {
         auto tx = db_impl->Update();
         auto pgid = pager.Alloc(1);
         ASSERT_EQ(pgid, 1120);
-        db_impl->logger()->Checkpoint();
         tx.Commit();
+        db_impl->logger()->Checkpoint();
     }
     {
         auto tx = db_impl->Update();
         auto pgid = pager.Alloc(48);
         ASSERT_EQ(pgid, 1122);
-        db_impl->logger()->Checkpoint();
         tx.Commit();
+        db_impl->logger()->Checkpoint();
     }
 }
 

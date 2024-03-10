@@ -31,7 +31,6 @@ public:
     TxImpl& update_tx();
     bool has_update_tx() const { return update_tx_.has_value(); };
     Pager& pager() const;
-    bool committing() const { return committing_; }
 
 private:
     void AppendBeginLog();
@@ -44,8 +43,6 @@ private:
 
     std::optional<TxImpl> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;
-
-    bool committing_{ false };
 };
 
 } // namespace yudb

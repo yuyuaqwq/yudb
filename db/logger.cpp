@@ -15,9 +15,9 @@ Logger::Logger(DBImpl* db, std::string_view log_path) :
 
 Logger::~Logger() {
     if (!db_->options()->read_only) {
-        auto tx = db_->Update();
         Checkpoint();
-        tx.Commit();
+        writer_.Close();
+        std::filesystem::remove(log_path_);
     }
 }
 
@@ -27,12 +27,13 @@ void Logger::AppendLog(const std::span<const uint8_t>* begin, const std::span<co
     for (auto it = begin; it != end; ++it) {
         writer_.AppendRecordToBuffer(*it);
     }
-    if (writer_.size() >= db_->options()->max_wal_size && db_->tx_manager().committing()) {
-        Checkpoint();
+    if (!need_checkpoint_ && writer_.size() >= db_->options()->max_wal_size) {
+        need_checkpoint_ = true;
     }
 }
 
 void Logger::FlushLog() {
+    if (recovering_) return;
     writer_.FlushBuffer();
 }
 
@@ -177,13 +178,13 @@ void Logger::Checkpoint() {
     auto& pager = db_->pager();
     auto& tx_manager = db_->tx_manager();
 
-    if (!tx_manager.has_update_tx()) {
+    if (tx_manager.has_update_tx()) {
         throw CheckpointError{ "checkpoint execution is not allowed when there is a write transaction." };
     }
 
-    pager.SaveFreeList();
-    auto& tx = tx_manager.update_tx();
-    meta.Reset(tx.meta_format());
+    auto tx = db_->Update();
+    db_->pager().SaveFreeList();
+    tx.Commit();
 
     pager.WriteAllDirtyPages();
     std::error_code error_code;

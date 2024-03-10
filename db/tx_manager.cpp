@@ -82,15 +82,17 @@ void TxManager::RollBack(TxId view_txid) {
 }
 
 void TxManager::Commit() {
-    committing_ = true;
-
-    db_->meta().Reset(update_tx_->meta_format());
+    db_->meta().Reset(update_tx_->meta_struct());
     AppendCommitLog();
 
     update_tx_ = std::nullopt;
-    committing_ = false;
 
     db_->shm()->update_lock().unlock();
+
+    if (db_->logger()->NeedCheckPoint()) {
+        db_->logger()->Checkpoint();
+    }
+
     db_->ClearMmap();
 }
 

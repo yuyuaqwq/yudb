@@ -39,8 +39,8 @@ public:
     void set_txid(TxId txid) { meta_format_.txid = txid; }
     Pager& pager() const;
     auto& tx_manager() const { return *tx_manager_; }
-    auto& meta_format() const { return meta_format_; }
-    auto& meta_format() { return meta_format_; }
+    auto& meta_struct() const { return meta_format_; }
+    auto& meta_struct() { return meta_format_; }
     auto& sub_bucket_cache() const { return sub_bucket_cache_; }
     auto& sub_bucket_cache() { return sub_bucket_cache_; }
 
