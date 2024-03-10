@@ -53,7 +53,7 @@ void BucketImpl::Delete(Iterator* iter) {
     btree_.Delete(&iter->iter_);
 }
 
-BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable, Comparator comparator) {
+BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable, const Comparator comparator) {
     auto map_iter = sub_bucket_map_.find({ key.data(), key.size() });
     BucketId bucket_id;
     if (map_iter == sub_bucket_map_.end()) {
@@ -61,13 +61,15 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable, Comparato
         map_iter = res.first;
         auto iter = Get(key.data(), key.size());
         if (iter == end()) {
-            // 提前预留空间，以避免Commit时的Put触发分裂
+            // 提前预留足够的空间，以避免Commit时的Put触发分裂
             PageId pgid = kPageInvalidId;
             Put(key.data(), key.size(), &pgid, sizeof(pgid), true);
             iter = Get(key.data(), key.size());
             assert(iter.is_bucket());
         } else {
-            assert(iter.is_bucket());
+            if (iter.is_bucket() == false) {
+                throw InvalidArgumentError{ "attempt to open a key value pair that is not a sub bucket." };
+            }
             map_iter->second.second = iter.value<PageId>();
         }
         bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable, comparator);
@@ -78,14 +80,40 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable, Comparato
     return tx_->AtSubBucket(bucket_id);
 }
 
-void BucketImpl::DeleteSubBucket(std::string_view key) {
+bool BucketImpl::DeleteSubBucket(std::string_view key) {
     auto iter = Get(key.data(), key.size());
+    if (iter == end()) {
+        return false;
+    }
     DeleteSubBucket(&iter);
+    return true;
 }
 
 void BucketImpl::DeleteSubBucket(Iterator* iter) {
-    auto pgid = iter->value<PageId>();
-    pager().Free(pgid, 1);
+    if (!iter->is_bucket()) {
+        throw InvalidArgumentError{ "attempt to delete a key value pair that is not a sub bucket." };
+    }
+    auto& sub_bucket = SubBucket(iter->key(), true, nullptr);
+    auto map_iter = sub_bucket_map_.find({ iter->key().data(), iter->key().size() });
+    do  {
+        auto first = sub_bucket.begin();
+        if (first == sub_bucket.end()) {
+            break;
+        }
+        if (first.is_bucket()) {
+            auto map_iter = sub_bucket.sub_bucket_map_.find({ first->key().data(), first->key().size() });
+            DeleteSubBucket(&first);
+            tx_->DeleteSubBucket(map_iter->second.first);
+            sub_bucket.sub_bucket_map_.erase(map_iter);
+            auto invalid_pgid = kPageInvalidId;
+            sub_bucket.Update(&first, &invalid_pgid, sizeof(invalid_pgid));
+        }
+        sub_bucket.Delete(&first);
+    } while (true);
+    auto pgid = map_iter->second.second;
+    if (pgid != kPageInvalidId) {
+        pager().Free(map_iter->second.second, 1);
+    }
 }
 
 BucketImpl::Iterator BucketImpl::begin() noexcept {
@@ -149,6 +177,10 @@ UpdateBucket UpdateBucket::SubUpdateBucket(std::string_view key) {
     return UpdateBucket{ &bucket_->SubBucket(key, true, bucket_->tx().tx_manager().db().options()->defaluit_comparator) };
 }
 
+bool UpdateBucket::DeleteSubBucket(std::string_view key) {
+    return bucket_->DeleteSubBucket(key);
+}
+
 void UpdateBucket::Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size) {
     bucket_->Put(key_buf, key_size, value_buf, value_size, false);
 }
@@ -164,5 +196,6 @@ bool UpdateBucket::Delete(const void* key_buf, size_t key_size) {
 bool UpdateBucket::Delete(std::string_view key) {
     return bucket_->Delete(key.data(), key.size());
 }
+
 
 } // namespace yudb

@@ -41,11 +41,13 @@ public:
 
     UpdateBucket SubUpdateBucket(std::string_view key, const Comparator& comparator);
     UpdateBucket SubUpdateBucket(std::string_view key);
+    bool DeleteSubBucket(std::string_view key);
 
     void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size);
     void Put(std::string_view key, std::string_view value);
     bool Delete(const void* key_buf, size_t key_size);
     bool Delete(std::string_view key);
+    
 };
 
 } // namespace yudb

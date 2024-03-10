@@ -25,6 +25,11 @@ BucketImpl& TxImpl::AtSubBucket(BucketId bucket_id) {
     return *sub_bucket_cache_[bucket_id];
 }
 
+void TxImpl::DeleteSubBucket(BucketId bucket_id) {
+    assert(sub_bucket_cache_[bucket_id].get());
+    sub_bucket_cache_[bucket_id].reset();
+}
+
 void TxImpl::RollBack() {
     if (writable_) {
         tx_manager_->RollBack();
@@ -39,6 +44,7 @@ void TxImpl::Commit() {
         user_bucket_.Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second), true);
     }
     for (auto& bucket : sub_bucket_cache_) {
+        if (!bucket) continue;
         for (auto& iter : bucket->sub_bucket_map()) {
             bucket->Put(iter.first.c_str(), iter.first.size(), &iter.second.second, sizeof(iter.second.second), true);
         }

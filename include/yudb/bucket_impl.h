@@ -27,7 +27,8 @@ public:
     void Delete(Iterator* iter);
 
     BucketImpl& SubBucket(std::string_view key, bool writable, Comparator comparator);
-    void DeleteSubBucket(std::string_view key);
+    BucketImpl& SubBucket(Iterator* iter, bool writable, Comparator comparator);
+    bool DeleteSubBucket(std::string_view key);
     void DeleteSubBucket(Iterator* iter);
 
     Iterator begin() noexcept;

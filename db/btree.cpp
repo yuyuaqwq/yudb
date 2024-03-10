@@ -265,7 +265,7 @@ void BTree::Merge(LeafNode&& left, LeafNode&& right) {
 }
 
 void BTree::Delete(Iterator* iter) {
-    assert(!iter->is_bucket());
+    assert(!iter->is_bucket() || iter->is_bucket() && iter->value<PageId>() == kPageInvalidId);
 
     auto [pgid, pos] = iter->Front();
     LeafNode node{ this, pgid, true };

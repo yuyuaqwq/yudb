@@ -103,6 +103,7 @@ PageId Pager::Alloc(PageCount count) {
 }
 
 void Pager::Free(PageId free_pgid, PageCount free_count) {
+    assert(free_pgid != kPageInvalidId);
     auto& update_tx = db_->tx_manager().update_tx();
     auto& root_bucket = update_tx.user_bucket();
 
@@ -112,7 +113,6 @@ void Pager::Free(PageId free_pgid, PageCount free_count) {
         iter = res.first;
     }
     iter->second.push_back({ free_pgid, free_count });
-    assert(free_pgid != kPageInvalidId);
 }
 
 Page Pager::Copy(const Page& page) {

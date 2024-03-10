@@ -221,10 +221,32 @@ TEST_F(DBTest, SubBucket) {
     ASSERT_EQ(iter.key(), "sub2_key1");
     ASSERT_EQ(iter.value(), "sub2_value1");
 
+    auto sub_bucket3 = sub_bucket1.SubUpdateBucket("sub3");
+    sub_bucket3.Put("sub3_key1", "sub3_value1");
+    sub_bucket3.Put("sub3_key2", "sub3_value2");
+    iter = sub_bucket3.Get("sub3_key1");
+    ASSERT_EQ(iter.key(), "sub3_key1");
+    ASSERT_EQ(iter.value(), "sub3_value1");
+
+    bucket.Put("k", "v");
+
     iter = bucket.Get("sub1");
     ASSERT_NE(iter, bucket.end());
+    ASSERT_TRUE(iter.is_bucket());
     iter = bucket.Get("sub2");
     ASSERT_NE(iter, bucket.end());
+    ASSERT_TRUE(iter.is_bucket());
+    iter = bucket.Get("sub3");
+    ASSERT_EQ(iter, bucket.end());
+    iter = sub_bucket1.Get("sub3");
+    ASSERT_NE(iter, bucket.end());
+    iter = bucket.Get("k");
+    ASSERT_NE(iter, bucket.end());
+    ASSERT_FALSE(iter.is_bucket());
+
+    ASSERT_FALSE(bucket.DeleteSubBucket("sub3"));
+    ASSERT_TRUE(bucket.DeleteSubBucket("sub2"));
+    ASSERT_TRUE(bucket.DeleteSubBucket("sub1"));
 
     tx.Commit();
 }

@@ -22,6 +22,7 @@ public:
 
     BucketId NewSubBucket(PageId* root_pgid, bool writable, const Comparator& comparator);
     BucketImpl& AtSubBucket(BucketId bucket_id);
+    void DeleteSubBucket(BucketId bucket_id);
 
     void RollBack();
     void Commit();
