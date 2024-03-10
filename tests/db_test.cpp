@@ -254,7 +254,7 @@ TEST_F(DBTest, SubBucket) {
 
 
 
-TEST_F(DBTest, BatchOrderPutDelete) {
+TEST_F(DBTest, BatchPutAndDeleteInOrder) {
     std::vector<int64_t> arr(count_);
     for (auto i = 0; i < count_; i++) {
         arr[i] = i;
@@ -293,7 +293,7 @@ TEST_F(DBTest, BatchOrderPutDelete) {
     tx.Commit();
 }
 
-TEST_F(DBTest, BatchReversePutDelete) {
+TEST_F(DBTest, BatchPutAndDeleteInReverseOrder) {
     std::vector<int64_t> arr(count_);
     for (auto i = count_ - 1; i >= 0; --i) {
         arr[i] = i;
@@ -331,7 +331,7 @@ TEST_F(DBTest, BatchReversePutDelete) {
     tx.Commit();
 }
 
-TEST_F(DBTest, BatchRandomPutDelete) {
+TEST_F(DBTest, BatchPutAndDeleteInRandom) {
     srand(seed_);
 
     std::vector<std::string> arr(count_);
@@ -375,7 +375,7 @@ TEST_F(DBTest, BatchRandomPutDelete) {
 
 }
 
-TEST_F(DBTest, OrderPutDelete) {
+TEST_F(DBTest, PutAndDeleteInOrder) {
     std::vector<int64_t> arr(count_);
     for (auto i = 0; i < count_; i++) {
         arr[i] = i;
@@ -420,7 +420,7 @@ TEST_F(DBTest, OrderPutDelete) {
 
 }
 
-TEST_F(DBTest, ReversePutDelete) {
+TEST_F(DBTest, PutAndDeleteInReverseOrder) {
     std::vector<int64_t> arr(count_);
     for (auto i = count_ - 1; i >= 0; --i) {
         arr[i] = i;
@@ -465,7 +465,7 @@ TEST_F(DBTest, ReversePutDelete) {
 
 }
 
-TEST_F(DBTest, RandomPutDelete) {
+TEST_F(DBTest, PutAndDeleteInRandom) {
     srand(seed_);
 
     std::vector<std::string> arr(count_);
