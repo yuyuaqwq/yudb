@@ -19,22 +19,12 @@ public:
     using Error::Error;
 };
 
+class MetaError : public Error {
+public:
+    using Error::Error;
+};
+
 class LoggerError : public Error {
-public:
-    using Error::Error;
-};
-
-class CheckpointError : public Error {
-public:
-    using Error::Error;
-};
-
-class LogError : public Error {
-public:
-    using Error::Error;
-};
-
-class CacheManagerError : public Error {
 public:
     using Error::Error;
 };

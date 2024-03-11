@@ -16,7 +16,7 @@ namespace yudb{
          db->options_->page_size = mio::page_size();
      } else {
          if (db->options_->page_size != mio::page_size()) {
-             return {};
+             throw InvalidArgumentError{ "page size mismatch." };
          }
      }
 
@@ -26,7 +26,7 @@ namespace yudb{
      bool init_meta = false;
      if (!db->options_->read_only) {
          if (db->db_file_.size() == 0) {
-             db->db_file_.resize(mio::page_size() * kPageInitCount);
+             db->db_file_.resize(db->options_->page_size * kPageInitCount);
              init_meta = true;
          }
      }
@@ -36,9 +36,7 @@ namespace yudb{
      if (init_meta) {
          db->meta_->Init();
      } else {
-         if (!db->meta_->Load()) {
-             return {};
-         }
+         db->meta_->Load();
      }
      db->pager_.emplace(db.get(), db->options_->page_size);
      db->tx_manager_.emplace(db.get());

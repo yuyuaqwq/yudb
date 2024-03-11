@@ -34,7 +34,7 @@ void Meta::Init() {
     Switch();
 }
 
-bool Meta::Load() {
+void Meta::Load() {
     auto ptr = db_->db_file_mmap().data();
 
     // 校验可用元信息
@@ -42,10 +42,10 @@ bool Meta::Load() {
     auto second = reinterpret_cast<MetaStruct*>(ptr + db_->options()->page_size);
 
     if (first->sign != YUDB_SIGN && second->sign != YUDB_SIGN) {
-        return false;
+        throw MetaError{ "not a yudb file." };
     }
     if (YUDB_VERSION < first->min_version) {
-        return false;
+        throw MetaError{ "the target database version is too high." };
     }
 
     const MetaStruct* select;
@@ -73,17 +73,16 @@ bool Meta::Load() {
         crc32.Append(select, kMetaSize - sizeof(uint32_t));
         crc32_value = crc32.End();
         if (crc32_value != select->crc32) {
-            return false;
+            throw MetaError{ "database is damaged." };
         }
     }
 
     // 页面尺寸要求一致
     if (select->page_size != db_->options()->page_size) {
-        return false;
+        throw MetaError{ "database cannot match system page size." };
     }
 
     std::memcpy(meta_struct_, select, kMetaSize);
-    return true;
 }
 
 void Meta::Save() {

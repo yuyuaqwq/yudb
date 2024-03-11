@@ -33,13 +33,13 @@ std::optional<std::string> Reader::ReadRecord() {
         switch (record->type) {
         case RecordType::kFullType: {
             if (in_fragmented_record) {
-                throw LogError{ "partial record without end(1)." };
+                throw LoggerError{ "partial record without end(1)." };
             }
             return std::string{ reinterpret_cast<const char*>(record->data), record->size };
         }
         case RecordType::kFirstType: {
             if (in_fragmented_record) {
-                throw LogError{ "partial record without end(2)." };
+                throw LoggerError{ "partial record without end(2)." };
             }
             in_fragmented_record = true;
             res.append(reinterpret_cast<const char*>(record->data), record->size);
@@ -47,21 +47,21 @@ std::optional<std::string> Reader::ReadRecord() {
         }
         case RecordType::kMiddleType: {
             if (!in_fragmented_record) {
-                throw LogError{ "missing start of fragmented record(1)." };
+                throw LoggerError{ "missing start of fragmented record(1)." };
             }
             res.append(reinterpret_cast<const char*>(record->data), record->size);
             break;
         }
         case RecordType::kLastType: {
             if (!in_fragmented_record) {
-                throw LogError{ "missing start of fragmented record(2)." };
+                throw LoggerError{ "missing start of fragmented record(2)." };
             }
             res.append(reinterpret_cast<const char*>(record->data), record->size);
             in_fragmented_record = false;
             return res;
         }
         default: {
-            throw LogError{ "unknown record type." };
+            throw LoggerError{ "unknown record type." };
         }
         }
     } while (true);
@@ -96,7 +96,7 @@ const LogRecord* Reader::ReadPhysicalRecord() {
         if (kHeaderSize + record->size > size_) {
             size_ = 0;
             if (!eof_) {
-                throw LogError{ "incorrect log record length." };
+                throw LoggerError{ "incorrect log record length." };
             }
             // 可能是写data时crash
             return nullptr;

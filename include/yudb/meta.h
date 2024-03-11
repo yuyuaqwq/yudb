@@ -15,7 +15,7 @@ public:
     ~Meta();
 
     void Init();
-    bool Load();
+    void Load();
     void Save();
     void Switch();
     void Reset(const MetaStruct& meta_struct);

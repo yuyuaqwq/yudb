@@ -178,7 +178,7 @@ void Logger::Checkpoint() {
     auto& tx_manager = db_->tx_manager();
 
     if (tx_manager.has_update_tx()) {
-        throw CheckpointError{ "checkpoint execution is not allowed when there is a write transaction." };
+        throw LoggerError{ "checkpoint execution is not allowed when there is a write transaction." };
     }
 
     auto tx = db_->Update();
