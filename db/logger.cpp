@@ -22,8 +22,7 @@ Logger::~Logger() {
 }
 
 void Logger::AppendLog(const std::span<const uint8_t>* begin, const std::span<const uint8_t>* end) {
-    if (recovering_) return;
-
+    if (disable_writing_) return;
     for (auto it = begin; it != end; ++it) {
         writer_.AppendRecordToBuffer(*it);
     }
@@ -33,7 +32,7 @@ void Logger::AppendLog(const std::span<const uint8_t>* begin, const std::span<co
 }
 
 void Logger::FlushLog() {
-    if (recovering_) return;
+    if (disable_writing_) return;
     writer_.FlushBuffer();
 }
 
@@ -47,7 +46,7 @@ bool Logger::NeedRecover() {
 }
 
 void Logger::Recover() {
-    recovering_ = true;
+    disable_writing_ = true;
     yudb::log::Reader reader;
     reader.Open(log_path_);
     std::optional<UpdateTx> current_tx;
@@ -156,7 +155,7 @@ void Logger::Recover() {
         }
         }
     } while (true);
-    recovering_ = false;
+    disable_writing_ = false;
     pager.WriteAllDirtyPages();
     if (current_tx.has_value()) {
         // 不完整的日志记录，丢弃最后的事务

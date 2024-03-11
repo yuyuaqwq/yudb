@@ -21,7 +21,12 @@ TxManager::~TxManager() {
 }
 
 TxImpl& TxManager::Update() {
+    if (db_->logger()->NeedCheckPoint()) {
+        db_->logger()->Checkpoint();
+    }
+
     db_->shm()->update_lock().lock();
+    db_->ClearMmap();
 
     assert(!update_tx_.has_value());
     AppendBeginLog();
@@ -32,9 +37,8 @@ TxImpl& TxManager::Update() {
     if (update_tx_->txid() == kTxInvalidId) {
         throw TxManagerError("txid overflow.");
     }
-    if (first_) {
-        first_ = false;
-
+    if (Initial_update_) {
+        Initial_update_ = false;
         pager().LoadFreeList();
     }
     const auto iter = view_tx_map_.cbegin();
@@ -45,7 +49,6 @@ TxImpl& TxManager::Update() {
         min_txid = update_tx_->txid();
     }
     pager().Release(min_txid - 1);
-
     return *update_tx_;
 }
 
@@ -84,16 +87,8 @@ void TxManager::RollBack(TxId view_txid) {
 void TxManager::Commit() {
     db_->meta().Reset(update_tx_->meta_struct());
     AppendCommitLog();
-
     update_tx_ = std::nullopt;
-
     db_->shm()->update_lock().unlock();
-
-    if (db_->logger()->NeedCheckPoint()) {
-        db_->logger()->Checkpoint();
-    }
-
-    db_->ClearMmap();
 }
 
 void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {

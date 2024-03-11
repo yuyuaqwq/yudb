@@ -20,7 +20,7 @@ namespace yudb {
 class DBTest : public testing::Test {
 public:
     std::unique_ptr<yudb::DB> db_;
-    int seed_;
+    int seed_{ 0 };
     int count_{ 1000000 };
 
 public:
@@ -64,6 +64,41 @@ public:
         return str;
     }
 };
+
+TEST_F(DBTest, UpdateAndView) {
+    auto update_tx = Update();
+    auto update_bucket = update_tx.UserBucket();
+    auto view_tx1 = View();
+    auto view_tx2 = View();
+    auto view_bucket1 = view_tx1.UserBucket();
+    auto view_bucket2 = view_tx2.UserBucket();
+
+    update_bucket.Put("k1", "v1");
+
+    auto iter = view_bucket1.Get("k1");
+    ASSERT_EQ(iter, view_bucket1.end());
+    iter = view_bucket2.Get("k1");
+    ASSERT_EQ(iter, view_bucket2.end());
+
+    update_tx.Commit();
+
+    auto view_tx3 = View();
+    auto view_tx4 = View();
+    auto view_bucket3 = view_tx3.UserBucket();
+    auto view_bucket4 = view_tx4.UserBucket();
+
+    iter = view_bucket3.Get("k1");
+    ASSERT_EQ(iter.key(), "k1");
+    ASSERT_EQ(iter.value(), "v1");
+    iter = view_bucket4.Get("k1");
+    ASSERT_EQ(iter.key(), "k1");
+    ASSERT_EQ(iter.value(), "v1");
+
+    iter = view_bucket1.Get("k1");
+    ASSERT_EQ(iter, view_bucket1.end());
+    iter = view_bucket2.Get("k1");
+    ASSERT_EQ(iter, view_bucket2.end());
+}
 
 TEST_F(DBTest, EmptyKey) {
     auto tx = Update();
@@ -251,8 +286,6 @@ TEST_F(DBTest, SubBucket) {
 
     tx.Commit();
 }
-
-
 
 TEST_F(DBTest, BatchPutAndDeleteInOrder) {
     std::vector<int64_t> arr(count_);
@@ -514,7 +547,6 @@ TEST_F(DBTest, PutAndDeleteInRandom) {
 
 }
 
-
 TEST_F(DBTest, Recover) {
     std::vector<int64_t> arr(count_);
     for (auto i = 0; i < count_; i++) {
@@ -527,12 +559,9 @@ TEST_F(DBTest, Recover) {
 
         auto j = 0;
         for (auto& iter : arr) {
-            //printf("%d\n", i);
             bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
-            //bucket.Print(); printf("\n\n\n\n");
             ++j;
         }
-        //bucket.Print();
         tx.Commit();
     }
 

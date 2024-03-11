@@ -29,7 +29,7 @@ private:
 
     const std::string log_path_;
     log::Writer writer_;
-    bool recovering_{ false };
+    bool disable_writing_{ false };
     bool need_checkpoint_{ false };
 };
 

@@ -21,7 +21,7 @@ public:
     Node(BTree* btree, PageId page_id, bool dirty);
     Node(BTree* btree, Page page_ref);
     Node(BTree* btree, uint8_t* page_buf);
-    ~Node();
+    virtual ~Node();
 
     Node(Node&& right) noexcept;
     void operator=(Node&& right) noexcept;
@@ -31,15 +31,12 @@ public:
 
     std::span<const uint8_t> GetKey(SlotId slot_id);
     std::pair<SlotId, bool> LowerBound(std::span<const uint8_t> key);
-    bool IsBucket(SlotId slot_id) const;
-    void SetIsBucket(SlotId slot_id, bool b);
 
     double GetFillRate();
 
     Node Copy() const;
     Node AddReference() const;
     Page Release();
-
 
     uint16_t count() const;
     Slot* slots() const { return struct_->slots; }
@@ -74,8 +71,6 @@ protected:
 
     std::optional<Page> page_;
     NodeStruct* struct_;
-
-    SlotId cached_slot_id_{ kSlotInvalidId };
 };
 
 class BranchNode : public Node {
@@ -107,7 +102,10 @@ public:
     void Build();
     void Destroy();
 
+
     Slot& GetSlot(SlotId slot_id);
+    bool IsBucket(SlotId slot_id) const;
+    void SetIsBucket(SlotId slot_id, bool b);
     std::span<const uint8_t> GetValue(SlotId slot_id);
     bool Update(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
     bool Append(std::span<const uint8_t> key, std::span<const uint8_t> value);

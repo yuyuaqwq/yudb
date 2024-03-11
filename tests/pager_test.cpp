@@ -1,5 +1,6 @@
-#include "gtest/gtest.h"
+#include <filesystem>
 
+#include "gtest/gtest.h"
 #include "yudb/db_impl.h"
 
 namespace yudb {
@@ -10,6 +11,7 @@ TEST(PagerTest, AllocAndFree) {
     yudb::Options options{
         .max_wal_size = 1024 * 1024 * 64,
     };
+    std::filesystem::remove("Z:/pager_test.ydb");
     db = yudb::DB::Open(options, "Z:/pager_test.ydb");
     ASSERT_TRUE(db.operator bool());
     auto db_impl = static_cast<DBImpl*>(db.get());

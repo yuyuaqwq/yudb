@@ -86,18 +86,6 @@ Page Node::Release() {
     return std::move(*page_);
 }
 
-bool Node::IsBucket(SlotId slot_id) const {
-    assert(IsLeaf());
-    assert(slot_id < count());
-    return slots()[slot_id].is_bucket;
-}
-
-void Node::SetIsBucket(SlotId slot_id, bool b) {
-    assert(IsLeaf());
-    assert(slot_id < count());
-    slots()[slot_id].is_bucket = b;
-}
-
 PageId Node::page_id() const {
     return page_->page_id();
 }
@@ -115,8 +103,7 @@ PageSize Node::page_size() const {
 }
 
 size_t Node::MaxInlineRecordLength() {
-    size_t max_length;
-    max_length = page_size() -
+    size_t max_length = page_size() -
         sizeof(NodeStruct::header) -
         sizeof(NodeStruct::padding);
     // ensure that each node can hold two records.
@@ -223,6 +210,7 @@ void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<c
     if (SpaceNeeded(length) > MaxInlineRecordLength()) {
         auto pgid = StoreRecordToOverflowPages(slot_id, key, value);
         OverflowRecord record{ .pgid = pgid };
+        assert(struct_->header.data_offset >= sizeof(record));
         struct_->header.data_offset -= sizeof(record);
         struct_->header.space_used += sizeof(record);
         slot.record_offset = struct_->header.data_offset;
@@ -231,6 +219,7 @@ void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<c
         slot.is_overflow_pages = true;
         std::memcpy(overflow_reocrd_ptr, &record, sizeof(record));
     } else {
+        assert(struct_->header.data_offset >= length);
         struct_->header.data_offset -= length;
         struct_->header.space_used += length;
         slot.record_offset = struct_->header.data_offset;
@@ -469,6 +458,16 @@ void LeafNode::Destroy() {
 
 Slot& LeafNode::GetSlot(SlotId slot_id) {
     return struct_->slots[slot_id];
+}
+
+bool LeafNode::IsBucket(SlotId slot_id) const {
+    assert(slot_id < count());
+    return slots()[slot_id].is_bucket;
+}
+
+void LeafNode::SetIsBucket(SlotId slot_id, bool b) {
+    assert(slot_id < count());
+    slots()[slot_id].is_bucket = b;
 }
 
 std::span<const uint8_t> LeafNode::GetValue(SlotId slot_id) {

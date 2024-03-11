@@ -109,6 +109,7 @@ void DBImpl::Remmap(uint64_t new_size) {
  }
 
 void DBImpl::ClearMmap() {
+    if (db_mmap_pending_.empty()) return;
      const std::unique_lock lock{ db_mmap_lock_ };
      for (auto& mmap : db_mmap_pending_) {
          mmap.unmap();

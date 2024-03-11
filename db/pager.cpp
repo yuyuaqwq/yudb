@@ -193,14 +193,14 @@ void Pager::SaveFreeList() {
     WriteByBytes(meta.free_list_pgid, 0, buf.data(), meta.free_pair_count * sizeof(PagePair));
 }
 
-PageId Pager::GetPageIdByPtr(const uint8_t* page_ptr) {
+PageId Pager::GetPageIdByPtr(const uint8_t* page_ptr) const {
     auto ptr = db().db_file_mmap().data();
     const auto diff = page_ptr - reinterpret_cast<const uint8_t*>(ptr);
     const PageId page_id = diff / page_size_;
     return page_id;
 }
 
-PageCount Pager::GetPageCount(const size_t bytes) {
+PageCount Pager::GetPageCount(const size_t bytes) const {
     PageCount page_count = bytes / page_size_;
     if (bytes % page_size_) ++page_count;
     return page_count;
