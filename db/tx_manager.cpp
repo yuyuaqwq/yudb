@@ -61,7 +61,7 @@ ViewTx TxManager::View() {
     } else {
         ++iter->second;
     }
-    return ViewTx{ this, db_->meta().meta_struct() };
+    return ViewTx{ this, db_->meta().meta_struct(), &db_->db_file_mmap_lock() };
 }
 
 void TxManager::RollBack() {

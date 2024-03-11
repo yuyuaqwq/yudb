@@ -71,7 +71,9 @@ void TxImpl::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {
 Pager& TxImpl::pager() const { return tx_manager_->pager(); }
 
 
-ViewTx::ViewTx(TxManager* tx_manager, const MetaStruct& meta) : tx_{ tx_manager, meta, false } {}
+ViewTx::ViewTx(TxManager* tx_manager, const MetaStruct& meta, std::shared_mutex* mmap_mutex) :
+    tx_{ tx_manager, meta, false },
+    mmap_lock_{ *mmap_mutex } {}
 
 ViewTx::~ViewTx() {
     tx_.RollBack();

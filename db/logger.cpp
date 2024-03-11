@@ -173,6 +173,8 @@ void Logger::Recover() {
 }
 
 void Logger::Checkpoint() {
+    if (need_checkpoint_) need_checkpoint_ = false;
+
     auto& meta = db_->meta();
     auto& pager = db_->pager();
     auto& tx_manager = db_->tx_manager();
@@ -195,8 +197,6 @@ void Logger::Checkpoint() {
     meta.Save();
     Reset();
     AppendPersistedLog();
-
-    if (need_checkpoint_) need_checkpoint_ = false;
 }
 
 void Logger::AppendPersistedLog() {
