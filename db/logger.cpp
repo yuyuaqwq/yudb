@@ -70,7 +70,7 @@ void Logger::Recover() {
         switch (type) {
         case LogType::kPersisted: {
             if (init) {
-                throw LoggerError{ "abnormal logging." };
+                throw LoggerError{ "unrecoverable logs." };
             }
             auto log = reinterpret_cast<PersistedLogHeader*>(record->data());
             if (meta.meta_struct().txid > log->txid) {
@@ -81,20 +81,20 @@ void Logger::Recover() {
         }
         case LogType::kBegin: {
             if (!init) {
-                throw LoggerError{ "abnormal logging." };
+                throw LoggerError{ "unrecoverable logs." };
             }
             if (current_tx.has_value()) {
-                throw LoggerError{ "abnormal logging." };
+                throw LoggerError{ "unrecoverable logs." };
             }
             current_tx.emplace(&tx_manager.Update());
             break;
         }
         case LogType::kRollback: {
             if (!init) {
-                throw LoggerError{ "abnormal logging." };
+                throw LoggerError{ "unrecoverable logs." };
             }
             if (!current_tx.has_value()) {
-                throw LoggerError{ "abnormal logging." };
+                throw LoggerError{ "unrecoverable logs." };
             }
             current_tx->RollBack();
             current_tx = std::nullopt;
@@ -102,10 +102,10 @@ void Logger::Recover() {
         }
         case LogType::kCommit: {
             if (!init) {
-                throw LoggerError{ "abnormal logging." };
+                throw LoggerError{ "unrecoverable logs." };
             }
             if (!current_tx.has_value()) {
-                throw LoggerError{ "abnormal logging." };
+                throw LoggerError{ "unrecoverable logs." };
             }
             current_tx->Commit();
             current_tx = std::nullopt;
@@ -113,7 +113,7 @@ void Logger::Recover() {
         }
         case LogType::kPut: {
             if (!init) {
-                throw LoggerError{ "abnormal logging." };
+                throw LoggerError{ "unrecoverable logs." };
             }
             assert(record->size() == kBucketPutLogHeaderSize);
             auto log = reinterpret_cast<BucketLogHeader*>(record->data());
@@ -139,7 +139,7 @@ void Logger::Recover() {
         }
         case LogType::kDelete: {
             if (!init) {
-                throw LoggerError{ "abnormal logging." };
+                throw LoggerError{ "unrecoverable logs." };
             }
             assert(record->size() == kBucketDeleteLogHeaderSize);
             auto log = reinterpret_cast<BucketLogHeader*>(record->data());
