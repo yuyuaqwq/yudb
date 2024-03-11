@@ -75,7 +75,6 @@ UpdateTx DBImpl::Update() {
  }
 
 ViewTx DBImpl::View() {
-     db_mmap_lock_.lock_shared();
      return tx_manager_->View();
  }
 

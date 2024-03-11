@@ -79,14 +79,15 @@ ViewTx::~ViewTx() {
     tx_.RollBack();
 }
 
+
+ViewBucket ViewTx::UserBucket() {
+    UserBucket(tx_.tx_manager().db().options()->defaluit_comparator);
+}
+
 ViewBucket ViewTx::UserBucket(Comparator comparator) {
-    if (comparator == nullptr) {
-        comparator = tx_.tx_manager().db().options()->defaluit_comparator;
-    }
     auto& root_bucket = tx_.user_bucket();
     return ViewBucket{ &root_bucket };
 }
-
 
 UpdateTx::UpdateTx(TxImpl* tx) : tx_{ tx } {}
 
@@ -94,6 +95,10 @@ UpdateTx::~UpdateTx() {
     if (tx_) {
         RollBack();
     }
+}
+
+UpdateBucket UpdateTx::UserBucket() {
+    UserBucket(tx_->tx_manager().db().options()->defaluit_comparator);
 }
 
 UpdateBucket UpdateTx::UserBucket(Comparator comparator) {

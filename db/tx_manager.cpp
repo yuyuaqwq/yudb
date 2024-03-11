@@ -72,8 +72,6 @@ void TxManager::RollBack() {
 }
 
 void TxManager::RollBack(TxId view_txid) {
-    db_->db_file_mmap_lock().unlock_shared();
-
     std::unique_lock lock{ db_->shm()->meta_lock() };
     const auto iter = view_tx_map_.find(view_txid);
     assert(iter != view_tx_map_.end());

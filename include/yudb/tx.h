@@ -13,7 +13,8 @@ public:
     ViewTx(TxManager* tx_manager, const MetaStruct& meta, std::shared_mutex* mmap_mutex);
     ~ViewTx();
 
-    ViewBucket UserBucket(Comparator comparator = nullptr);
+    ViewBucket UserBucket();
+    ViewBucket UserBucket(Comparator comparator);
 
 private:
     std::shared_lock<std::shared_mutex> mmap_lock_;
@@ -25,7 +26,8 @@ public:
     explicit UpdateTx(TxImpl* tx);
     ~UpdateTx();
 
-    UpdateBucket UserBucket(Comparator comparator = nullptr);
+    UpdateBucket UserBucket();
+    UpdateBucket UserBucket(Comparator comparator);
     void RollBack();
     void Commit();
 
