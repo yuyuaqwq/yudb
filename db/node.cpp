@@ -53,9 +53,10 @@ std::pair<SlotId, bool> Node::LowerBound(std::span<const uint8_t> key) {
     auto pos = std::lower_bound(struct_->slots, struct_->slots + count(), key, [&](const Slot& slot, std::span<const uint8_t> search_key) -> bool {
         auto diff = &slot - struct_->slots;
         SlotId slot_id = diff;
-        auto res = btree_->comparator()(GetKey(slot_id), search_key);
-        if (res == 0) eq = true;
-        return res < 0;
+        auto slot_key = GetKey(slot_id);
+        auto res = btree_->comparator()(slot_key, search_key);
+        if (res == std::strong_ordering::equal) eq = true;
+        return res == std::strong_ordering::less;
     });
     auto diff = pos - struct_->slots;
     return { diff, eq };

@@ -77,8 +77,8 @@ TEST_F(NodeTest, LeafNodeAppend) {
     const std::string key1 = "k1";
     const std::string value1 = "v1";
     success = node.Append(FromString(key1), FromString(value1));
-
     ASSERT_TRUE(success);
+
     const std::string key2 = "k2";
     const std::string value2 = "v2";
     success = node.Append(FromString(key2), FromString(value2));
@@ -196,6 +196,56 @@ TEST_F(NodeTest, LeafNodeInsert) {
     ASSERT_EQ(get_key3, key3);
     auto get_value3 = ToString(node.GetValue(1));
     ASSERT_EQ(get_value3, value3);
+}
+
+TEST_F(NodeTest, LeafNodeLowerBound) {
+    bool success;
+    LeafNode node{ &bucket_->btree(), pager_->Alloc(1), true };
+    node.Build();
+
+    const std::string key1 = "k1";
+    const std::string value1 = "v1";
+    success = node.Append(FromString(key1), FromString(value1));
+    ASSERT_TRUE(success);
+
+
+    const std::string key2 = "k3";
+    const std::string value2 = "v3";
+    success = node.Append(FromString(key2), FromString(value2));
+    ASSERT_TRUE(success);
+
+    const std::string key3 = "k5";
+    const std::string value3 = "v5";
+    success = node.Append(FromString(key3), FromString(value3));
+    ASSERT_TRUE(success);
+
+    auto pos = node.LowerBound(FromString("k0"));
+    ASSERT_FALSE(pos.second);
+    ASSERT_EQ(pos.first, 0);
+
+    pos = node.LowerBound(FromString("k1"));
+    ASSERT_TRUE(pos.second);
+    ASSERT_EQ(pos.first, 0);
+
+    pos = node.LowerBound(FromString("k2"));
+    ASSERT_FALSE(pos.second);
+    ASSERT_EQ(pos.first, 1);
+
+    pos = node.LowerBound(FromString("k3"));
+    ASSERT_TRUE(pos.second);
+    ASSERT_EQ(pos.first, 1);
+
+    pos = node.LowerBound(FromString("k4"));
+    ASSERT_FALSE(pos.second);
+    ASSERT_EQ(pos.first, 2);
+
+    pos = node.LowerBound(FromString("k5"));
+    ASSERT_TRUE(pos.second);
+    ASSERT_EQ(pos.first, 2);
+
+    pos = node.LowerBound(FromString("k6"));
+    ASSERT_FALSE(pos.second);
+    ASSERT_EQ(pos.first, 3);
 }
 
 TEST_F(NodeTest, LeafNodeUpdate) {
@@ -328,27 +378,36 @@ TEST_F(NodeTest, LeafNodeCompactify) {
     node.Build();
 
     const std::string key1(1000, 'a');
-    const std::string value1(1031, 'b');
+    const std::string value1(1000, 'b');
     success = node.Append(FromString(key1), FromString(value1));
     ASSERT_TRUE(success);
     const std::string key2(1000, 'c');
-    const std::string value2(1031, 'd');
+    const std::string value2(1000, 'd');
     success = node.Append(FromString(key2), FromString(value2));
+    ASSERT_TRUE(success);
+    const std::string key3(27, 'e');
+    const std::string value3(27, 'f');
+    success = node.Append(FromString(key3), FromString(value3));
     ASSERT_TRUE(success);
 
     node.Delete(0);
     success = node.Append(FromString(key1), FromString(value1));
     ASSERT_TRUE(success);
 
-    auto get_key1 = ToString(node.GetKey(1));
+    auto get_key1 = ToString(node.GetKey(2));
     ASSERT_EQ(get_key1, key1);
-    auto get_value1 = ToString(node.GetValue(1));
+    auto get_value1 = ToString(node.GetValue(2));
     ASSERT_EQ(get_value1, value1);
 
     auto get_key2 = ToString(node.GetKey(0));
     ASSERT_EQ(get_key2, key2);
     auto get_value2 = ToString(node.GetValue(0));
     ASSERT_EQ(get_value2, value2);
+
+    auto get_key3 = ToString(node.GetKey(1));
+    ASSERT_EQ(get_key3, key3);
+    auto get_value3 = ToString(node.GetValue(1));
+    ASSERT_EQ(get_value3, value3);
 }
 
 TEST_F(NodeTest, BranchNodeAppend) {
