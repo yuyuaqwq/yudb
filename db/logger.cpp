@@ -26,8 +26,8 @@ void Logger::AppendLog(const std::span<const uint8_t>* begin, const std::span<co
     for (auto it = begin; it != end; ++it) {
         writer_.AppendRecordToBuffer(*it);
     }
-    if (!need_checkpoint_ && writer_.size() >= db_->options()->max_wal_size) {
-        need_checkpoint_ = true;
+    if (!checkpoint_needed_ && writer_.size() >= db_->options()->max_wal_size) {
+        checkpoint_needed_ = true;
     }
 }
 
@@ -41,7 +41,7 @@ void Logger::Reset() {
     writer_.Open(log_path_);
 }
 
-bool Logger::NeedRecover() {
+bool Logger::RecoverNeeded() {
     return writer_.file().size() > 0;
 }
 
@@ -173,7 +173,7 @@ void Logger::Recover() {
 }
 
 void Logger::Checkpoint() {
-    if (need_checkpoint_) need_checkpoint_ = false;
+    if (checkpoint_needed_) checkpoint_needed_ = false;
 
     auto& meta = db_->meta();
     auto& pager = db_->pager();

@@ -38,6 +38,7 @@ public:
     Node AddReference() const;
     Page Release();
 
+    const auto& header() const { return struct_->header; }
     uint16_t count() const;
     Slot* slots() const { return struct_->slots; }
     PageId page_id() const;
@@ -45,14 +46,14 @@ public:
     void set_last_modified_txid(TxId txid) { struct_->header.last_modified_txid = txid; }
 
 protected:
-    size_t MaxInlineRecordSize();
+    PageSize MaxInlineRecordSize();
 
-    bool RequestSpaceFor(std::span<const uint8_t> key, std::span<const uint8_t> value);
-    size_t SpaceNeeded(size_t record_size);
-    // including the size of the node header.
-    size_t SlotSpace();
-    size_t FreeSpace();
-    size_t FreeSpaceAfterCompaction();
+    bool RequestSpaceFor(std::span<const uint8_t> key, std::span<const uint8_t> value, bool slot_needed);
+    size_t SpaceNeeded(size_t record_size, bool slot_needed);
+    // 包括节点头的大小
+    PageSize SlotSpace();
+    PageSize FreeSpace();
+    PageSize FreeSpaceAfterCompaction();
     void Compactify();
 
     uint8_t* Ptr();
@@ -101,7 +102,6 @@ public:
 
     void Build();
     void Destroy();
-
 
     Slot& GetSlot(SlotId slot_id);
     bool IsBucket(SlotId slot_id) const;

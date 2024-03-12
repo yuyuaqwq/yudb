@@ -21,7 +21,7 @@ public:
     using Iterator = BTreeIterator;
 
 public:
-    BTree(BucketImpl* bucket, PageId* root_pgid, const Comparator comparator);
+    BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator);
     ~BTree();
 
     bool Empty() const;

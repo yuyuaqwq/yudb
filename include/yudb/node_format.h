@@ -21,8 +21,8 @@ struct NodeHeader {
     TxId last_modified_txid;
     NodeType type : 2;
     uint16_t count : 14;  // count of slots.
-    uint16_t space_used;  // excluding the space occupied by deleted records.
-    uint16_t data_offset; // the tail of the records.
+    PageSize space_used;  // excluding the space occupied by deleted records.
+    PageOffset data_offset; // the tail of the records.
 };
 
 struct NodeStruct {

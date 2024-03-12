@@ -15,7 +15,7 @@ TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
     CopyMetaInfo(&meta_format_, meta);
 }
 
-BucketId TxImpl::NewSubBucket(PageId* root_pgid, bool writable, const Comparator comparator) {
+BucketId TxImpl::NewSubBucket(PageId* root_pgid, bool writable, Comparator comparator) {
     BucketId new_bucket_id = sub_bucket_cache_.size();
     sub_bucket_cache_.emplace_back(std::make_unique<BucketImpl>(this, new_bucket_id, root_pgid, writable, comparator));
     return new_bucket_id;
@@ -84,7 +84,7 @@ ViewBucket ViewTx::UserBucket() {
     return UserBucket(tx_.tx_manager().db().options()->defaluit_comparator);
 }
 
-ViewBucket ViewTx::UserBucket(const Comparator comparator) {
+ViewBucket ViewTx::UserBucket(Comparator comparator) {
     auto& root_bucket = tx_.user_bucket();
     return ViewBucket{ &root_bucket };
 }
@@ -101,18 +101,23 @@ UpdateBucket UpdateTx::UserBucket() {
     return UserBucket(tx_->tx_manager().db().options()->defaluit_comparator);
 }
 
-UpdateBucket UpdateTx::UserBucket(const Comparator comparator) {
+UpdateBucket UpdateTx::UserBucket(Comparator comparator) {
     auto& root_bucket = tx_->user_bucket();
     return UpdateBucket{ &root_bucket };
 }
 
 void UpdateTx::RollBack() {
-    assert(tx_ != nullptr);
+    if (tx_ == nullptr) {
+        throw TxManagerError{ "invalid tx." };
+    }
     tx_->RollBack();
     tx_ = nullptr;
 }
 
 void UpdateTx::Commit() {
+    if (tx_ == nullptr) {
+        throw TxManagerError{ "invalid tx." };
+    }
     tx_->Commit();
     tx_ = nullptr;
 }

@@ -7,8 +7,6 @@
 
 namespace yudb {
 
-constexpr PageCount kMaxCachedPageCount = 32;
-
 Node::Node(BTree* btree, PageId page_id, bool dirty) :
     btree_{ btree },
     page_{ btree_->bucket().pager().Reference(page_id, dirty) },
@@ -53,7 +51,8 @@ std::span<const uint8_t> Node::GetKey(SlotId slot_id) {
 std::pair<SlotId, bool> Node::LowerBound(std::span<const uint8_t> key) {
     bool eq = false;
     auto res = std::lower_bound(struct_->slots, struct_->slots + count(), key, [&](const Slot& slot, std::span<const uint8_t> search_key) -> bool {
-        SlotId slot_id = &slot - struct_->slots;
+        auto diff = &slot - struct_->slots;
+        SlotId slot_id = diff;
         auto res = btree_->comparator()(GetKey(slot_id), search_key);
         if (res == 0) eq = true;
         return res < 0;
@@ -102,24 +101,30 @@ PageSize Node::page_size() const {
     return btree_->bucket().pager().page_size();
 }
 
-size_t Node::MaxInlineRecordSize() {
-    size_t max_size = page_size() -
+PageSize Node::MaxInlineRecordSize() {
+    PageSize max_size = page_size() -
         sizeof(NodeStruct::header) -
         sizeof(NodeStruct::padding);
-    // ensure that each node can hold two records.
+    // 确保每个节点至少可以存储两条记录
+    max_size -= sizeof(Slot) * 2;
     assert(max_size % 2 == 0);
     return max_size / 2;
 }
 
-size_t Node::SpaceNeeded(size_t record_size) {
+size_t Node::SpaceNeeded(size_t record_size, bool slot_needed) {
+    if (!slot_needed) {
+        return record_size;
+    }
     return record_size + sizeof(Slot);
 }
 
-bool Node::RequestSpaceFor(std::span<const uint8_t> key, std::span<const uint8_t> value) {
+bool Node::RequestSpaceFor(std::span<const uint8_t> key, std::span<const uint8_t> value, bool slot_needed) {
     auto size = key.size() + value.size();
-    auto space_needed = SpaceNeeded(size);
-    if (space_needed > MaxInlineRecordSize()) {
-        space_needed = SpaceNeeded(sizeof(OverflowRecord));
+    size_t space_needed;
+    if (size > MaxInlineRecordSize()) {
+        space_needed = SpaceNeeded(sizeof(OverflowRecord), slot_needed);
+    } else {
+        space_needed = SpaceNeeded(size, slot_needed);
     }
     if (space_needed <= FreeSpace()) {
         return true;
@@ -131,22 +136,22 @@ bool Node::RequestSpaceFor(std::span<const uint8_t> key, std::span<const uint8_t
     return false;
 }
 
-size_t Node::SlotSpace() {
+PageSize Node::SlotSpace() {
     auto slot_space = reinterpret_cast<const uint8_t*>(struct_->slots + struct_->header.count) - Ptr();
     assert(slot_space < page_size());
     return slot_space;
 }
 
-size_t Node::FreeSpace() {
+PageSize Node::FreeSpace() {
     assert(struct_->header.data_offset >= SlotSpace());
     auto free_space = struct_->header.data_offset - SlotSpace();
     assert(free_space < page_size());
     return free_space;
 }
 
-size_t Node::FreeSpaceAfterCompaction() {
+PageSize Node::FreeSpaceAfterCompaction() {
     assert(page_size() >= SlotSpace() + struct_->header.space_used);
-    auto free_space = page_size() - SlotSpace() - struct_->header.space_used;
+    PageSize free_space = page_size() - SlotSpace() - struct_->header.space_used;
     assert(free_space < page_size());
     return free_space;
 }
@@ -188,7 +193,7 @@ PageId Node::StoreRecordToOverflowPages(SlotId slot_id, std::span<const uint8_t>
     auto pgid = pager.Alloc(pager.GetPageCount(size));
     pager.WriteByBytes(pgid, 0, key.data(), key.size());
     if (!value.empty()) {
-        auto key_page_count = key.size() / page_size_;
+        PageCount key_page_count = key.size() / page_size_;
         pager.WriteByBytes(pgid + key_page_count, key.size() % page_size_, value.data(), value.size());
     }
     return pgid;
@@ -198,6 +203,9 @@ void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<c
     if (key.size() > page_size() || key.size() > kKeyMaxSize) {
         throw InvalidArgumentError("key size exceeds the limit.");
     }
+    if (value.size() > kValueMaxSize) {
+        throw InvalidArgumentError("value size exceeds the limit.");
+    }
 
     auto size = key.size() + value.size();
     auto& slot = struct_->slots[slot_id];
@@ -205,9 +213,8 @@ void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<c
     if (IsLeaf()) {
         slot.value_size = value.size();
     }
-
-    // 需要创建overflow pages存放
-    if (SpaceNeeded(size) > MaxInlineRecordSize()) {
+    if (size > MaxInlineRecordSize()) {
+        // 需要创建overflow pages存放
         auto pgid = StoreRecordToOverflowPages(slot_id, key, value);
         OverflowRecord record{ .pgid = pgid };
         assert(struct_->header.data_offset >= sizeof(record));
@@ -229,6 +236,7 @@ void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<c
             std::memcpy(GetRecordPtr(slot_id) + key.size(), value.data(), value.size());
         }
     }
+    assert(SlotSpace() + FreeSpace() == struct_->header.data_offset);
 }
 
 void Node::CopyRecordRange(Node* dst) {
@@ -295,9 +303,7 @@ void BranchNode::Build(PageId tail_child) {
     header.last_modified_txid = btree_->bucket().tx().txid();
 }
 
-void BranchNode::Destroy() {
-
-}
+void BranchNode::Destroy() { }
 
 PageId BranchNode::GetLeftChild(SlotId slot_id) {
     assert(slot_id <= count());
@@ -363,8 +369,8 @@ bool BranchNode::Update(SlotId slot_id, std::span<const uint8_t> key) {
     assert(slot_id < count());
     auto saved_slot = struct_->slots[slot_id];
     DeleteRecord(slot_id);
-    if (!RequestSpaceFor(key, {})) {
-        // not enough space, restore deleted record.
+    if (!RequestSpaceFor(key, {}, false)) {
+        // 空间不足，还原删除的记录
         RestoreRecord(slot_id, saved_slot);
         return false;
     }
@@ -382,7 +388,7 @@ bool BranchNode::Append(std::span<const uint8_t> key, PageId child, bool is_righ
 
 bool BranchNode::Insert(SlotId slot_id, std::span<const uint8_t> key, PageId child, bool is_right_child) {
     assert(slot_id <= count());
-    if (!RequestSpaceFor(key, {})) {
+    if (!RequestSpaceFor(key, {}, true)) {
         return false;
     }
     auto& slot = struct_->slots[slot_id];
@@ -401,7 +407,6 @@ bool BranchNode::Insert(SlotId slot_id, std::span<const uint8_t> key, PageId chi
     }
     ++struct_->header.count;
     StoreRecord(slot_id, key, {});
-    assert(SlotSpace() + FreeSpace() == struct_->header.data_offset);
     return true;
 }
 
@@ -480,8 +485,8 @@ bool LeafNode::Update(SlotId slot_id, std::span<const uint8_t> key, std::span<co
     assert(slot_id < count());
     auto saved_slot = struct_->slots[slot_id];
     DeleteRecord(slot_id);
-    if (!RequestSpaceFor(key, value)) {
-        // not enough space, restore deleted record.
+    if (!RequestSpaceFor(key, value, false)) {
+        // 空间不足，还原删除的记录
         RestoreRecord(slot_id, saved_slot);
         return false;
     }
@@ -497,14 +502,13 @@ bool LeafNode::Append(std::span<const uint8_t> key, std::span<const uint8_t> val
 
 bool LeafNode::Insert(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     assert(slot_id <= count());
-    if (!RequestSpaceFor(key, value)) {
+    if (!RequestSpaceFor(key, value, true)) {
         return false;
     }
     std::memmove(struct_->slots + slot_id + 1, struct_->slots + slot_id,
         sizeof(Slot) * (count() - slot_id));
     ++struct_->header.count;
     StoreRecord(slot_id, key, value);
-    assert(SlotSpace() + FreeSpace() == struct_->header.data_offset);
     return true;
 }
 

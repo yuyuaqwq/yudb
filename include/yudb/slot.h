@@ -10,10 +10,11 @@
 
 namespace yudb {
 
-using SlotId = uint16_t;
-constexpr SlotId kSlotInvalidId = 0xffff;
+using SlotId = int16_t;
+constexpr SlotId kSlotInvalidId = -1;
 
 constexpr size_t kKeyMaxSize = 0x7fff;
+constexpr size_t kValueMaxSize = 0xffffffff;
 
 #pragma pack(push, 1)
 struct Slot {

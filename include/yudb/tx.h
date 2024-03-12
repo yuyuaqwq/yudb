@@ -14,7 +14,7 @@ public:
     ~ViewTx();
 
     ViewBucket UserBucket();
-    ViewBucket UserBucket(const Comparator comparator);
+    ViewBucket UserBucket(Comparator comparator);
 
 private:
     std::shared_lock<std::shared_mutex> mmap_lock_;
@@ -27,7 +27,7 @@ public:
     ~UpdateTx();
 
     UpdateBucket UserBucket();
-    UpdateBucket UserBucket(const Comparator comparator);
+    UpdateBucket UserBucket(Comparator comparator);
     void RollBack();
     void Commit();
 

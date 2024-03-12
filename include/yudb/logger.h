@@ -18,9 +18,9 @@ public:
     void FlushLog();
 
     void Reset();
-    bool NeedCheckPoint() const { return need_checkpoint_; }
+    bool CheckPointNeeded() const { return checkpoint_needed_; }
     void Checkpoint();
-    bool NeedRecover();
+    bool RecoverNeeded();
     void Recover();
 
 
@@ -30,7 +30,7 @@ private:
     const std::string log_path_;
     log::Writer writer_;
     bool disable_writing_{ false };
-    bool need_checkpoint_{ false };
+    bool checkpoint_needed_{ false };
 };
 
 } // namespace yudb

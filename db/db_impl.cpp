@@ -151,7 +151,7 @@ void DBImpl::InitLogFile() {
         return;
     }
     logger_.emplace(this, db_path_ + "-wal");
-    if (logger_->NeedRecover()) {
+    if (logger_->RecoverNeeded()) {
         logger_->Recover();
         logger_->Reset();
     }

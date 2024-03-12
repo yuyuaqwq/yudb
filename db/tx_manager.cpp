@@ -10,18 +10,17 @@ TxManager::TxManager(DBImpl* db) :
     db_{ db } {}
 
 TxManager::~TxManager() {
+    std::unique_lock lock{ db_->shm()->meta_lock() };
     if (update_tx_.has_value()) {
         throw TxManagerError{ "there are write transactions that have not been exited." };
     }
-
-    std::unique_lock lock{ db_->shm()->meta_lock() };
     if (!view_tx_map_.empty()) {
         throw TxManagerError{ "there are read transactions that have not been exited." };
     }
 }
 
 TxImpl& TxManager::Update() {
-    if (db_->logger()->NeedCheckPoint()) {
+    if (db_->logger()->CheckPointNeeded()) {
         db_->logger()->Checkpoint();
     }
 

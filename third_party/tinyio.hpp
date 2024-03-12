@@ -283,7 +283,9 @@ public:
     void resize(uint64_t new_size, std::error_code& error_code) {
         error_code.clear();
 #ifdef _WIN32
-        if (SetFilePointer(handle_, new_size, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+        LARGE_INTEGER large;
+        large.QuadPart = new_size;
+        if (SetFilePointerEx(handle_, large, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
             error_code = detail::last_error();
         }
         if (!SetEndOfFile(handle_)) {
@@ -304,22 +306,22 @@ public:
         }
     }
 
-    size_t read(void* buf, size_t length, std::error_code& error_code) {
+    size_t read(void* buf, size_t size, std::error_code& error_code) {
         error_code.clear();
 #ifdef _WIN32
-        DWORD read_len;
-        const BOOL success = ReadFile(handle_, buf, length, &read_len, NULL);
+        DWORD read_size;
+        const BOOL success = ReadFile(handle_, buf, size, &read_size, NULL);
         if (!success) {
             error_code = detail::last_error();
             return 0;
         }
-        return read_len;
+        return read_size;
 #else // POSIX
-        auto read_len = read(handle_, buf, length);
-        if (read_len < 0) {
+        auto read_size = read(handle_, buf, length);
+        if (read_size < 0) {
             error_code = detail::last_error();
         }
-        return read_len;
+        return read_size;
 #endif
     }
 

@@ -6,7 +6,7 @@
 
 namespace yudb {
 
-BTree::BTree(BucketImpl* bucket, PageId* root_pgid, const Comparator comparator) :
+BTree::BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator) :
     bucket_{ bucket },
     root_pgid_ { *root_pgid },
     comparator_{ comparator } {}
@@ -354,7 +354,7 @@ std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, 
     PageId insert_left_child = left->GetLeftChild(insert_slot_id);
     left->SetLeftChild(insert_slot_id, insert_right_child);
 
-    for (intptr_t i = saved_left_count - 1; i >= 0; --i) {
+    for (int16_t i = saved_left_count - 1; i >= 0; --i) {
         auto success = right.Append(left->GetKey(i), left->GetLeftChild(i), false);
         assert(success);
         left->Pop(false);
@@ -447,7 +447,7 @@ LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uin
     auto saved_left_count = left->count();
     assert(saved_left_count >= 2);
 
-    for (intptr_t i = saved_left_count - 1; i >= 0; --i) {
+    for (SlotId i = saved_left_count - 1; i >= 0; --i) {
         auto success = right.Append(left->GetKey(i), left->GetValue(i));
         assert(success);
         right.SetIsBucket(right.count() - 1, left->IsBucket(i));
