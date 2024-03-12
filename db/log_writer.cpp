@@ -22,9 +22,9 @@ void Writer::Close() {
 
 
 void Writer::AppendRecordToBuffer(std::span<const uint8_t> data) {
-    auto length = kHeaderSize + data.size();
-    size_ += length;
-    if (block_offset_ + length > kBlockSize) {
+    auto size = kHeaderSize + data.size();
+    size_ += size;
+    if (block_offset_ + size > kBlockSize) {
         FlushBuffer();
         AppendRecord(data);
         return;
@@ -47,7 +47,7 @@ void Writer::AppendRecordToBuffer(std::span<const uint8_t> data) {
         rep_.resize(raw_size + data.size());
         std::memcpy(&rep_[raw_size], data.data(), data.size());
     }
-    block_offset_ += length;
+    block_offset_ += size;
 }
 
 void Writer::AppendRecordToBuffer(std::string_view data) {
@@ -76,10 +76,10 @@ void Writer::AppendRecord(std::span<const uint8_t> data) {
         }
 
         const size_t avail = kBlockSize - block_offset_ - kHeaderSize;
-        const size_t fragment_length = (left < avail) ? left : avail;
+        const size_t fragment_size = (left < avail) ? left : avail;
 
         RecordType type;
-        const bool end = (left == fragment_length);
+        const bool end = (left == fragment_size);
         if (begin && end) {
             type = RecordType::kFullType;
         } else if (begin) {
@@ -90,9 +90,9 @@ void Writer::AppendRecord(std::span<const uint8_t> data) {
             type = RecordType::kMiddleType;
         }
 
-        EmitPhysicalRecord(type, ptr, fragment_length);
-        ptr += fragment_length;
-        left -= fragment_length;
+        EmitPhysicalRecord(type, ptr, fragment_size);
+        ptr += fragment_size;
+        left -= fragment_size;
         begin = false;
     } while (left > 0);
 }

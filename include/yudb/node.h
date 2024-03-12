@@ -45,11 +45,11 @@ public:
     void set_last_modified_txid(TxId txid) { struct_->header.last_modified_txid = txid; }
 
 protected:
-    size_t MaxInlineRecordLength();
+    size_t MaxInlineRecordSize();
 
     bool RequestSpaceFor(std::span<const uint8_t> key, std::span<const uint8_t> value);
-    size_t SpaceNeeded(size_t record_length);
-    // including the length of the node header.
+    size_t SpaceNeeded(size_t record_size);
+    // including the size of the node header.
     size_t SlotSpace();
     size_t FreeSpace();
     size_t FreeSpaceAfterCompaction();

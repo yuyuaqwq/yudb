@@ -96,7 +96,7 @@ const LogRecord* Reader::ReadPhysicalRecord() {
         if (kHeaderSize + record->size > size_) {
             size_ = 0;
             if (!eof_) {
-                throw LoggerError{ "incorrect log record length." };
+                throw LoggerError{ "incorrect log record size." };
             }
             // 可能是写data时crash
             return nullptr;

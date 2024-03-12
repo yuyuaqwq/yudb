@@ -548,23 +548,7 @@ TEST_F(DBTest, PutAndDeleteInRandom) {
 }
 
 TEST_F(DBTest, Recover) {
-    std::vector<int64_t> arr(count_);
-    for (auto i = 0; i < count_; i++) {
-        arr[i] = i;
-    }
-    auto start_time = std::chrono::high_resolution_clock::now();
-    {
-        auto tx = Update();
-        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
-
-        auto j = 0;
-        for (auto& iter : arr) {
-            bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
-            ++j;
-        }
-        tx.Commit();
-    }
-
+    // todo:
 }
 
 } // namespace yudb

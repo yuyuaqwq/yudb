@@ -7,6 +7,10 @@ namespace yudb {
 
 static std::unique_ptr<yudb::DB> db;
 
+TEST(PagerTest, ReadWrite) {
+	// todo:
+}
+
 TEST(PagerTest, AllocAndFree) {
     yudb::Options options{
         .max_wal_size = 1024 * 1024 * 64,

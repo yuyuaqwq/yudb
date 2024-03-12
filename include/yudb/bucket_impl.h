@@ -15,7 +15,7 @@ public:
     using Iterator = BucketIterator;
 
 public:
-    BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable, const Comparator& comparator);
+    BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable, const Comparator comparator);
     ~BucketImpl();
 
     bool Empty() const;

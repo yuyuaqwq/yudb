@@ -13,8 +13,8 @@ public:
         return Node::RequestSpaceFor(key, value);
     }
 
-    size_t SpaceNeeded(size_t record_length) {
-        return Node::SpaceNeeded(record_length);
+    size_t SpaceNeeded(size_t record_size) {
+        return Node::SpaceNeeded(record_size);
     }
 
     size_t SlotSpace() {
@@ -98,10 +98,10 @@ TEST_F(NodeTest, StoreRecord) {
     
     NodeExternal node{ &user_bucket.btree(),pager.Alloc(1), true };
     
-    auto length = pager.page_size() -
+    auto size = pager.page_size() -
         sizeof(NodeStruct::header) -
         sizeof(NodeStruct::padding);
-    auto count = length / sizeof(uint32_t);
+    auto count = size / sizeof(uint32_t);
     for (uint32_t i = 0; i < count; ++i) {
         node.StoreRecord(0, { reinterpret_cast<uint8_t*>(&i) ,sizeof(i)}, { reinterpret_cast<uint8_t*>(&i) ,sizeof(i)});
         

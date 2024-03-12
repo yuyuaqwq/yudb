@@ -7,7 +7,7 @@
 
 namespace yudb {
 
-BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable, const Comparator& comparator) :
+BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable, const Comparator comparator) :
     tx_{ tx },
     bucket_id_{ bucket_id },
     writable_{ writable },
@@ -133,7 +133,7 @@ ViewBucket::ViewBucket(BucketImpl* bucket) : bucket_{ bucket } {};
 
 ViewBucket::~ViewBucket() = default;
 
-ViewBucket ViewBucket::SubViewBucket(std::string_view key, const Comparator& comparator) {
+ViewBucket ViewBucket::SubViewBucket(std::string_view key, const Comparator comparator) {
     return ViewBucket{ &bucket_->SubBucket(key, false, comparator) };
 }
 
@@ -169,7 +169,7 @@ ViewBucket::Iterator ViewBucket::end() const noexcept {
 
 UpdateBucket::~UpdateBucket() = default;
 
-UpdateBucket UpdateBucket::SubUpdateBucket(std::string_view key, const Comparator& comparator) {
+UpdateBucket UpdateBucket::SubUpdateBucket(std::string_view key, const Comparator comparator) {
     return UpdateBucket{ &bucket_->SubBucket(key, true, comparator) };
 }
 

@@ -20,7 +20,7 @@ public:
     TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable);
     ~TxImpl() = default;
 
-    BucketId NewSubBucket(PageId* root_pgid, bool writable, const Comparator& comparator);
+    BucketId NewSubBucket(PageId* root_pgid, bool writable, const Comparator comparator);
     BucketImpl& AtSubBucket(BucketId bucket_id);
     void DeleteSubBucket(BucketId bucket_id);
 
