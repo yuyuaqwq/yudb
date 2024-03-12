@@ -50,14 +50,15 @@ std::span<const uint8_t> Node::GetKey(SlotId slot_id) {
 
 std::pair<SlotId, bool> Node::LowerBound(std::span<const uint8_t> key) {
     bool eq = false;
-    auto res = std::lower_bound(struct_->slots, struct_->slots + count(), key, [&](const Slot& slot, std::span<const uint8_t> search_key) -> bool {
+    auto pos = std::lower_bound(struct_->slots, struct_->slots + count(), key, [&](const Slot& slot, std::span<const uint8_t> search_key) -> bool {
         auto diff = &slot - struct_->slots;
         SlotId slot_id = diff;
         auto res = btree_->comparator()(GetKey(slot_id), search_key);
         if (res == 0) eq = true;
         return res < 0;
     });
-    return { res - struct_->slots, eq };
+    auto diff = pos - struct_->slots;
+    return { diff, eq };
 }
 
 double Node::GetFillRate() {
