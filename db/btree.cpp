@@ -370,7 +370,6 @@ std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, 
 
     if (insert_slot_id > left->count()) {
         auto success = right.Insert(insert_slot_id - left->count(), insert_key, insert_left_child, false);
-        assert(success);
         if (!success) {
             success = left->Append(right.GetKey(0), right.GetLeftChild(0), true);
             assert(success);
