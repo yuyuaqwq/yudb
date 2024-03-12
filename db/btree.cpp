@@ -350,6 +350,7 @@ std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, 
 
     auto saved_left_count = left->count();
     assert(saved_left_count >= 2);
+    assert(left->GetFillRate() > 0.5);
     
     PageId insert_left_child = left->GetLeftChild(insert_slot_id);
     left->SetLeftChild(insert_slot_id, insert_right_child);
@@ -358,11 +359,13 @@ std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, 
         auto success = right.Append(left->GetKey(i), left->GetLeftChild(i), false);
         assert(success);
         left->Pop(false);
-        if (left->GetFillRate() <= 0.5 || right.GetFillRate() >= 0.5) {
+        if (left->GetFillRate() <= 0.5) {
             break;
         }
     }
     std::reverse(right.slots(), right.slots() + right.count());
+    assert(left->GetFillRate() <= 0.5);
+
     right.SetTailChild(left->GetTailChild());
 
     if (insert_slot_id > left->count()) {
@@ -378,20 +381,6 @@ std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, 
     } else {
         auto success = left->Insert(insert_slot_id, insert_key, insert_left_child, false);
         assert(success);
-        if (!success) {
-            // 若插入到左侧失败，检查是否是插入到末尾
-            if (insert_slot_id == left->count()) {
-                // 是的话我们直接插入到右侧即可
-                success = right.Insert(0, insert_key, insert_left_child, false);
-                assert(success);
-            } else {
-                // 不是的话就移动末尾元素插入到右侧并重试
-                right.Insert(0, left->GetKey(left->count() - 1), left->GetLeftChild(left->count() - 1), false);
-                left->Pop(true);
-                success = left->Insert(insert_slot_id, insert_key, insert_left_child, false);
-                assert(success);
-            }
-        }
     }
     
     std::span<const uint8_t> up_key;
@@ -446,24 +435,25 @@ LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uin
 
     auto saved_left_count = left->count();
     assert(saved_left_count >= 2);
+    assert(left->GetFillRate() > 0.5);
 
     for (SlotId i = saved_left_count - 1; i >= 0; --i) {
         auto success = right.Append(left->GetKey(i), left->GetValue(i));
         assert(success);
         right.SetIsBucket(right.count() - 1, left->IsBucket(i));
         left->Pop();
-        if (left->GetFillRate() <= 0.5 || right.GetFillRate() >= 0.5) {
+        if (left->GetFillRate() <= 0.5) {
             break;
         }
     }
     std::reverse(right.slots(), right.slots() + right.count());
+    assert(left->GetFillRate() <= 0.5);
 
     // 节点的填充率>50%，则可能插入失败
     if (insert_slot_id > left->count()) {
         // 失败则将首元素移动到左侧并重试
         assert(insert_slot_id != left->count());
         auto success = right.Insert(insert_slot_id - left->count(), key, value);
-        assert(success);
         if (!success) {
             success = left->Append(right.GetKey(0), right.GetValue(0));
             assert(success);
@@ -476,24 +466,7 @@ LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uin
     } else {
         auto success = left->Insert(insert_slot_id, key, value);
         assert(success);
-        if (!success) {
-            // 若插入到左侧失败，检查是否是插入到末尾
-            if (insert_slot_id == left->count()) {
-                // 是的话我们直接插入到右侧即可
-                success = right.Insert(0, key, value);
-                assert(success);
-            } else {
-                // 不是的话就移动末尾元素插入到右侧并重试
-                success = right.Insert(0, left->GetKey(left->count() - 1), left->GetValue(left->count() - 1));
-                assert(success);
-                right.SetIsBucket(0, left->IsBucket(left->count() - 1));
-                left->Pop();
-                success = left->Insert(insert_slot_id, key, value);
-                assert(success);
-                left->SetIsBucket(insert_slot_id, is_bucket);
-            }
-        }
-        assert(success);
+        left->SetIsBucket(insert_slot_id, is_bucket);
     }
     
     assert(left->count() >= 1 && right.count() >= 2 || left->count() >= 2 && right.count() >= 1);

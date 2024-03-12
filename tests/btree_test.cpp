@@ -8,8 +8,6 @@ namespace yudb {
 class BTreeTest : public testing::Test {
 public:
     std::unique_ptr<yudb::DB> db_;
-    int seed_{ 0 };
-    int count_{ 1000000 };
     Pager* pager_{ nullptr };
     TxManager* tx_manager_{ nullptr };
     std::optional<UpdateTx> update_tx_;
@@ -74,6 +72,202 @@ TEST_F(BTreeTest, LeafPut) {
     ASSERT_EQ(iter->value(), value2);
 }
 
+TEST_F(BTreeTest, LeafSplit) {
+    for (int i = 0; i < 1000; ++i) {
+        std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i)};
+        btree_->Put(span, span, true);
+    }
+    for (int i = 0; i < 1000; ++i) {
+        std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
+        auto iter = btree_->Get(span);
+        ASSERT_EQ(iter.is_bucket(), true);
+        ASSERT_EQ(iter.key<int>(), i);
+        ASSERT_EQ(iter.value<int>(), i);
+    }
+}
 
+TEST_F(BTreeTest, LeafSplit2) {
+    const std::string key1(1000, '1');
+    const std::string value1(1031, 'a');
+    btree_->Put(FromString(key1), FromString(value1), true);
+
+    const std::string key2(1000, '2');
+    const std::string value2(1031, 'b');
+    btree_->Put(FromString(key2), FromString(value2), true);
+
+    const std::string key3(1000, '3');
+    const std::string value3(1031, 'c');
+    btree_->Put(FromString(key3), FromString(value3), true);
+
+    auto iter = btree_->Get(FromString(key1));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key1);
+    ASSERT_EQ(iter.value(), value1);
+
+    iter = btree_->Get(FromString(key2));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key2);
+    ASSERT_EQ(iter.value(), value2);
+
+    iter = btree_->Get(FromString(key3));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key3);
+    ASSERT_EQ(iter.value(), value3);
+}
+
+TEST_F(BTreeTest, LeafSplit3) {
+    const std::string key1(1000, '1');
+    const std::string value1(1031, 'a');
+    btree_->Put(FromString(key1), FromString(value1), true);
+
+    const std::string key2(1000, '2');
+    const std::string value2(1031, 'b');
+    btree_->Put(FromString(key2), FromString(value2), true);
+
+    const std::string key3(1000, '0');
+    const std::string value3(1031, 'c');
+    btree_->Put(FromString(key3), FromString(value3), true);
+
+    auto iter = btree_->Get(FromString(key1));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key1);
+    ASSERT_EQ(iter.value(), value1);
+
+    iter = btree_->Get(FromString(key2));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key2);
+    ASSERT_EQ(iter.value(), value2);
+
+    iter = btree_->Get(FromString(key3));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key3);
+    ASSERT_EQ(iter.value(), value3);
+}
+
+TEST_F(BTreeTest, LeafSplit4) {
+    const std::string key1(27, '1');
+    const std::string value1(27, 'a');
+    btree_->Put(FromString(key1), FromString(value1), true);
+
+    const std::string key2(1000, '2');
+    const std::string value2(1000, 'b');
+    btree_->Put(FromString(key2), FromString(value2), true);
+
+    const std::string key3(1000, '3');
+    const std::string value3(1000, 'c');
+    btree_->Put(FromString(key3), FromString(value3), true);
+
+    const std::string key4(1000, '4');
+    const std::string value4(1000, 'd');
+    btree_->Put(FromString(key4), FromString(value4), true);
+
+    auto iter = btree_->Get(FromString(key1));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key1);
+    ASSERT_EQ(iter.value(), value1);
+
+    iter = btree_->Get(FromString(key2));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key2);
+    ASSERT_EQ(iter.value(), value2);
+
+    iter = btree_->Get(FromString(key3));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key3);
+    ASSERT_EQ(iter.value(), value3);
+
+    iter = btree_->Get(FromString(key4));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key4);
+    ASSERT_EQ(iter.value(), value4);
+
+}
+
+TEST_F(BTreeTest, LeafSplit5) {
+    const std::string key1(1000, '1');
+    const std::string value1(1000, 'a');
+    btree_->Put(FromString(key1), FromString(value1), true);
+
+    const std::string key2(1000, '2');
+    const std::string value2(1000, 'b');
+    btree_->Put(FromString(key2), FromString(value2), true);
+
+    const std::string key3(27, '3');
+    const std::string value3(27, 'c');
+    btree_->Put(FromString(key3), FromString(value3), true);
+
+    const std::string key4(1000, '0');
+    const std::string value4(1000, 'd');
+    btree_->Put(FromString(key4), FromString(value4), true);
+
+    auto iter = btree_->Get(FromString(key1));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key1);
+    ASSERT_EQ(iter.value(), value1);
+
+    iter = btree_->Get(FromString(key2));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key2);
+    ASSERT_EQ(iter.value(), value2);
+
+    iter = btree_->Get(FromString(key3));
+    ASSERT_EQ(iter.is_bucket(), true);
+    ASSERT_EQ(iter.key(), key3);
+    ASSERT_EQ(iter.value(), value3);
+}
+
+TEST_F(BTreeTest, LeafDelete) {
+    const std::string key1 = "k1";
+    const std::string value1 = "v1";
+    btree_->Put(FromString(key1), FromString(value1), false);
+
+    const std::string key2 = "k2";
+    const std::string value2 = "v2";
+    btree_->Put(FromString(key2), FromString(value2), false);
+
+    ASSERT_TRUE(btree_->Delete(FromString(key1)));
+    ASSERT_TRUE(btree_->Delete(FromString(key2)));
+
+    auto iter = btree_->Get(FromString(key1));
+    ASSERT_EQ(iter, btree_->end());
+
+    iter = btree_->Get(FromString(key2));
+    ASSERT_EQ(iter, btree_->end());
+}
+
+TEST_F(BTreeTest, LeafMerge) {
+    for (int i = 0; i < 1000; ++i) {
+        std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
+        btree_->Put(span, span, false);
+    }
+    for (int i = 0; i < 1000; ++i) {
+        std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
+        ASSERT_TRUE(btree_->Delete(span));
+    }
+    ASSERT_EQ(btree_->begin(), btree_->end());
+}
+
+TEST_F(BTreeTest, BranchPut) {
+
+}
+
+TEST_F(BTreeTest, EmptyIterator) {
+    ASSERT_EQ(btree_->begin(), btree_->end());
+}
+
+TEST_F(BTreeTest, Iteration) {
+    for (int i = 0; i < 10000; ++i) {
+        std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
+        btree_->Put(span, span, true);
+    }
+    int i = 0;
+    for (auto& iter : *btree_) {
+        ASSERT_EQ(iter.is_bucket(), true);
+        ASSERT_EQ(iter.key<int>(), i);
+        ASSERT_EQ(iter.value<int>(), i);
+        ++i;
+    }
+    ASSERT_EQ(i, 10000);
+}
 
 } // namespace yudb

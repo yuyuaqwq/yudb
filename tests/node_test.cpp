@@ -8,8 +8,6 @@ namespace yudb {
 class NodeTest : public testing::Test {
 public:
     std::unique_ptr<yudb::DB> db_;
-    int seed_{ 0 };
-    int count_{ 1000000 };
     Pager* pager_{ nullptr };
     TxManager* tx_manager_{ nullptr };
     std::optional<UpdateTx> update_tx_;
