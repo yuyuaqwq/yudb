@@ -26,7 +26,7 @@ inline std::strong_ordering UInt64Comparator(std::span<const uint8_t> key1, std:
 }
 
 inline std::strong_ordering ByteArrayComparator(std::span<const uint8_t> key1, std::span<const uint8_t> key2) {
-    auto res = std::memcmp(key1.data(), key2.data(), std::min(key1.size(), key2.size()));
+    int64_t res = std::memcmp(key1.data(), key2.data(), std::min(key1.size(), key2.size()));
     if (res == 0) {
         if (key1.size() == key2.size()) {
             return std::strong_ordering::equal;
