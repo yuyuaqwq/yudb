@@ -61,7 +61,7 @@ private:
     std::tuple<std::span<const uint8_t>, BranchNode> Split(BranchNode* left, SlotId insert_pos, std::span<const uint8_t> key, PageId insert_right_child);
 
     // 分支节点的插入
-    void Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8_t> key, bool branch_put = false);
+    void Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8_t> key);
     
     // 叶子节点的分裂
     // 返回新右节点
@@ -76,7 +76,7 @@ private:
     BucketImpl* const bucket_;
     PageId& root_pgid_;
 
-    Comparator comparator_;
+    const Comparator comparator_;
 };
 
 } // namespace yudb

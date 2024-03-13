@@ -17,7 +17,7 @@ class TxManager;
 
 class TxImpl : noncopyable {
 public:
-    TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable);
+    TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable, Comparator comparator);
     ~TxImpl() = default;
 
     BucketId NewSubBucket(PageId* root_pgid, bool writable, Comparator comparator);

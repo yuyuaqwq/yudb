@@ -135,11 +135,9 @@ std::tuple<BranchNode, SlotId, PageId, bool> BTree::GetSibling(Iterator* iter) {
         // 是父节点中最大的元素，只能选择左兄弟节点
         left_sibling = true;
         sibling_pgid = parent.GetLeftChild(parent_slot_id - 1);
-    }
-    else {
+    } else {
         sibling_pgid = parent.GetRightChild(parent_slot_id);
     }
-
     iter->Pop();
     return { std::move(parent), parent_slot_id, sibling_pgid, left_sibling };
 }
@@ -180,7 +178,6 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
     if (left_sibling) --parent_slot_id;
 
     BranchNode sibling{ this, sibling_id, true };
-
     if (bucket_->tx().IsLegacyTx(sibling.last_modified_txid())) {
         sibling = BranchNode{ this, sibling.Copy().Release() };
         if (left_sibling) {
@@ -229,15 +226,14 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
             sibling.Delete(0, false);
         }
         bool success = parent.Update(parent_slot_id, new_key);
-        //bool success = false;
         if (success == false) {
             // 父节点内的空间不足以更新key，删除父节点对应的元素，将其转换为向上插入
             parent.Delete(parent_slot_id, true);
             iter->Push({ parent.page_id(), parent_slot_id });
             if (left_sibling) {
-                Put(iter, std::move(sibling), std::move(node), new_key, false);
+                Put(iter, std::move(sibling), std::move(node), new_key);
             } else {
-                Put(iter, std::move(node), std::move(sibling), new_key, false);
+                Put(iter, std::move(node), std::move(sibling), new_key);
             }
         }
         return;
@@ -276,8 +272,7 @@ void BTree::Delete(Iterator* iter) {
 
     iter->Pop();
     if (iter->Empty()) {
-        // 如果没有父节点
-        // 是叶子节点就跳过
+        // 没有父节点，是叶子节点就跳过
         return;
     }
 
@@ -316,15 +311,14 @@ void BTree::Delete(Iterator* iter) {
             new_key = sibling.GetKey(0);
         }
         bool success = parent.Update(parent_slot_id, new_key, parent.GetLeftChild(parent_slot_id), false);
-        //bool success = false;
         if (success == false) {
             // 父节点内的空间不足以更新key，删除父节点对应的元素，将其转换为向上插入
             parent.Delete(parent_slot_id, true);
             iter->Push({ parent.page_id(), parent_slot_id });
             if (left_sibling) {
-                Put(iter, std::move(sibling), std::move(node), new_key, false);
+                Put(iter, std::move(sibling), std::move(node), new_key);
             } else {
-                Put(iter, std::move(node), std::move(sibling), new_key, false);
+                Put(iter, std::move(node), std::move(sibling), new_key);
             }
         }
         return;
@@ -333,8 +327,7 @@ void BTree::Delete(Iterator* iter) {
     // 合并
     if (left_sibling) {
         Merge(std::move(sibling), std::move(node));
-    }
-    else {
+    } else {
         Merge(std::move(node), std::move(sibling));
     }
 
@@ -400,7 +393,7 @@ std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, 
     return { up_key, std::move(right) };
 }
 
-void BTree::Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8_t> key, bool branch_put) {
+void BTree::Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8_t> key) {
     if (iter->Empty()) {
         root_pgid_ = bucket_->pager().Alloc(1);
         BranchNode node{ this, root_pgid_, true };
@@ -423,7 +416,7 @@ void BTree::Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8
 
     auto [branch_key, branch_right] = Split(&node, slot_id, key, right.page_id());
     iter->Pop();
-    Put(iter, std::move(node), std::move(branch_right), branch_key, true);
+    Put(iter, std::move(node), std::move(branch_right), branch_key);
 }
 
 LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket) {

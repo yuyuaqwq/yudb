@@ -86,7 +86,7 @@ void Logger::Recover() {
             if (current_tx.has_value()) {
                 throw LoggerError{ "unrecoverable logs." };
             }
-            current_tx.emplace(&tx_manager.Update());
+            current_tx.emplace(&tx_manager.Update(db_->options()->defaluit_comparator));
             break;
         }
         case LogType::kRollback: {

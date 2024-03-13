@@ -9,12 +9,12 @@ public:
     using std::exception::exception;
 };
 
-class IoError : public Error {
+class InvalidArgumentError : public Error {
 public:
     using Error::Error;
 };
 
-class InvalidArgumentError : public Error {
+class IoError : public Error {
 public:
     using Error::Error;
 };

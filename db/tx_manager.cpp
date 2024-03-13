@@ -19,7 +19,7 @@ TxManager::~TxManager() {
     }
 }
 
-TxImpl& TxManager::Update() {
+TxImpl& TxManager::Update(Comparator comparator) {
     if (db_->logger()->CheckPointNeeded()) {
         db_->logger()->Checkpoint();
     }
@@ -31,7 +31,7 @@ TxImpl& TxManager::Update() {
     AppendBeginLog();
 
     std::unique_lock lock{ db_->shm()->meta_lock() };
-    update_tx_.emplace(this, db_->meta().meta_struct(), true);
+    update_tx_.emplace(this, db_->meta().meta_struct(), true, comparator);
     update_tx_->set_txid(update_tx_->txid() + 1);
     if (update_tx_->txid() == kTxInvalidId) {
         throw TxManagerError("txid overflow.");
@@ -51,7 +51,7 @@ TxImpl& TxManager::Update() {
     return *update_tx_;
 }
 
-ViewTx TxManager::View() {
+ViewTx TxManager::View(Comparator comparator) {
     std::unique_lock lock{ db_->shm()->meta_lock() };
     auto txid = db_->meta().meta_struct().txid;
     const auto iter = view_tx_map_.find(txid);
@@ -60,7 +60,7 @@ ViewTx TxManager::View() {
     } else {
         ++iter->second;
     }
-    return ViewTx{ this, db_->meta().meta_struct(), &db_->db_file_mmap_lock() };
+    return ViewTx{ this, db_->meta().meta_struct(), &db_->db_file_mmap_lock(), comparator };
 }
 
 void TxManager::RollBack() {

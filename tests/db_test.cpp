@@ -294,7 +294,7 @@ TEST_F(DBTest, BatchPutAndDeleteInOrder) {
     }
 
     auto tx = Update();
-    auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+    auto bucket = tx.UserBucket();
 
     auto j = 0;
     for (auto& data : arr) {
@@ -333,7 +333,7 @@ TEST_F(DBTest, BatchPutAndDeleteInReverseOrder) {
     }
 
     auto tx = Update();
-    auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+    auto bucket = tx.UserBucket();
     auto j = 0;
     for (auto& data : arr) {
         ++j;
@@ -417,7 +417,7 @@ TEST_F(DBTest, PutAndDeleteInOrder) {
     auto j = 0;
     for (auto& iter : arr) {
         auto tx = Update();
-        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto bucket = tx.UserBucket();
         bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
         ++j;
         tx.Commit();
@@ -426,7 +426,7 @@ TEST_F(DBTest, PutAndDeleteInOrder) {
     j = 0;
     for (auto& iter : arr) {
         auto tx = View();
-        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto bucket = tx.UserBucket();
         auto res = bucket.Get(&iter, sizeof(iter));
         ASSERT_NE(res, bucket.end());
         ++j;
@@ -435,7 +435,7 @@ TEST_F(DBTest, PutAndDeleteInOrder) {
     j = 0;
     for (auto& iter : arr) {
         auto tx = Update();
-        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto bucket = tx.UserBucket();
         auto res = bucket.Delete(&iter, sizeof(iter));
         ASSERT_TRUE(res);
         ++j;
@@ -445,7 +445,7 @@ TEST_F(DBTest, PutAndDeleteInOrder) {
     j = 0;
     for (auto& iter : arr) {
         auto tx = View();
-        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto bucket = tx.UserBucket();
         auto res = bucket.Get(&iter, sizeof(iter));
         ASSERT_EQ(res, bucket.end());
         ++j;
@@ -462,7 +462,7 @@ TEST_F(DBTest, PutAndDeleteInReverseOrder) {
     auto j = 0;
     for (auto& iter : arr) {
         auto tx = Update();
-        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto bucket = tx.UserBucket();
         bucket.Put(&iter, sizeof(iter), &iter, sizeof(iter));
         ++j;
         tx.Commit();
@@ -471,7 +471,7 @@ TEST_F(DBTest, PutAndDeleteInReverseOrder) {
     j = 0;
     for (auto& iter : arr) {
         auto tx = View();
-        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto bucket = tx.UserBucket();
         auto res = bucket.Get(&iter, sizeof(iter));
         ASSERT_NE(res, bucket.end());
         ++j;
@@ -480,7 +480,7 @@ TEST_F(DBTest, PutAndDeleteInReverseOrder) {
     j = 0;
     for (auto& iter : arr) {
         auto tx = Update();
-        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto bucket = tx.UserBucket();
         auto res = bucket.Delete(&iter, sizeof(iter));
         ASSERT_TRUE(res);
         ++j;
@@ -490,7 +490,7 @@ TEST_F(DBTest, PutAndDeleteInReverseOrder) {
     j = 0;
     for (auto& iter : arr) {
         auto tx = View();
-        auto bucket = tx.UserBucket(yudb::UInt64Comparator);
+        auto bucket = tx.UserBucket();
         auto res = bucket.Get(&iter, sizeof(iter));
         ASSERT_EQ(res, bucket.end());
         ++j;

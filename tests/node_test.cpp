@@ -38,7 +38,7 @@ public:
         auto db_impl = static_cast<DBImpl*>(db_.get());
         pager_ = &db_impl->pager();
         tx_manager_ = &db_impl->tx_manager();
-        auto& tx_impl = tx_manager_->Update();
+        auto& tx_impl = tx_manager_->Update(ByteArrayComparator);
         update_tx_.emplace(&tx_impl);
         bucket_ = &tx_impl.user_bucket();
     }
@@ -52,7 +52,7 @@ public:
     }
 };
 
-TEST_F(NodeTest, LeafNodeEmpty) {
+TEST_F(NodeTest, LeafEmpty) {
     bool success;
     LeafNode node{ &bucket_->btree(),pager_->Alloc(1), true };
     node.Build();
@@ -67,7 +67,7 @@ TEST_F(NodeTest, LeafNodeEmpty) {
     ASSERT_EQ(get_value1, value1);
 }
 
-TEST_F(NodeTest, LeafNodeAppend) {
+TEST_F(NodeTest, LeafAppend) {
     bool success;
     LeafNode node{ &bucket_->btree(),pager_->Alloc(1), true };
     node.Build();
@@ -93,7 +93,7 @@ TEST_F(NodeTest, LeafNodeAppend) {
     ASSERT_EQ(get_value2, value2);
 }
 
-TEST_F(NodeTest, LeafNodeAppendLongData) {
+TEST_F(NodeTest, LeafAppendLongData) {
     bool success;
     LeafNode node{ &bucket_->btree(),pager_->Alloc(1), true };
     node.Build();
@@ -128,7 +128,7 @@ TEST_F(NodeTest, LeafNodeAppendLongData) {
     ASSERT_EQ(get_value3, value3);
 }
 
-TEST_F(NodeTest, LeafNodeMinimumRecords) {
+TEST_F(NodeTest, LeafMinimumRecords) {
     bool success;
     LeafNode node{ &bucket_->btree(), pager_->Alloc(1), true };
     node.Build();
@@ -160,7 +160,7 @@ TEST_F(NodeTest, LeafNodeMinimumRecords) {
     ASSERT_EQ(node.header().space_used + node.header().data_offset, pager_->page_size());
 }
 
-TEST_F(NodeTest, LeafNodeInsert) {
+TEST_F(NodeTest, LeafInsert) {
     bool success;
     LeafNode node{ &bucket_->btree(), pager_->Alloc(1), true };
     node.Build();
@@ -196,7 +196,7 @@ TEST_F(NodeTest, LeafNodeInsert) {
     ASSERT_EQ(get_value3, value3);
 }
 
-TEST_F(NodeTest, LeafNodeLowerBound) {
+TEST_F(NodeTest, LeafLowerBound) {
     bool success;
     LeafNode node{ &bucket_->btree(), pager_->Alloc(1), true };
     node.Build();
@@ -246,7 +246,7 @@ TEST_F(NodeTest, LeafNodeLowerBound) {
     ASSERT_EQ(pos.first, 3);
 }
 
-TEST_F(NodeTest, LeafNodeUpdate) {
+TEST_F(NodeTest, LeafUpdate) {
     bool success;
     LeafNode node{ &bucket_->btree(), pager_->Alloc(1), true };
     node.Build();
@@ -266,7 +266,7 @@ TEST_F(NodeTest, LeafNodeUpdate) {
     ASSERT_EQ(get_value1, new_value1);
 }
 
-TEST_F(NodeTest, LeafNodeUpdateFailure) {
+TEST_F(NodeTest, LeafUpdateFailure) {
     bool success;
     LeafNode node{ &bucket_->btree(), pager_->Alloc(1), true };
     node.Build();
@@ -309,7 +309,7 @@ TEST_F(NodeTest, LeafNodeUpdateFailure) {
 
 }
 
-TEST_F(NodeTest, LeafNodeDelete) {
+TEST_F(NodeTest, LeafDelete) {
     bool success;
     LeafNode node{ &bucket_->btree(), pager_->Alloc(1), true };
     node.Build();
@@ -342,7 +342,7 @@ TEST_F(NodeTest, LeafNodeDelete) {
     ASSERT_EQ(get_value1, value1);
 }
 
-TEST_F(NodeTest, LeafNodeDeleteLongData) {
+TEST_F(NodeTest, LeafDeleteLongData) {
     bool success;
     LeafNode node{ &bucket_->btree(), pager_->Alloc(1), true };
     node.Build();
@@ -370,7 +370,7 @@ TEST_F(NodeTest, LeafNodeDeleteLongData) {
     ASSERT_EQ(node.header().space_used, 0);
 }
 
-TEST_F(NodeTest, LeafNodeCompactify) {
+TEST_F(NodeTest, LeafCompactify) {
     bool success;
     LeafNode node{ &bucket_->btree(), pager_->Alloc(1), true };
     node.Build();
@@ -408,7 +408,7 @@ TEST_F(NodeTest, LeafNodeCompactify) {
     ASSERT_EQ(get_value3, value3);
 }
 
-TEST_F(NodeTest, BranchNodeAppend) {
+TEST_F(NodeTest, BranchAppend) {
     bool success;
     BranchNode node{ &bucket_->btree(),pager_->Alloc(1), true };
     auto tail_child = pager_->Alloc(1);
@@ -441,7 +441,7 @@ TEST_F(NodeTest, BranchNodeAppend) {
     ASSERT_EQ(get_key2, key2);
 }
 
-TEST_F(NodeTest, BranchNodeInsert) {
+TEST_F(NodeTest, BranchInsert) {
     bool success;
     BranchNode node{ &bucket_->btree(),pager_->Alloc(1), true };
     auto tail_child = pager_->Alloc(1);
@@ -493,7 +493,7 @@ TEST_F(NodeTest, BranchNodeInsert) {
     ASSERT_EQ(get_key3, key3);
 }
 
-TEST_F(NodeTest, BranchNodeDelete) {
+TEST_F(NodeTest, BranchDelete) {
     bool success;
     BranchNode node{ &bucket_->btree(),pager_->Alloc(1), true };
     auto tail_child = pager_->Alloc(1);

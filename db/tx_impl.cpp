@@ -7,9 +7,9 @@
 
 namespace yudb {
 
-TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
+TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable, Comparator comparator) :
     tx_manager_{ tx_manager },
-    user_bucket_{ this, kUserRootBucketId, &meta_format_.user_root, writable, tx_manager->db().options()->defaluit_comparator },
+    user_bucket_{ this, kUserRootBucketId, &meta_format_.user_root, writable, comparator },
     writable_{ writable }
 {
     CopyMetaInfo(&meta_format_, meta);
@@ -71,8 +71,8 @@ void TxImpl::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {
 Pager& TxImpl::pager() const { return tx_manager_->pager(); }
 
 
-ViewTx::ViewTx(TxManager* tx_manager, const MetaStruct& meta, std::shared_mutex* mmap_mutex) :
-    tx_{ tx_manager, meta, false },
+ViewTx::ViewTx(TxManager* tx_manager, const MetaStruct& meta, std::shared_mutex* mmap_mutex, Comparator comparator) :
+    tx_{ tx_manager, meta, false, comparator },
     mmap_lock_{ *mmap_mutex } {}
 
 ViewTx::~ViewTx() {
@@ -81,10 +81,6 @@ ViewTx::~ViewTx() {
 
 
 ViewBucket ViewTx::UserBucket() {
-    return UserBucket(tx_.tx_manager().db().options()->defaluit_comparator);
-}
-
-ViewBucket ViewTx::UserBucket(Comparator comparator) {
     auto& root_bucket = tx_.user_bucket();
     return ViewBucket{ &root_bucket };
 }
@@ -98,10 +94,6 @@ UpdateTx::~UpdateTx() {
 }
 
 UpdateBucket UpdateTx::UserBucket() {
-    return UserBucket(tx_->tx_manager().db().options()->defaluit_comparator);
-}
-
-UpdateBucket UpdateTx::UserBucket(Comparator comparator) {
     auto& root_bucket = tx_->user_bucket();
     return UpdateBucket{ &root_bucket };
 }

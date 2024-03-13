@@ -10,11 +10,10 @@ namespace yudb {
 
 class ViewTx : noncopyable {
 public:
-    ViewTx(TxManager* tx_manager, const MetaStruct& meta, std::shared_mutex* mmap_mutex);
+    ViewTx(TxManager* tx_manager, const MetaStruct& meta, std::shared_mutex* mmap_mutex, Comparator comparator);
     ~ViewTx();
 
     ViewBucket UserBucket();
-    ViewBucket UserBucket(Comparator comparator);
 
 private:
     std::shared_lock<std::shared_mutex> mmap_lock_;
@@ -27,7 +26,6 @@ public:
     ~UpdateTx();
 
     UpdateBucket UserBucket();
-    UpdateBucket UserBucket(Comparator comparator);
     void RollBack();
     void Commit();
 

@@ -47,7 +47,6 @@ public:
     void Put(std::string_view key, std::string_view value);
     bool Delete(const void* key_buf, size_t key_size);
     bool Delete(std::string_view key);
-    
 };
 
 } // namespace yudb

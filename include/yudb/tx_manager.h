@@ -16,8 +16,8 @@ public:
     explicit TxManager(DBImpl* db);
     ~TxManager();
 
-    TxImpl& Update();
-    ViewTx View();
+    TxImpl& Update(Comparator comparator);
+    ViewTx View(Comparator comparator);
 
     void RollBack();
     void RollBack(TxId view_txid);

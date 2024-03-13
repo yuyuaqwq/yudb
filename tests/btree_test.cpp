@@ -16,7 +16,7 @@ public:
 
 public:
     BTreeTest() {
-        Open();
+        Open(ByteArrayComparator);
     }
 
     ~BTreeTest() {
@@ -24,10 +24,15 @@ public:
         db_.reset();
     }
 
-    void Open() {
+    void Open(Comparator comparator) {
         yudb::Options options{
             .max_wal_size = 1024 * 1024 * 64,
+            .defaluit_comparator = comparator,
         };
+        if (update_tx_.has_value()) {
+            update_tx_->RollBack();
+        }
+        db_.reset();
         //std::string path = testing::TempDir() + "btree_test.ydb";
         const std::string path = "Z:/btree_test.ydb";
         std::filesystem::remove(path);
@@ -39,7 +44,7 @@ public:
         auto db_impl = static_cast<DBImpl*>(db_.get());
         pager_ = &db_impl->pager();
         tx_manager_ = &db_impl->tx_manager();
-        auto& tx_impl = tx_manager_->Update();
+        auto& tx_impl = tx_manager_->Update(comparator);
         update_tx_.emplace(&tx_impl);
         bucket_ = &tx_impl.user_bucket();
         btree_ = &bucket_->btree();
@@ -70,6 +75,31 @@ TEST_F(BTreeTest, LeafPut) {
     iter = btree_->Get(FromString(key2));
     ASSERT_EQ(iter->key(), key2);
     ASSERT_EQ(iter->value(), value2);
+}
+
+TEST_F(BTreeTest, LeafPut2) {
+    const std::string key1 = "k1";
+    const std::string value1 = "v1";
+    btree_->Put(FromString(key1), FromString(value1), false);
+
+    const std::string key2 = "k2";
+    const std::string value2 = "v2";
+    btree_->Put(FromString(key2), FromString(value2), false);
+
+
+    const std::string new_value1 = "new_v1";
+    btree_->Put(FromString(key1), FromString(new_value1), false);
+
+    const std::string new_value2 = "new_v2";
+    btree_->Put(FromString(key2), FromString(new_value2), false);
+
+    auto iter = btree_->Get(FromString(key1));
+    ASSERT_EQ(iter->key(), key1);
+    ASSERT_EQ(iter->value(), new_value1);
+
+    iter = btree_->Get(FromString(key2));
+    ASSERT_EQ(iter->key(), key2);
+    ASSERT_EQ(iter->value(), new_value2);
 }
 
 TEST_F(BTreeTest, LeafSplit) {
@@ -235,12 +265,100 @@ TEST_F(BTreeTest, LeafDelete) {
     ASSERT_EQ(iter, btree_->end());
 }
 
+TEST_F(BTreeTest, LeafUpdateParentFailed) {
+    const std::string key1(1300, '1');
+    const std::string value = "";
+    btree_->Put(FromString(key1), FromString(value), false);
+    const std::string key2(1300, '2');
+    btree_->Put(FromString(key2), FromString(value), false);
+    const std::string key3(1300, '3');
+    btree_->Put(FromString(key3), FromString(value), false);
+    const std::string key4(1300, '4');
+    btree_->Put(FromString(key4), FromString(value), false);
+    const std::string key5(1300, '5');
+    btree_->Put(FromString(key5), FromString(value), false);
+    const std::string key6(2000, '6');
+    btree_->Put(FromString(key6), FromString(value), false);
+
+    btree_->Delete(FromString(key4));
+
+    auto iter = btree_->Get(FromString(key1));
+    ASSERT_EQ(iter->key(), key1);
+    ASSERT_EQ(iter->value(), value);
+    iter = btree_->Get(FromString(key2));
+    ASSERT_EQ(iter->key(), key2);
+    ASSERT_EQ(iter->value(), value);
+    iter = btree_->Get(FromString(key3));
+    ASSERT_EQ(iter->key(), key3);
+    ASSERT_EQ(iter->value(), value);
+    iter = btree_->Get(FromString(key4));
+    ASSERT_EQ(iter, btree_->end());
+    iter = btree_->Get(FromString(key5));
+    ASSERT_EQ(iter->key(), key5);
+    ASSERT_EQ(iter->value(), value);
+    iter = btree_->Get(FromString(key6));
+    ASSERT_EQ(iter->key(), key6);
+    ASSERT_EQ(iter->value(), value);
+}
+
+TEST_F(BTreeTest, LeafUpdateParentFailed2) {
+    const std::string key1(1300, '6');
+    const std::string value = "";
+    btree_->Put(FromString(key1), FromString(value), false);
+    const std::string key2(1300, '5');
+    btree_->Put(FromString(key2), FromString(value), false);
+    const std::string key3(1300, '4');
+    btree_->Put(FromString(key3), FromString(value), false);
+    const std::string key4(1300, '3');
+    btree_->Put(FromString(key4), FromString(value), false);
+    const std::string key5(2000, '2');
+    btree_->Put(FromString(key5), FromString(value), false);
+    const std::string key6(1300, '1');
+    btree_->Put(FromString(key6), FromString(value), false);
+    const std::string key7(2000, '4');
+    btree_->Put(FromString(key7), FromString(value), false);
+
+    btree_->Delete(FromString(key1));
+
+    auto iter = btree_->Get(FromString(key1));
+    ASSERT_EQ(iter, btree_->end());
+    iter = btree_->Get(FromString(key2));
+    ASSERT_EQ(iter->key(), key2);
+    ASSERT_EQ(iter->value(), value);
+    iter = btree_->Get(FromString(key3));
+    ASSERT_EQ(iter->key(), key3);
+    ASSERT_EQ(iter->value(), value);
+    iter = btree_->Get(FromString(key4));
+    ASSERT_EQ(iter->key(), key4);
+    ASSERT_EQ(iter->value(), value);
+    iter = btree_->Get(FromString(key5));
+    ASSERT_EQ(iter->key(), key5);
+    ASSERT_EQ(iter->value(), value);
+    iter = btree_->Get(FromString(key6));
+    ASSERT_EQ(iter->key(), key6);
+    ASSERT_EQ(iter->value(), value);
+}
+
 TEST_F(BTreeTest, LeafMerge) {
-    for (int i = 0; i < 1000; ++i) {
+    Open(UInt32Comparator);
+    for (uint32_t i = 0; i < 1000; ++i) {
         std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
         btree_->Put(span, span, false);
     }
-    for (int i = 0; i < 1000; ++i) {
+    for (uint32_t i = 0; i < 1000; ++i) {
+        std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
+        ASSERT_TRUE(btree_->Delete(span));
+    }
+    ASSERT_EQ(btree_->begin(), btree_->end());
+}
+
+TEST_F(BTreeTest, LeafMerge2) {
+    Open(UInt32Comparator);
+    for (int32_t i = 1000; i >= 0; --i) {
+        std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
+        btree_->Put(span, span, false);
+    }
+    for (int32_t i = 1000; i >= 0; --i) {
         std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
         ASSERT_TRUE(btree_->Delete(span));
     }
@@ -248,7 +366,147 @@ TEST_F(BTreeTest, LeafMerge) {
 }
 
 TEST_F(BTreeTest, BranchPut) {
+    const std::string key1(2030, '1');
+    const std::string value1 = "a";
+    btree_->Put(FromString(key1), FromString(value1), true);
 
+    const std::string key2(2030, '2');
+    const std::string value2 = "b";
+    btree_->Put(FromString(key2), FromString(value2), true);
+
+
+
+
+}
+
+TEST_F(BTreeTest, BranchSplit) {
+    const std::string key1(2031, '1');
+    const std::string value = "";
+    btree_->Put(FromString(key1), FromString(value), true);
+
+    const std::string key2(2031, '2');
+    btree_->Put(FromString(key2), FromString(value), true);
+
+    const std::string key3(2031, '3');
+    btree_->Put(FromString(key3), FromString(value), true);
+
+    const std::string key4(2031, '4');
+    btree_->Put(FromString(key4), FromString(value), true);
+
+    const std::string key5(2031, '5');
+    btree_->Put(FromString(key5), FromString(value), true);
+
+    const std::string key6(2031, '6');
+    btree_->Put(FromString(key6), FromString(value), true);
+
+    const std::string key7(2031, '7');
+    btree_->Put(FromString(key7), FromString(value), true);
+
+    auto iter = btree_->Get(FromString(key1));
+    ASSERT_EQ(iter->key(), key1);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key2));
+    ASSERT_EQ(iter->key(), key2);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key3));
+    ASSERT_EQ(iter->key(), key3);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key4));
+    ASSERT_EQ(iter->key(), key4);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key5));
+    ASSERT_EQ(iter->key(), key5);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key6));
+    ASSERT_EQ(iter->key(), key6);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key7));
+    ASSERT_EQ(iter->key(), key7);
+    ASSERT_EQ(iter->value(), value);
+}
+
+TEST_F(BTreeTest, BranchSplit2) {
+    const std::string key1(2031, '7');
+    const std::string value = "";
+    btree_->Put(FromString(key1), FromString(value), true);
+
+    const std::string key2(2031, '6');
+    btree_->Put(FromString(key2), FromString(value), true);
+
+    const std::string key3(2031, '5');
+    btree_->Put(FromString(key3), FromString(value), true);
+
+    const std::string key4(2031, '4');
+    btree_->Put(FromString(key4), FromString(value), true);
+
+    const std::string key5(2031, '3');
+    btree_->Put(FromString(key5), FromString(value), true);
+
+    const std::string key6(2031, '2');
+    btree_->Put(FromString(key6), FromString(value), true);
+
+    const std::string key7(2031, '1');
+    btree_->Put(FromString(key7), FromString(value), true);
+
+    auto iter = btree_->Get(FromString(key1));
+    ASSERT_EQ(iter->key(), key1);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key2));
+    ASSERT_EQ(iter->key(), key2);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key3));
+    ASSERT_EQ(iter->key(), key3);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key4));
+    ASSERT_EQ(iter->key(), key4);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key5));
+    ASSERT_EQ(iter->key(), key5);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key6));
+    ASSERT_EQ(iter->key(), key6);
+    ASSERT_EQ(iter->value(), value);
+
+    iter = btree_->Get(FromString(key7));
+    ASSERT_EQ(iter->key(), key7);
+    ASSERT_EQ(iter->value(), value);
+}
+
+TEST_F(BTreeTest, BranchMerge) {
+    Open(UInt32Comparator);
+    for (uint32_t i = 0; i < 100000; ++i) {
+        std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
+        btree_->Put(span, span, false);
+    }
+    for (uint32_t i = 0; i < 100000; ++i) {
+        std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
+        ASSERT_TRUE(btree_->Delete(span));
+    }
+    ASSERT_EQ(btree_->begin(), btree_->end());
+}
+
+TEST_F(BTreeTest, BranchMerge2) {
+    Open(UInt32Comparator);
+    for (int32_t i = 100000; i >= 0; --i) {
+        std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
+        btree_->Put(span, span, false);
+    }
+    for (int32_t i = 100000; i >= 0; --i) {
+        std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
+        ASSERT_TRUE(btree_->Delete(span));
+    }
+    ASSERT_EQ(btree_->begin(), btree_->end());
 }
 
 TEST_F(BTreeTest, EmptyIterator) {
@@ -256,6 +514,7 @@ TEST_F(BTreeTest, EmptyIterator) {
 }
 
 TEST_F(BTreeTest, Iteration) {
+    Open(UInt32Comparator);
     for (int i = 0; i < 10000; ++i) {
         std::span span = { reinterpret_cast<uint8_t*>(&i) ,sizeof(i) };
         btree_->Put(span, span, true);
