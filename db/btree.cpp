@@ -204,7 +204,7 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
             bool success = node.Insert(0, parent.GetKey(parent_slot_id), sibling.GetTailChild(), false);
             assert(success);
             new_key = sibling.GetKey(sibling.count() - 1);
-            // after deletion, it will not affect the use of span, so we can do this
+            // 删除不会引发Compactify，所以可以先删除
             sibling.Pop(true);
         } else {
             parent.SetLeftChild(parent_slot_id + 1, sibling.page_id());
@@ -222,7 +222,7 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
             bool success = node.Append(parent.GetKey(parent_slot_id), sibling.GetLeftChild(0), true);
             assert(success);
             new_key = sibling.GetKey(0);
-            // after deletion, it will not affect the use of span, so we can do this
+            // 删除不会引发Compactify，所以可以先删除
             sibling.Delete(0, false);
         }
         bool success = parent.Update(parent_slot_id, new_key);
