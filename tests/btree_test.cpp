@@ -383,49 +383,37 @@ TEST_F(BTreeTest, BranchSplit) {
     const std::string key1(2031, '1');
     const std::string value = "";
     btree_->Put(FromString(key1), FromString(value), true);
-
     const std::string key2(2031, '2');
     btree_->Put(FromString(key2), FromString(value), true);
-
     const std::string key3(2031, '3');
     btree_->Put(FromString(key3), FromString(value), true);
-
     const std::string key4(2031, '4');
     btree_->Put(FromString(key4), FromString(value), true);
-
     const std::string key5(2031, '5');
     btree_->Put(FromString(key5), FromString(value), true);
-
     const std::string key6(2031, '6');
     btree_->Put(FromString(key6), FromString(value), true);
-
     const std::string key7(2031, '7');
     btree_->Put(FromString(key7), FromString(value), true);
 
     auto iter = btree_->Get(FromString(key1));
     ASSERT_EQ(iter->key(), key1);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key2));
     ASSERT_EQ(iter->key(), key2);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key3));
     ASSERT_EQ(iter->key(), key3);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key4));
     ASSERT_EQ(iter->key(), key4);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key5));
     ASSERT_EQ(iter->key(), key5);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key6));
     ASSERT_EQ(iter->key(), key6);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key7));
     ASSERT_EQ(iter->key(), key7);
     ASSERT_EQ(iter->value(), value);
@@ -435,49 +423,37 @@ TEST_F(BTreeTest, BranchSplit2) {
     const std::string key1(2031, '7');
     const std::string value = "";
     btree_->Put(FromString(key1), FromString(value), true);
-
     const std::string key2(2031, '6');
     btree_->Put(FromString(key2), FromString(value), true);
-
     const std::string key3(2031, '5');
     btree_->Put(FromString(key3), FromString(value), true);
-
     const std::string key4(2031, '4');
     btree_->Put(FromString(key4), FromString(value), true);
-
     const std::string key5(2031, '3');
     btree_->Put(FromString(key5), FromString(value), true);
-
     const std::string key6(2031, '2');
     btree_->Put(FromString(key6), FromString(value), true);
-
     const std::string key7(2031, '1');
     btree_->Put(FromString(key7), FromString(value), true);
 
     auto iter = btree_->Get(FromString(key1));
     ASSERT_EQ(iter->key(), key1);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key2));
     ASSERT_EQ(iter->key(), key2);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key3));
     ASSERT_EQ(iter->key(), key3);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key4));
     ASSERT_EQ(iter->key(), key4);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key5));
     ASSERT_EQ(iter->key(), key5);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key6));
     ASSERT_EQ(iter->key(), key6);
     ASSERT_EQ(iter->value(), value);
-
     iter = btree_->Get(FromString(key7));
     ASSERT_EQ(iter->key(), key7);
     ASSERT_EQ(iter->value(), value);

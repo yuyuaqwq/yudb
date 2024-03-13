@@ -5,105 +5,158 @@
 
 namespace yudb {
 
-static std::unique_ptr<yudb::DB> db;
+class PagerTest : public testing::Test {
+public:
+    std::unique_ptr<yudb::DB> db_;
+    Pager* pager_{ nullptr };
+    Logger* logger_{ nullptr };
 
-TEST(PagerTest, ReadWrite) {
-	// todo:
-}
+public:
+    PagerTest() {
+        Open();
+    }
 
-TEST(PagerTest, AllocAndFree) {
-    yudb::Options options{
-        .max_wal_size = 1024 * 1024 * 64,
-    };
-    std::filesystem::remove("Z:/pager_test.ydb");
-    db = yudb::DB::Open(options, "Z:/pager_test.ydb");
-    ASSERT_TRUE(db.operator bool());
-    auto db_impl = static_cast<DBImpl*>(db.get());
-    auto& pager = db_impl->pager();
+    ~PagerTest() {
+        db_.reset();
+    }
 
+    void Open() {
+        yudb::Options options{
+            .max_wal_size = 1024 * 1024 * 64,
+        };
+        db_.reset();
+        //std::string path = testing::TempDir() + "pager_test.ydb";
+        const std::string path = "Z:/pager_test.ydb";
+        std::filesystem::remove(path);
+        std::filesystem::remove(path + "-shm");
+        std::filesystem::remove(path + "-wal");
+        db_ = yudb::DB::Open(options, path);
+        ASSERT_FALSE(!db_);
+
+        auto db_impl = static_cast<DBImpl*>(db_.get());
+        pager_ = &db_impl->pager();
+        logger_ = &db_impl->logger();
+    }
+
+    std::span<const uint8_t> FromString(std::string_view str) {
+        return { reinterpret_cast<const uint8_t*>(str.data()), str.size() };
+    }
+
+    const std::string_view ToString(std::span<const uint8_t> span) {
+        return { reinterpret_cast<const char*>(span.data()), span.size() };
+    }
+};
+
+TEST_F(PagerTest, AllocAndFree) {
     {
-        auto tx = db_impl->Update();
-        auto pgid = pager.Alloc(1);
+        auto tx = db_->Update();
+        auto pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 2);
-        pgid = pager.Alloc(1);
+        pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 3);
-        pgid = pager.Alloc(1);
+        pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 4);
-        pgid = pager.Alloc(10);
+        pgid = pager_->Alloc(10);
         ASSERT_EQ(pgid, 5);
-        pgid = pager.Alloc(100);
+        pgid = pager_->Alloc(100);
         ASSERT_EQ(pgid, 15);
-        pgid = pager.Alloc(1000);
+        pgid = pager_->Alloc(1000);
         ASSERT_EQ(pgid, 115);
-        pager.Free(2, 1);
-        pager.Free(3, 1);
-        pager.Free(4, 1);
-        pgid = pager.Alloc(1);
+        pager_->Free(2, 1);
+        pager_->Free(3, 1);
+        pager_->Free(4, 1);
+        pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 1115);
-        pager.Free(115, 1000);
+        pager_->Free(115, 1000);
         tx.Commit();
     }
     {
-        auto tx = db_impl->Update();
-        auto pgid = pager.Alloc(1);
+        auto tx = db_->Update();
+        auto pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 1116);
         tx.Commit();
     }
     {
-        auto tx = db_impl->Update();
-        auto pgid = pager.Alloc(1);
+        auto tx = db_->Update();
+        auto pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 2);
-        pgid = pager.Alloc(1);
+        pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 3);
-        pgid = pager.Alloc(1);
+        pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 4);
-        pgid = pager.Alloc(998);
+        pgid = pager_->Alloc(998);
         ASSERT_EQ(pgid, 115);
-        pgid = pager.Alloc(2);
+        pgid = pager_->Alloc(2);
         ASSERT_EQ(pgid, 1113);
-        pgid = pager.Alloc(1);
+        pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 1117);
         tx.Commit();
     }
     {
-        auto tx = db_impl->Update();
-        auto pgid = pager.Alloc(1);
+        auto tx = db_->Update();
+        auto pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 1118);
-        pgid = pager.Alloc(1);
+        pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 1119);
         tx.Commit();
     }
 
     {
-        auto tx = db_impl->Update();
-        auto pgid = pager.Alloc(100);
+        auto tx = db_->Update();
+        auto pgid = pager_->Alloc(100);
         ASSERT_EQ(pgid, 1120);
         tx.Commit();
     }
     {
-        auto tx = db_impl->Update();
-        pager.Free(1120, 50);
+        auto tx = db_->Update();
+        pager_->Free(1120, 50);
         tx.Commit();
     }
     {
-        auto tx = db_impl->Update();
-        pager.Free(1170, 50);
+        auto tx = db_->Update();
+        pager_->Free(1170, 50);
         tx.Commit();
     }
     {
-        auto tx = db_impl->Update();
-        auto pgid = pager.Alloc(1);
+        auto tx = db_->Update();
+        auto pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 1120);
         tx.Commit();
-        db_impl->logger()->Checkpoint();
+        logger_->Checkpoint();
     }
     {
-        auto tx = db_impl->Update();
-        auto pgid = pager.Alloc(48);
+        auto tx = db_->Update();
+        auto pgid = pager_->Alloc(48);
         ASSERT_EQ(pgid, 1122);
         tx.Commit();
-        db_impl->logger()->Checkpoint();
+        logger_->Checkpoint();
     }
+}
+
+TEST_F(PagerTest, FreeListSaveAndLoad) {
+    {
+        auto tx = db_->Update();
+        auto pgid = pager_->Alloc(1);
+        ASSERT_EQ(pgid, 2);
+        pgid = pager_->Alloc(1);
+        ASSERT_EQ(pgid, 3);
+        pgid = pager_->Alloc(1);
+        ASSERT_EQ(pgid, 4);
+        tx.Commit();
+    }
+    {
+        auto tx = db_->Update();
+        pager_->Free(2, 1);
+        pager_->Free(3, 1);
+        pager_->Free(4, 1);
+        tx.Commit();
+    }
+    {
+
+    }
+    pager_->SaveFreeList();
+
+
 }
 
 } // namespace yudb

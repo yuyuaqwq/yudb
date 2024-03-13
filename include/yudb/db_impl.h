@@ -5,7 +5,7 @@
 #include <memory>
 #include <shared_mutex>
 
-#include "third_party/mio.hpp"
+#include "mio/mio.hpp"
 #include "yudb/db.h"
 #include "yudb/logger.h"
 #include "yudb/meta.h"
@@ -42,8 +42,8 @@ public:
     auto& pager() { assert(pager_.has_value()); return *pager_; }
     auto& tx_manager() const { assert(tx_manager_.has_value()); return *tx_manager_; }
     auto& tx_manager() { assert(tx_manager_.has_value()); return *tx_manager_; }
-    auto& logger() const { return logger_; }
-    auto& logger() { return logger_; }
+    auto& logger() const { return *logger_; }
+    auto& logger() { return *logger_; }
 
 private:
     void InitDBFile();

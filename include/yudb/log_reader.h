@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "third_party/tinyio.hpp"
+#include "tinyio/tinyio.hpp"
 #include "yudb/log_format.h"
 #include "yudb/noncopyable.h"
 

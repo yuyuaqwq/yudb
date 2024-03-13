@@ -1,6 +1,6 @@
 #include "yudb/db_impl.h"
 
-#include "third_party/tinyio.hpp"
+#include "tinyio/tinyio.hpp"
 #include "yudb/crc32.h"
 #include "yudb/error.h"
 #include "yudb/version.h"
