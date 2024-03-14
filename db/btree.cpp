@@ -132,7 +132,7 @@ std::tuple<BranchNode, SlotId, PageId, bool> BTree::GetSibling(Iterator* iter) {
     bool left_sibling = false;
     PageId sibling_pgid;
     if (parent_slot_id == parent.count()) {
-        // ÊÇ¸¸½ÚµãÖĞ×î´óµÄÔªËØ£¬Ö»ÄÜÑ¡Ôñ×óĞÖµÜ½Úµã
+        // æ˜¯çˆ¶èŠ‚ç‚¹ä¸­æœ€å¤§çš„å…ƒç´ ï¼Œåªèƒ½é€‰æ‹©å·¦å…„å¼ŸèŠ‚ç‚¹
         left_sibling = true;
         sibling_pgid = parent.GetLeftChild(parent_slot_id - 1);
     } else {
@@ -158,8 +158,8 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
     node.Delete(left_del_slot_id, true);
 
     if (iter->Empty()) {
-        // Èç¹ûÃ»ÓĞ¸¸½Úµã
-        // ÅĞ¶ÏÊÇ·ñÃ»ÓĞÈÎºÎ×Ó½ÚµãÁË£¬ÊÇÔò±ä¸üÓàÏÂ×îºóÒ»¸ö×Ó½ÚµãÎª¸ù½Úµã
+        // å¦‚æœæ²¡æœ‰çˆ¶èŠ‚ç‚¹
+        // åˆ¤æ–­æ˜¯å¦æ²¡æœ‰ä»»ä½•å­èŠ‚ç‚¹äº†ï¼Œæ˜¯åˆ™å˜æ›´ä½™ä¸‹æœ€åä¸€ä¸ªå­èŠ‚ç‚¹ä¸ºæ ¹èŠ‚ç‚¹
         if (node.count() == 0) {
             assert(node.page_id() == root_pgid_);
             auto old_root = root_pgid_;
@@ -187,12 +187,12 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
         }
     }
     if (sibling.GetFillRate() > 0.5 && sibling.count() >= 2) {
-        // ÈôĞÖµÜ½ÚµãÄÚÌî³äÂÊ³ä×ã
+        // è‹¥å…„å¼ŸèŠ‚ç‚¹å†…å¡«å……ç‡å……è¶³
         std::span<const uint8_t> new_key;
         if (left_sibling) {
-            // ×óĞÖµÜ½ÚµãµÄÄ©Î²ÔªËØÉÏÉıµ½¸¸½ÚµãÖ¸¶¨Î»ÖÃ
-            // ¸¸½ÚµãµÄ¶ÔÓ¦ÔªËØÏÂ½µµ½µ±Ç°½ÚµãµÄÍ·²¿
-            // ÉÏÉıÔªËØÆäÓÒ×Ó½Úµã¹ÒÔÚÏÂ½µµÄ¸¸½ÚµãÔªËØµÄ×ó²à
+            // å·¦å…„å¼ŸèŠ‚ç‚¹çš„æœ«å°¾å…ƒç´ ä¸Šå‡åˆ°çˆ¶èŠ‚ç‚¹æŒ‡å®šä½ç½®
+            // çˆ¶èŠ‚ç‚¹çš„å¯¹åº”å…ƒç´ ä¸‹é™åˆ°å½“å‰èŠ‚ç‚¹çš„å¤´éƒ¨
+            // ä¸Šå‡å…ƒç´ å…¶å³å­èŠ‚ç‚¹æŒ‚åœ¨ä¸‹é™çš„çˆ¶èŠ‚ç‚¹å…ƒç´ çš„å·¦ä¾§
 
             //                                27
             //      12          17                               37
@@ -204,13 +204,13 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
             bool success = node.Insert(0, parent.GetKey(parent_slot_id), sibling.GetTailChild(), false);
             assert(success);
             new_key = sibling.GetKey(sibling.count() - 1);
-            // É¾³ı²»»áÒı·¢Compactify£¬ËùÒÔ¿ÉÒÔÏÈÉ¾³ı
+            // åˆ é™¤ä¸ä¼šå¼•å‘Compactifyï¼Œæ‰€ä»¥å¯ä»¥å…ˆåˆ é™¤
             sibling.Pop(true);
         } else {
             parent.SetLeftChild(parent_slot_id + 1, sibling.page_id());
-            // ÓÒĞÖµÜ½ÚµãµÄÍ·ÔªËØÉÏÉıµ½¸¸½ÚµãµÄÖ¸¶¨Î»ÖÃ
-            // ¸¸½ÚµãµÄ¶ÔÓ¦ÔªËØÏÂ½µµ½µ±Ç°½ÚµãµÄÎ²²¿
-            // ÉÏÉıÔªËØÆä×ó×Ó½Úµã¹ÒÔÚÏÂ½µµÄ¸¸½ÚµãÔªËØµÄÓÒ²à
+            // å³å…„å¼ŸèŠ‚ç‚¹çš„å¤´å…ƒç´ ä¸Šå‡åˆ°çˆ¶èŠ‚ç‚¹çš„æŒ‡å®šä½ç½®
+            // çˆ¶èŠ‚ç‚¹çš„å¯¹åº”å…ƒç´ ä¸‹é™åˆ°å½“å‰èŠ‚ç‚¹çš„å°¾éƒ¨
+            // ä¸Šå‡å…ƒç´ å…¶å·¦å­èŠ‚ç‚¹æŒ‚åœ¨ä¸‹é™çš„çˆ¶èŠ‚ç‚¹å…ƒç´ çš„å³ä¾§
 
             //                       17
             //      12                                    27            37
@@ -222,12 +222,12 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
             bool success = node.Append(parent.GetKey(parent_slot_id), sibling.GetLeftChild(0), true);
             assert(success);
             new_key = sibling.GetKey(0);
-            // É¾³ı²»»áÒı·¢Compactify£¬ËùÒÔ¿ÉÒÔÏÈÉ¾³ı
+            // åˆ é™¤ä¸ä¼šå¼•å‘Compactifyï¼Œæ‰€ä»¥å¯ä»¥å…ˆåˆ é™¤
             sibling.Delete(0, false);
         }
         bool success = parent.Update(parent_slot_id, new_key);
         if (success == false) {
-            // ¸¸½ÚµãÄÚµÄ¿Õ¼ä²»×ãÒÔ¸üĞÂkey£¬É¾³ı¸¸½Úµã¶ÔÓ¦µÄÔªËØ£¬½«Æä×ª»»ÎªÏòÉÏ²åÈë
+            // çˆ¶èŠ‚ç‚¹å†…çš„ç©ºé—´ä¸è¶³ä»¥æ›´æ–°keyï¼Œåˆ é™¤çˆ¶èŠ‚ç‚¹å¯¹åº”çš„å…ƒç´ ï¼Œå°†å…¶è½¬æ¢ä¸ºå‘ä¸Šæ’å…¥
             parent.Delete(parent_slot_id, true);
             iter->Push({ parent.page_id(), parent_slot_id });
             if (left_sibling) {
@@ -239,14 +239,14 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
         return;
     }
 
-    // ºÏ²¢
+    // åˆå¹¶
     if (left_sibling) {
         Merge(std::move(sibling), std::move(node), parent.GetKey(parent_slot_id));
     } else {
         Merge(std::move(node), std::move(sibling), parent.GetKey(parent_slot_id));
     }
 
-    // ÏòÉÏÉ¾³ı¸¸ÔªËØ
+    // å‘ä¸Šåˆ é™¤çˆ¶å…ƒç´ 
     Delete(iter, std::move(parent), parent_slot_id);
 }
 
@@ -272,7 +272,7 @@ void BTree::Delete(Iterator* iter) {
 
     iter->Pop();
     if (iter->Empty()) {
-        // Ã»ÓĞ¸¸½Úµã£¬ÊÇÒ¶×Ó½Úµã¾ÍÌø¹ı
+        // æ²¡æœ‰çˆ¶èŠ‚ç‚¹ï¼Œæ˜¯å¶å­èŠ‚ç‚¹å°±è·³è¿‡
         return;
     }
 
@@ -289,12 +289,12 @@ void BTree::Delete(Iterator* iter) {
         }
     }
 
-    // ĞÖµÜ½ÚµãÌî³äÂÊ³ä×ã
+    // å…„å¼ŸèŠ‚ç‚¹å¡«å……ç‡å……è¶³
     if (sibling.GetFillRate() > 0.5 && sibling.count() >= 2) {
         std::span<const uint8_t> new_key;
         if (left_sibling) {
-            // ×óĞÖµÜ½ÚµãµÄÄ©Î²µÄÔªËØ²åÈëµ½µ±Ç°½ÚµãµÄÍ·²¿
-            // ¸üĞÂ¸¸ÔªËØkeyÎªµ±Ç°½ÚµãµÄĞÂÊ×ÔªËØkey
+            // å·¦å…„å¼ŸèŠ‚ç‚¹çš„æœ«å°¾çš„å…ƒç´ æ’å…¥åˆ°å½“å‰èŠ‚ç‚¹çš„å¤´éƒ¨
+            // æ›´æ–°çˆ¶å…ƒç´ keyä¸ºå½“å‰èŠ‚ç‚¹çš„æ–°é¦–å…ƒç´ key
             SlotId tail_slot_id = sibling.count() - 1;
             auto success = node.Insert(0, sibling.GetKey(tail_slot_id), sibling.GetValue(tail_slot_id));
             assert(success);
@@ -302,8 +302,8 @@ void BTree::Delete(Iterator* iter) {
             sibling.Pop();
             new_key = node.GetKey(0);
         } else {
-            // ÓÒĞÖµÜ½ÚµãµÄÍ·²¿µÄÔªËØ²åÈëµ½µ±Ç°½ÚµãµÄÎ²²¿
-            // ¸üĞÂ¸¸ÔªËØkeyÎªÓÒĞÖµÜµÄĞÂÊ×ÔªËØ
+            // å³å…„å¼ŸèŠ‚ç‚¹çš„å¤´éƒ¨çš„å…ƒç´ æ’å…¥åˆ°å½“å‰èŠ‚ç‚¹çš„å°¾éƒ¨
+            // æ›´æ–°çˆ¶å…ƒç´ keyä¸ºå³å…„å¼Ÿçš„æ–°é¦–å…ƒç´ 
             auto success = node.Append(sibling.GetKey(0), sibling.GetValue(0));
             assert(success);
             node.SetIsBucket(node.count() - 1, sibling.IsBucket(0));
@@ -312,7 +312,7 @@ void BTree::Delete(Iterator* iter) {
         }
         bool success = parent.Update(parent_slot_id, new_key, parent.GetLeftChild(parent_slot_id), false);
         if (success == false) {
-            // ¸¸½ÚµãÄÚµÄ¿Õ¼ä²»×ãÒÔ¸üĞÂkey£¬É¾³ı¸¸½Úµã¶ÔÓ¦µÄÔªËØ£¬½«Æä×ª»»ÎªÏòÉÏ²åÈë
+            // çˆ¶èŠ‚ç‚¹å†…çš„ç©ºé—´ä¸è¶³ä»¥æ›´æ–°keyï¼Œåˆ é™¤çˆ¶èŠ‚ç‚¹å¯¹åº”çš„å…ƒç´ ï¼Œå°†å…¶è½¬æ¢ä¸ºå‘ä¸Šæ’å…¥
             parent.Delete(parent_slot_id, true);
             iter->Push({ parent.page_id(), parent_slot_id });
             if (left_sibling) {
@@ -324,14 +324,14 @@ void BTree::Delete(Iterator* iter) {
         return;
     }
 
-    // ºÏ²¢
+    // åˆå¹¶
     if (left_sibling) {
         Merge(std::move(sibling), std::move(node));
     } else {
         Merge(std::move(node), std::move(sibling));
     }
 
-    // ÏòÉÏÉ¾³ı¸¸ÔªËØ
+    // å‘ä¸Šåˆ é™¤çˆ¶å…ƒç´ 
     Delete(iter, std::move(parent), parent_slot_id);
 }
 
@@ -378,13 +378,13 @@ std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, 
     std::span<const uint8_t> up_key;
     if (left->count() >= 2) {
         assert(right.count() >= 1);
-        // ×ó²àÄ©Î²ÔªËØÉÏÉı
+        // å·¦ä¾§æœ«å°¾å…ƒç´ ä¸Šå‡
         up_key = left->GetKey(left->count() - 1);
         left->Pop(true);
         
     } else {
         assert(right.count() >= 2);
-        // ÓÒ²àÊ×ÔªËØÉÏÉı
+        // å³ä¾§é¦–å…ƒç´ ä¸Šå‡
         up_key = right.GetKey(0);
         auto left_child = right.GetLeftChild(0);
         right.Delete(0, false);
@@ -441,9 +441,9 @@ LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uin
     std::reverse(right.slots(), right.slots() + right.count());
     assert(left->GetFillRate() <= 0.5);
 
-    // ½ÚµãµÄÌî³äÂÊ>50%£¬Ôò¿ÉÄÜ²åÈëÊ§°Ü
+    // èŠ‚ç‚¹çš„å¡«å……ç‡>50%ï¼Œåˆ™å¯èƒ½æ’å…¥å¤±è´¥
     if (insert_slot_id > left->count()) {
-        // Ê§°ÜÔò½«Ê×ÔªËØÒÆ¶¯µ½×ó²à²¢ÖØÊÔ
+        // å¤±è´¥åˆ™å°†é¦–å…ƒç´ ç§»åŠ¨åˆ°å·¦ä¾§å¹¶é‡è¯•
         assert(insert_slot_id != left->count());
         auto success = right.Insert(insert_slot_id - left->count(), key, value);
         if (!success) {
@@ -489,11 +489,11 @@ void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const ui
         return;
     }
 
-    // ĞèÒª·ÖÁÑÔÙÏòÉÏ²åÈë
+    // éœ€è¦åˆ†è£‚å†å‘ä¸Šæ’å…¥
     LeafNode right = Split(&node, slot_id, key, value, is_bucket);
     
     iter->Pop();
-    // ÉÏÉıÓÒ½ÚµãµÄµÚÒ»¸ö½Úµã
+    // ä¸Šå‡å³èŠ‚ç‚¹çš„ç¬¬ä¸€ä¸ªèŠ‚ç‚¹
     Put(iter, std::move(node), std::move(right), right.GetKey(0));
 }
 

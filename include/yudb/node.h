@@ -50,7 +50,7 @@ protected:
 
     bool RequestSpaceFor(std::span<const uint8_t> key, std::span<const uint8_t> value, bool slot_needed);
     size_t SpaceNeeded(size_t record_size, bool slot_needed);
-    // 包括节点头的大小
+    // 鍖呮嫭鑺傜偣澶寸殑澶у皬
     PageSize SlotSpace();
     PageSize FreeSpace();
     PageSize FreeSpaceAfterCompaction();

@@ -14,7 +14,7 @@ namespace yudb {
 class BTree;
 
 /*
-* Õ»¿Õ/kInvalid±íÊ¾end
+* æ ˆç©º/kInvalidè¡¨ç¤ºend
 */
 class BTreeIterator {
 public:
@@ -92,7 +92,7 @@ private:
 
 private:
     BTree* btree_;
-    Stack stack_;       // Ë÷Òı±Ø¶¨ÊÇĞ¡ÓÚµÈÓÚËÑË÷Ê±keyµÄ½Úµã
+    Stack stack_;       // ç´¢å¼•å¿…å®šæ˜¯å°äºç­‰äºæœç´¢æ—¶keyçš„èŠ‚ç‚¹
     Status status_{ Status::kInvalid };
 
     mutable std::optional<Node> cached_node_;

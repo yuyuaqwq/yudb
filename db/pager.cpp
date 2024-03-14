@@ -150,8 +150,8 @@ void Pager::LoadFreeList() {
     auto ptr = GetPtr(meta.free_list_pgid, 0);
     auto free_list = reinterpret_cast<const PagePair*>(ptr);
     for (size_t i = 0; i < meta.free_pair_count; ++i) {
-        // SaveFreeList会直接保存未合并的pending pages
-        // 这里将其合并到free map
+        // SaveFreeList浼氱洿鎺ヤ繚瀛樻湭鍚堝苟鐨刾ending pages
+        // 杩欓噷灏嗗叾鍚堝苟鍒癴ree map
         if (free_list[i].second == 0) {
             continue;
         }
@@ -163,7 +163,7 @@ void Pager::SaveFreeList() {
     auto& update_tx = db_->tx_manager().update_tx();
     auto& meta = update_tx.meta_struct();
 
-    // 释放原free_list
+    // 閲婃斁鍘焒ree_list
     if (meta.free_list_pgid != kPageInvalidId) {
         Free(meta.free_list_pgid, meta.free_list_page_count);
     }

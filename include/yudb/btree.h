@@ -45,28 +45,28 @@ private:
 
     //void Print(bool str, PageId pgid, int level);
 
-    // ·ÖÖ§½ÚµãµÄºÏ²¢
+    // åˆ†æ”¯èŠ‚ç‚¹çš„åˆå¹¶
     void Merge(BranchNode&& left, BranchNode&& right, std::span<const uint8_t> down_key);
 
-    // ·ÖÖ§½ÚµãµÄÉ¾³ı
+    // åˆ†æ”¯èŠ‚ç‚¹çš„åˆ é™¤
     void Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id);
 
-    // Ò¶×Ó½ÚµãµÄºÏ²¢
+    // å¶å­èŠ‚ç‚¹çš„åˆå¹¶
     void Merge(LeafNode&& left, LeafNode&& right);
 
 
-    // ·ÖÖ§½ÚµãµÄ·ÖÁÑ
-    // ·µ»Ø×ó²à½ÚµãÖĞÄ©Î²ÉÏÉıµÄÔªËØ£¬ĞÂÓÒ½Úµã
+    // åˆ†æ”¯èŠ‚ç‚¹çš„åˆ†è£‚
+    // è¿”å›å·¦ä¾§èŠ‚ç‚¹ä¸­æœ«å°¾ä¸Šå‡çš„å…ƒç´ ï¼Œæ–°å³èŠ‚ç‚¹
     std::tuple<std::span<const uint8_t>, BranchNode> Split(BranchNode* left, SlotId insert_pos, std::span<const uint8_t> key, PageId insert_right_child);
 
-    // ·ÖÖ§½ÚµãµÄ²åÈë
+    // åˆ†æ”¯èŠ‚ç‚¹çš„æ’å…¥
     void Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8_t> key);
     
-    // Ò¶×Ó½ÚµãµÄ·ÖÁÑ
-    // ·µ»ØĞÂÓÒ½Úµã
+    // å¶å­èŠ‚ç‚¹çš„åˆ†è£‚
+    // è¿”å›æ–°å³èŠ‚ç‚¹
     LeafNode Split(LeafNode* left, SlotId insert_slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket);
 
-    // Ò¶×Ó½ÚµãµÄ²åÈë
+    // å¶å­èŠ‚ç‚¹çš„æ’å…¥
     void Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value, bool insert_only, bool is_bucket);
 
 private:

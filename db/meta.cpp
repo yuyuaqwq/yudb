@@ -37,7 +37,7 @@ void Meta::Init() {
 void Meta::Load() {
     auto ptr = db_->db_file_mmap().data();
 
-    // Ğ£Ñé¿ÉÓÃÔªĞÅÏ¢
+    // æ ¡éªŒå¯ç”¨å…ƒä¿¡æ¯
     auto first = reinterpret_cast<MetaStruct*>(ptr);
     auto second = reinterpret_cast<MetaStruct*>(ptr + db_->options()->page_size);
 
@@ -49,7 +49,7 @@ void Meta::Load() {
     }
 
     const MetaStruct* select;
-    // ÓÅÏÈÑ¡ÔñĞÂ°æ±¾
+    // ä¼˜å…ˆé€‰æ‹©æ–°ç‰ˆæœ¬
     cur_meta_index_ = 0;
     if (first->txid < second->txid) {
         cur_meta_index_ = 1;
@@ -58,7 +58,7 @@ void Meta::Load() {
         select = first;
     }
 
-    // Ğ£ÑéÔªĞÅÏ¢ÊÇ·ñÍêÕû£¬²»ÍêÕûÔòÊ¹ÓÃÁíÒ»¸ö
+    // æ ¡éªŒå…ƒä¿¡æ¯æ˜¯å¦å®Œæ•´ï¼Œä¸å®Œæ•´åˆ™ä½¿ç”¨å¦ä¸€ä¸ª
     Crc32 crc32;
     crc32.Append(select, kMetaSize - sizeof(uint32_t));
     auto crc32_value = crc32.End();
@@ -77,7 +77,7 @@ void Meta::Load() {
         }
     }
 
-    // Ò³Ãæ³ß´çÒªÇóÒ»ÖÂ
+    // é¡µé¢å°ºå¯¸è¦æ±‚ä¸€è‡´
     if (select->page_size != db_->options()->page_size) {
         throw MetaError{ "database cannot match system page size." };
     }

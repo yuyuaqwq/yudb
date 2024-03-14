@@ -221,7 +221,7 @@ bool BTreeIterator::Down(std::span<const uint8_t> key) {
     }
     cached_node_.emplace(btree_, pgid, false);
 
-    // 在节点中进行二分查找
+    // 鍦ㄨ妭鐐逛腑杩涜浜屽垎鏌ユ壘
     SlotId slot_id;
     bool eq;
     status_ = Status::kNe;

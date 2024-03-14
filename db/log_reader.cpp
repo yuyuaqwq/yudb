@@ -75,18 +75,18 @@ const LogRecord* Reader::ReadPhysicalRecord() {
                 offset_ = 0;
                 size_ = file_.read(&buffer_[0], kBlockSize);
                 if (size_ == 0) {
-                    // µ½´ïÎÄ¼şÄ©Î²
+                    // åˆ°è¾¾æ–‡ä»¶æœ«å°¾
                     eof_ = true;
                     return nullptr;
                 }
                 else if (size_ < kBlockSize) {
-                    // µ½´ïÎÄ¼şÄ©Î²£¬µ«ÈÔÓĞÊı¾İ£¬¼ÌĞøÑ­»·´¦Àí
+                    // åˆ°è¾¾æ–‡ä»¶æœ«å°¾ï¼Œä½†ä»æœ‰æ•°æ®ï¼Œç»§ç»­å¾ªç¯å¤„ç†
                     eof_ = true;
                 }
                 continue;
             }
             else {
-                // ¿ÉÄÜÊÇĞ´headerÊ±crash
+                // å¯èƒ½æ˜¯å†™headeræ—¶crash
                 size_ = 0;
                 return nullptr;
             }
@@ -98,12 +98,12 @@ const LogRecord* Reader::ReadPhysicalRecord() {
             if (!eof_) {
                 throw LoggerError{ "incorrect log record size." };
             }
-            // ¿ÉÄÜÊÇĞ´dataÊ±crash
+            // å¯èƒ½æ˜¯å†™dataæ—¶crash
             return nullptr;
         }
 
         if (record->type == RecordType::kZeroType && record->size == 0) {
-            // Ğ´ÈëÊ±blockÕıºÃÓàÏÂ7×Ö½ÚµÄ³¡¾°£¬sizeÖ»ÄÜÎª0
+            // å†™å…¥æ—¶blockæ­£å¥½ä½™ä¸‹7å­—èŠ‚çš„åœºæ™¯ï¼Œsizeåªèƒ½ä¸º0
             size_ = 0;
             return nullptr;
         }
