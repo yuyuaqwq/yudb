@@ -11,6 +11,10 @@
 # include <windows.h>
 #else
 # include <unistd.h>
+# include <sys/types.h>
+# include <sys/stat.h>
+# include <sys/file.h>
+# include <fcntl.h>
 #endif
 
 #ifndef _WIN32
@@ -90,7 +94,7 @@ inline file_handle_type open_file(const std::filesystem::path& path, const acces
 #ifdef _WIN32
     const auto handle = win::open_file_helper(path, mode);
 #else // POSIX
-    const auto handle = ::open(c_str(path),
+    const auto handle = ::open(path.c_str(),
             (mode == access_mode::read ? O_RDONLY : O_RDWR) | O_CREAT);
 #endif
     if(handle == invalid_handle) {
@@ -172,7 +176,7 @@ public:
             error_code = detail::last_error();
         }
 #else // POSIX
-        auto cur_pos = lseek(handle_, pos, SEEK_SET);
+        auto cur_pos = ::lseek(handle_, pos, SEEK_SET);
         if (cur_pos == -1) {
             error_code = detail::last_error();
         }
@@ -212,18 +216,19 @@ public:
         int mode;
         switch (dir) {
         case std::ios_base::beg:
-            mode = FILE_BEGIN;
+            mode = SEEK_SET;
             break;
         case std::ios_base::cur:
-            mode = FILE_CURRENT;
+            mode = SEEK_CUR;
             break;
         case std::ios_base::end:
-            mode = FILE_END;
+            mode = SEEK_END;
             break;
         default:
-            return false;
+            error_code = std::make_error_code(std::errc::invalid_argument);
+            return;
         }
-        auto cur_pos = lseek(handle_, pos, SEEK_SET);
+        auto cur_pos = ::lseek(handle_, off, mode);
         if (cur_pos == -1) {
             error_code = detail::last_error();
         }
@@ -249,7 +254,7 @@ public:
         }
         return liCurrentPosition.QuadPart;
 #else // POSIX
-        auto cur_pos = lseek(handle_, pos, SEEK_CUR);
+        auto cur_pos = ::lseek(handle_, 0, SEEK_CUR);
         if (cur_pos == -1) {
             error_code = detail::last_error();
             return 0;
@@ -285,14 +290,14 @@ public:
 #ifdef _WIN32
         LARGE_INTEGER large;
         large.QuadPart = new_size;
-        if (SetFilePointerEx(handle_, large, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
+        if (::SetFilePointerEx(handle_, large, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER) {
             error_code = detail::last_error();
         }
-        if (!SetEndOfFile(handle_)) {
+        if (!::SetEndOfFile(handle_)) {
             error_code = detail::last_error();
         }
 #else // POSIX
-        if (ftruncate(handle_, new_size) == -1) {
+        if (::ftruncate(handle_, new_size) == -1) {
             error_code = detail::last_error();
         }
 #endif
@@ -310,14 +315,14 @@ public:
         error_code.clear();
 #ifdef _WIN32
         DWORD read_size;
-        const BOOL success = ReadFile(handle_, buf, size, &read_size, NULL);
+        const BOOL success = ::ReadFile(handle_, buf, size, &read_size, NULL);
         if (!success) {
             error_code = detail::last_error();
             return 0;
         }
         return read_size;
 #else // POSIX
-        auto read_size = read(handle_, buf, length);
+        auto read_size = ::read(handle_, buf, size);
         if (read_size < 0) {
             error_code = detail::last_error();
         }
@@ -325,9 +330,9 @@ public:
 #endif
     }
 
-    size_t read(void* buf, size_t length) {
+    size_t read(void* buf, size_t size) {
         std::error_code ec;
-        auto res = read(buf, length, ec);
+        auto res = read(buf, size, ec);
         if (ec) {
             throw std::ios_base::failure{ "tinyio::file::read" };
         }
@@ -344,9 +349,9 @@ public:
         }
         return write_len;
 #else // POSIX
-        auto write_len = write(handle_, buf, length);
+        auto write_len = ::write(handle_, buf, size);
         if (write_len <= 0) {
-            error_ = detail::last_error();
+            error_code = detail::last_error();
             return 0;
         }
         return write_len;
@@ -369,7 +374,7 @@ public:
             error_code = detail::last_error();
         }
 #else // POSIX
-        auto res = fsync(handle_);
+        auto res = ::fsync(handle_);
         if (res == -1) {
             error_code = detail::last_error();
         }
@@ -399,8 +404,8 @@ public:
             error_code = std::make_error_code(std::errc::invalid_argument);
             return;
         }
-        OVERLAPPED overlapped{ 0 };
-        if (!LockFileEx(handle_, flags, 0, 1, 0, &overlapped)) {
+        ::OVERLAPPED overlapped{ 0 };
+        if (!::LockFileEx(handle_, flags, 0, 1, 0, &overlapped)) {
             error_code = detail::last_error();
         }
 #else // POSIX
@@ -416,7 +421,7 @@ public:
             error_code = std::make_error_code(std::errc::invalid_argument);
             return;
         }
-        if (flock(handle_, operation) < 0) {
+        if (::flock(handle_, operation) < 0) {
             error_code = detail::last_error();
         }
 #endif
@@ -433,12 +438,12 @@ public:
     void unlock(std::error_code& error_code) {
         error_code.clear();
 #ifdef _WIN32
-        OVERLAPPED overlapped{ 0 };
-        if (!UnlockFileEx(handle_, 0, 1, 0, &overlapped)) {
+        ::OVERLAPPED overlapped{ 0 };
+        if (!::UnlockFileEx(handle_, 0, 1, 0, &overlapped)) {
             error_code = detail::last_error();
         }
 #else // POSIX
-        if (flock(handle_, LOCK_UN) < 0) {
+        if (::flock(handle_, LOCK_UN) < 0) {
             error_code = detail::last_error();
         }
 #endif

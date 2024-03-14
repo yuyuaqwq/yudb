@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include <span>
+#include <vector>
 #include <filesystem>
 
 #include "tinyio/tinyio.hpp"

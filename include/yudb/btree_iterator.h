@@ -50,7 +50,7 @@ public:
     template <class KeyT> KeyT key() const {
         auto span = GetKey();
         if (span.size() != sizeof(KeyT)) {
-            throw InvalidArgumentError{ "The size of the key does not match." };
+            throw InvalidArgumentError("The size of the key does not match.");
         }
         KeyT key;
         std::memcpy(&key, span.data(), sizeof(KeyT));
@@ -59,7 +59,7 @@ public:
     template <class ValueT> ValueT value() const {
         auto span = GetValue();
         if (span.size() != sizeof(ValueT)) {
-            throw InvalidArgumentError{ "The size of the value does not match." };
+            throw InvalidArgumentError("The size of the value does not match.");
         }
         ValueT value;
         std::memcpy(&value, span.data(), sizeof(ValueT));

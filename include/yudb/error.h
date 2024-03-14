@@ -6,7 +6,12 @@ namespace yudb {
 
 class Error : public std::exception {
 public:
-    using std::exception::exception;
+    Error(const char* message) : msg(message) {}
+    virtual const char* what() const noexcept override {
+        return msg.c_str();
+    }
+private:
+    std::string msg;
 };
 
 class InvalidArgumentError : public Error {

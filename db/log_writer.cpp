@@ -1,5 +1,9 @@
 #include "yudb/log_writer.h"
 
+#include <cstring>
+
+#include <string_view>
+
 #include "yudb/crc32.h"
 
 namespace yudb {

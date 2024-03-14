@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 
 #include "yudb/page_format.h"
 #include "yudb/tx_format.h"
