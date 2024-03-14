@@ -34,7 +34,7 @@ public:
     Iterator begin() noexcept;
     Iterator end() noexcept;
 
-    void Print(bool str = false);
+    //void Print(bool str = false);
 
     Pager& pager() const;
     auto& tx() const { return *tx_; }

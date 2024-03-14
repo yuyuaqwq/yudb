@@ -73,57 +73,57 @@ BTree::Iterator BTree::end() noexcept {
     return Iterator{ this };
 }
 
-void BTree::Print(bool str, PageId pgid, int level) {
-    const std::string indent(level * 4, ' ');
-    Node node{ this, pgid, false };
-    if (node.IsBranch()) {
-        //node.BranchCheck();
-        BranchNode node{ this, pgid, false };
-        Print(str, node.GetTailChild(), level + 1);
-        for (int i = node.count() - 1; i >= 0; i--) {
-            std::string key_str;
-            auto key = node.GetKey(i);
-            if (str) {
-                std::cout << std::format("{}branch[{}]::key::{}::level::{}\n", indent, pgid, std::string_view{ reinterpret_cast<const char*>(key.data()), key.size()}, level);
-            }
-            else {
-                for (uint32_t j = 0; j < key.size(); j++) {
-                    key_str += std::format("{:02x}", key.data()[j]) + " ";
-                }
-                std::cout << std::format("{}branch[{}]::key::{}::level::{}\n", indent, pgid, key_str, level);
-            }
-            Print(str, node.GetLeftChild(i), level + 1);
-        }
-    } else {
-        assert(node.IsLeaf());
-        //node.LeafCheck();
-        LeafNode node{ this, pgid, false };
-        for (int i = node.count() - 1; i >= 0; i--) {
-            std::string key_str, value_str;
-            auto key = node.GetKey(i);
-            auto value = node.GetValue(i);
-            if (str) {
-                std::cout << std::format("{}leaf[{}]::key::{}::value::{}::level::{}\n", indent, pgid, std::string_view{ reinterpret_cast<const char*>(key.data()), key.size()}, std::string_view{reinterpret_cast<const char*>(value.data()), value.size()}, level);
-            }
-            else {
-                for (uint32_t j = 0; j < key.size(); j++) {
-                    key_str += std::format("{:02x}", key.data()[j]) + " ";
-                }
-                for (uint32_t j = 0; j < value.size(); j++) {
-                    value_str += std::format("{:02x}", value.data()[j]) + " ";
-                }
-                std::cout << std::format("{}leaf[{}]::key::{}::value::{}::level::{}\n", indent, pgid, key_str, value_str, level);
-            }
-        }
-    }
-}
-
-void BTree::Print(bool str) {
-    if (root_pgid_ == kPageInvalidId) {
-        return;
-    }
-    Print(str, root_pgid_, 0);
-}
+//void BTree::Print(bool str, PageId pgid, int level) {
+//    const std::string indent(level * 4, ' ');
+//    Node node{ this, pgid, false };
+//    if (node.IsBranch()) {
+//        //node.BranchCheck();
+//        BranchNode node{ this, pgid, false };
+//        Print(str, node.GetTailChild(), level + 1);
+//        for (int i = node.count() - 1; i >= 0; i--) {
+//            std::string key_str;
+//            auto key = node.GetKey(i);
+//            if (str) {
+//                std::cout << std::format("{}branch[{}]::key::{}::level::{}\n", indent, pgid, std::string_view{ reinterpret_cast<const char*>(key.data()), key.size()}, level);
+//            }
+//            else {
+//                for (uint32_t j = 0; j < key.size(); j++) {
+//                    key_str += std::format("{:02x}", key.data()[j]) + " ";
+//                }
+//                std::cout << std::format("{}branch[{}]::key::{}::level::{}\n", indent, pgid, key_str, level);
+//            }
+//            Print(str, node.GetLeftChild(i), level + 1);
+//        }
+//    } else {
+//        assert(node.IsLeaf());
+//        //node.LeafCheck();
+//        LeafNode node{ this, pgid, false };
+//        for (int i = node.count() - 1; i >= 0; i--) {
+//            std::string key_str, value_str;
+//            auto key = node.GetKey(i);
+//            auto value = node.GetValue(i);
+//            if (str) {
+//                std::cout << std::format("{}leaf[{}]::key::{}::value::{}::level::{}\n", indent, pgid, std::string_view{ reinterpret_cast<const char*>(key.data()), key.size()}, std::string_view{reinterpret_cast<const char*>(value.data()), value.size()}, level);
+//            }
+//            else {
+//                for (uint32_t j = 0; j < key.size(); j++) {
+//                    key_str += std::format("{:02x}", key.data()[j]) + " ";
+//                }
+//                for (uint32_t j = 0; j < value.size(); j++) {
+//                    value_str += std::format("{:02x}", value.data()[j]) + " ";
+//                }
+//                std::cout << std::format("{}leaf[{}]::key::{}::value::{}::level::{}\n", indent, pgid, key_str, value_str, level);
+//            }
+//        }
+//    }
+//}
+//
+//void BTree::Print(bool str) {
+//    if (root_pgid_ == kPageInvalidId) {
+//        return;
+//    }
+//    Print(str, root_pgid_, 0);
+//}
 
 std::tuple<BranchNode, SlotId, PageId, bool> BTree::GetSibling(Iterator* iter) {
     auto [parent_pgid, parent_slot_id] = iter->Front();

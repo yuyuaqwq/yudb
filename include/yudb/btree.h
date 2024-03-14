@@ -3,7 +3,6 @@
 #include <span>
 #include <algorithm>
 #include <iostream>
-#include <format>
 #include <string>
 
 #include "yudb/btree_iterator.h"
@@ -33,7 +32,7 @@ public:
     bool Delete(std::span<const uint8_t> key);
     void Delete(Iterator* iter);
 
-    void Print(bool str = false);
+    //void Print(bool str = false);
 
     Iterator begin() noexcept;
     Iterator end() noexcept;
@@ -44,7 +43,7 @@ public:
 private:
     std::tuple<BranchNode, SlotId, PageId, bool> GetSibling(Iterator* iter);
 
-    void Print(bool str, PageId pgid, int level);
+    //void Print(bool str, PageId pgid, int level);
 
     // 分支节点的合并
     void Merge(BranchNode&& left, BranchNode&& right, std::span<const uint8_t> down_key);

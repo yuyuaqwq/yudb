@@ -124,7 +124,7 @@ BucketImpl::Iterator BucketImpl::end() noexcept {
     return Iterator{ btree_.end() };
 }
 
-void BucketImpl::Print(bool str) { btree_.Print(str); }
+//void BucketImpl::Print(bool str) { btree_.Print(str); }
 
 Pager& BucketImpl::pager() const { return tx_->pager(); }
 
