@@ -10,9 +10,9 @@ class BucketIterator {
 public:
     using iterator_category = std::bidirectional_iterator_tag;
 
-    using value_type = typename BucketIterator;
-    using difference_type = typename std::ptrdiff_t;
-    using pointer = typename BucketIterator*;
+    using value_type = BucketIterator;
+    using difference_type = std::ptrdiff_t;
+    using pointer = BucketIterator*;
     using reference = const value_type&;
 
     enum class ValueType {
