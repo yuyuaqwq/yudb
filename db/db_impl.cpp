@@ -59,6 +59,7 @@ DBImpl::~DBImpl() {
          logger_.reset();
          tx_manager_.reset();
          pager_.reset();
+         uint64_t new_size = options_->page_size * meta_->meta_struct().page_count;
          meta_.reset();
          shm_.reset();
 
@@ -67,6 +68,7 @@ DBImpl::~DBImpl() {
          if (!options_->read_only) {
              std::filesystem::remove(db_path_ + "-shm");
          }
+         db_file_.resize(new_size);
          db_file_.unlock();
      }
  }

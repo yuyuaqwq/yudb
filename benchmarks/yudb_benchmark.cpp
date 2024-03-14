@@ -24,7 +24,7 @@ class Benchmark {
 public:
     std::unique_ptr<yudb::DB> db_;
     int seed_{ 0 };
-    int count_{ 1000000 };
+    int count_{ 100 };
 
     void Run() {
         yudb::Options options{
@@ -34,7 +34,7 @@ public:
         srand(seed_);
 
         std::string path = "Z:/yudb_benchmark.ydb";
-        std::filesystem::remove(path);
+        //std::filesystem::remove(path);
         std::filesystem::remove(path + "-shm");
         std::filesystem::remove(path + "-wal");
         db_ = yudb::DB::Open(options, path);
@@ -85,7 +85,7 @@ public:
                 bucket.Delete(key[i].data(), key[i].size());
                 ++i;
             }
-            tx.Commit();
+            //tx.Commit();
             auto end_time = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
             std::cout << "delete: " << duration.count() << " microseconds" << std::endl;

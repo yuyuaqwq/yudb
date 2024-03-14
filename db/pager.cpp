@@ -48,16 +48,24 @@ void Pager::WriteAllDirtyPages() {
 }
 
 void Pager::Rollback() {
+    auto& update_tx = db_->tx_manager().update_tx();
+    auto iter = pending_map_.find(update_tx.txid());
+    if (iter != pending_map_.end()) {
+        pending_map_.erase(iter);
+    }
+
     for (auto& alloc_pair : alloc_records_) {
         FreeToMap(alloc_pair.first, alloc_pair.second);
     }
     alloc_records_.clear();
+
+
 }
 
 PageId Pager::Alloc(PageCount count) {
     auto& update_tx = db_->tx_manager().update_tx();
     PageId pgid = kPageInvalidId;
-    for (auto iter = free_map_.begin(); iter != free_map_.end(); ++iter) {
+    /*for (auto iter = free_map_.begin(); iter != free_map_.end(); ++iter) {
         auto free_count = iter->second;
         assert(free_count > 0);
         if (free_count < count) {
@@ -73,7 +81,7 @@ PageId Pager::Alloc(PageCount count) {
         }
         alloc_records_.push_back({ pgid, count });
         break;
-    }
+    }*/
 #ifndef NDEBUG
     if (pgid != kPageInvalidId) {
         for (PageCount i = 0; i < count; ++i) {
