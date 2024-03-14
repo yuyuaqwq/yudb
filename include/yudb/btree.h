@@ -39,7 +39,7 @@ public:
     Iterator end() noexcept;
 
     auto& bucket() const { return *bucket_; }
-    auto& comparator() const { return comparator_;  }
+    auto& comparator() const { return comparator_.ptr_;  }
 
 private:
     std::tuple<BranchNode, SlotId, PageId, bool> GetSibling(Iterator* iter);

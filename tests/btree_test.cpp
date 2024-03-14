@@ -16,7 +16,7 @@ public:
 
 public:
     BTreeTest() {
-        Open(ByteArrayComparator);
+        Open({ ByteArrayComparator });
     }
 
     ~BTreeTest() {

@@ -93,7 +93,7 @@ void BucketImpl::DeleteSubBucket(Iterator* iter) {
     if (!iter->is_bucket()) {
         throw InvalidArgumentError{ "attempt to delete a key value pair that is not a sub bucket." };
     }
-    auto& sub_bucket = SubBucket(iter->key(), true, nullptr);
+    auto& sub_bucket = SubBucket(iter->key(), true, {});
     auto map_iter = sub_bucket_map_.find({ iter->key().data(), iter->key().size() });
     do  {
         auto first = sub_bucket.begin();

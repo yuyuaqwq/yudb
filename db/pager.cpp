@@ -76,7 +76,7 @@ PageId Pager::Alloc(PageCount count) {
     }
 #ifndef NDEBUG
     if (pgid != kPageInvalidId) {
-        for (auto i = 0; i < count; ++i) {
+        for (PageCount i = 0; i < count; ++i) {
             auto iter = debug_free_set_.find(pgid + i);
             assert(iter != debug_free_set_.end());
             debug_free_set_.erase(iter);
@@ -222,7 +222,7 @@ void Pager::Dereference(const uint8_t* page_buf) {
 
 void Pager::FreeToMap(PageId pgid, PageCount count) {
 #ifndef NDEBUG
-    for (auto i = 0; i < count; ++i) {
+    for (PageCount i = 0; i < count; ++i) {
         auto [_, success] = debug_free_set_.insert(pgid + i);
         assert(success);
     }

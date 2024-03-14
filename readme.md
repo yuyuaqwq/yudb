@@ -29,3 +29,14 @@ yudb是一个使用B-Tree作为索引，基于MMap的嵌入式键值数据库，
 ## 表现
 
 - todo：
+
+## 构建
+
+### Windows
+
+```
+mkdir build
+cd build
+cmake ..
+```
+

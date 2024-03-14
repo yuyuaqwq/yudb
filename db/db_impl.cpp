@@ -13,7 +13,11 @@ namespace yudb{
      auto db = std::make_unique<DBImpl>();
      db->options_.emplace(options);
      if (db->options_->page_size == 0) {
-         db->options_->page_size = mio::page_size();
+         auto page_size = mio::page_size();
+         if (page_size > kPageMaxSize) {
+             throw IoError{ "the system page size exceeds the range." };
+         }
+         db->options_->page_size = static_cast<PageSize>(page_size);
      } else {
          if (db->options_->page_size != mio::page_size()) {
              throw InvalidArgumentError{ "page size mismatch." };

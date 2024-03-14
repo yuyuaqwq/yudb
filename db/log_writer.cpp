@@ -32,7 +32,7 @@ void Writer::AppendRecordToBuffer(std::span<const uint8_t> data) {
     LogRecord record {
         .type = RecordType::kFullType,
     };
-    record.size = data.size();
+    record.size = static_cast<uint16_t>(data.size());
 
     Crc32 crc32;
     crc32.Append(&record.size, kHeaderSize - sizeof(record.checksum));
@@ -104,7 +104,7 @@ void Writer::EmitPhysicalRecord(RecordType type, const uint8_t* ptr, size_t size
     uint8_t buf[kHeaderSize];
     auto record = reinterpret_cast<LogRecord*>(buf);
     record->type = type;
-    record->size = size;
+    record->size = static_cast<uint16_t>(size);
 
     Crc32 crc32;
     crc32.Append(&record->size, kHeaderSize - sizeof(record->checksum));

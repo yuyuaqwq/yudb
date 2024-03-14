@@ -17,7 +17,7 @@ void Meta::Init() {
 
     auto const first = meta_struct_;
     first->sign = YUDB_SIGN;
-    first->page_size = mio::page_size();
+    first->page_size = db_->options()->page_size;
     first->min_version = YUDB_VERSION;
     first->page_count = 2;
     first->txid = 1;
