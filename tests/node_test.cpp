@@ -1,4 +1,4 @@
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "yudb/db_impl.h"
 #include "yudb/node.h"

@@ -1,6 +1,7 @@
 #include <filesystem>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+
 #include "yudb/db_impl.h"
 
 namespace yudb {

@@ -1,4 +1,4 @@
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #include "yudb/log_reader.h"
 #include "yudb/log_writer.h"

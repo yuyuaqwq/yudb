@@ -19,6 +19,5 @@ set(SOURCES
 
 add_library(yudb ${SOURCES})
 
-# 设置包含目录
 target_include_directories(yudb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 target_include_directories(yudb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../third_party)
