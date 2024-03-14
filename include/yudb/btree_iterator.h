@@ -20,9 +20,9 @@ class BTreeIterator {
 public:
     using iterator_category = std::bidirectional_iterator_tag;
 
-    using value_type = typename BTreeIterator;
-    using difference_type = typename std::ptrdiff_t;
-    using pointer = typename BTreeIterator*;
+    using value_type = BTreeIterator;
+    using difference_type = std::ptrdiff_t;
+    using pointer = BTreeIterator*;
     using reference = const value_type&;
 
     using Stack = detail::Stack<std::pair<PageId, SlotId>, 32>;
