@@ -49,6 +49,7 @@ public:
     auto& tmp_page() { return tmp_page_; }
 
 private:
+    PageId AllocFromMap(PageCount count);
     void FreeToMap(PageId pgid, PageCount count);
 
 private:

@@ -39,7 +39,6 @@ private:
 
 private:
     DBImpl* const db_;
-    bool Initial_update_{ true };
 
     std::optional<TxImpl> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;

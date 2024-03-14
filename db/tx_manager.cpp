@@ -7,7 +7,10 @@
 namespace yudb {
 
 TxManager::TxManager(DBImpl* db) :
-    db_{ db } {}
+    db_{ db }
+{
+    pager().LoadFreeList();
+}
 
 TxManager::~TxManager() {
     std::unique_lock lock{ db_->shm()->meta_lock() };
@@ -35,10 +38,6 @@ TxImpl& TxManager::Update(Comparator comparator) {
     update_tx_->set_txid(update_tx_->txid() + 1);
     if (update_tx_->txid() == kTxInvalidId) {
         throw TxManagerError("txid overflow.");
-    }
-    if (Initial_update_) {
-        Initial_update_ = false;
-        pager().LoadFreeList();
     }
     const auto iter = view_tx_map_.cbegin();
     TxId min_txid;

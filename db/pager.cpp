@@ -64,34 +64,7 @@ void Pager::Rollback() {
 
 PageId Pager::Alloc(PageCount count) {
     auto& update_tx = db_->tx_manager().update_tx();
-    PageId pgid = kPageInvalidId;
-    /*for (auto iter = free_map_.begin(); iter != free_map_.end(); ++iter) {
-        auto free_count = iter->second;
-        assert(free_count > 0);
-        if (free_count < count) {
-            continue;
-        }
-        pgid = iter->first;
-        free_map_.erase(iter);
-        if (count < free_count) {
-            free_count -= count;
-            auto free_pgid = pgid + count;
-            auto [_, success] = free_map_.insert({ free_pgid , free_count });
-            assert(success);
-        }
-        alloc_records_.push_back({ pgid, count });
-        break;
-    }*/
-#ifndef NDEBUG
-    if (pgid != kPageInvalidId) {
-        for (PageCount i = 0; i < count; ++i) {
-            auto iter = debug_free_set_.find(pgid + i);
-            assert(iter != debug_free_set_.end());
-            debug_free_set_.erase(iter);
-        }
-    }
-#endif
-    
+    PageId pgid = AllocFromMap(count);
     if (pgid == kPageInvalidId) {
         auto& page_count = update_tx.meta_struct().page_count;
         if (page_count + count < page_count) {
@@ -149,8 +122,7 @@ void Pager::Release(TxId releasable_txid) {
 }
 
 void Pager::LoadFreeList() {
-    auto& update_tx = db_->tx_manager().update_tx();
-    auto& meta = update_tx.meta_struct();
+    auto& meta = db_->meta().meta_struct();
     if (meta.free_list_pgid == kPageInvalidId) {
         return;
     }
@@ -168,6 +140,7 @@ void Pager::LoadFreeList() {
 }
 
 void Pager::SaveFreeList() {
+    assert(db_->tx_manager().has_update_tx());
     auto& update_tx = db_->tx_manager().update_tx();
     auto& meta = update_tx.meta_struct();
 
@@ -191,7 +164,6 @@ void Pager::SaveFreeList() {
         std::memcpy(&buf[i * sizeof(PagePair)], &pair, sizeof(pair));
         ++i;
     }
-
     for (auto& pending_pair : pending_map_) {
         std::memcpy(&buf[i * sizeof(PagePair)], &pending_pair.second[0], pending_pair.second.size() * sizeof(PagePair));
         i += pending_pair.second.size();
@@ -226,6 +198,37 @@ Page Pager::AddReference(uint8_t* page_buf) {
 
 void Pager::Dereference(const uint8_t* page_buf) {
 
+}
+
+PageId Pager::AllocFromMap(PageCount count) {
+    PageId pgid = kPageInvalidId;
+    for (auto iter = free_map_.begin(); iter != free_map_.end(); ++iter) {
+        auto free_count = iter->second;
+        assert(free_count > 0);
+        if (free_count < count) {
+            continue;
+        }
+        pgid = iter->first;
+        free_map_.erase(iter);
+        if (count < free_count) {
+            free_count -= count;
+            auto free_pgid = pgid + count;
+            auto [_, success] = free_map_.insert({ free_pgid , free_count });
+            assert(success);
+        }
+        alloc_records_.push_back({ pgid, count });
+        break;
+    }
+#ifndef NDEBUG
+    if (pgid != kPageInvalidId) {
+        for (PageCount i = 0; i < count; ++i) {
+            auto iter = debug_free_set_.find(pgid + i);
+            assert(iter != debug_free_set_.end());
+            debug_free_set_.erase(iter);
+        }
+    }
+#endif
+    return pgid;
 }
 
 void Pager::FreeToMap(PageId pgid, PageCount count) {
