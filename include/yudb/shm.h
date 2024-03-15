@@ -30,12 +30,6 @@ public:
         --shm_struct_->connections;
     }
 
-    void Recover() {
-        std::construct_at(&shm_struct_->connections);
-        std::construct_at(&shm_struct_->meta_lock);
-        std::construct_at(&shm_struct_->update_lock);
-    }
-
     auto& connections() const { return shm_struct_->connections; }
     auto& connections() { return shm_struct_->connections; }
     auto& meta_struct() const { return shm_struct_->meta_struct; }

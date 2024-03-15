@@ -12,11 +12,11 @@ namespace yudb{
  std::unique_ptr<DB> DB::Open(const Options& options, const std::string_view path) {
      auto db = std::make_unique<DBImpl>();
      db->options_.emplace(options);
+     auto page_size = mio::page_size();
+     if (page_size > kPageMaxSize) {
+         throw IoError{ "the system page size exceeds the range." };
+     }
      if (db->options_->page_size == 0) {
-         auto page_size = mio::page_size();
-         if (page_size > kPageMaxSize) {
-             throw IoError{ "the system page size exceeds the range." };
-         }
          db->options_->page_size = static_cast<PageSize>(page_size);
      } else {
          if (db->options_->page_size != mio::page_size()) {
@@ -53,23 +53,34 @@ namespace yudb{
      return db;
  }
 
-
 DBImpl::~DBImpl() {
      if (options_.has_value()) {
          logger_.reset();
          tx_manager_.reset();
          pager_.reset();
-         uint64_t new_size = options_->page_size * meta_->meta_struct().page_count;
+         uint64_t new_size = 0;
+         if (meta_.has_value()) {
+             new_size = options_->page_size * meta_->meta_struct().page_count;
+         }
          meta_.reset();
          shm_.reset();
-
-         db_mmap_.unmap();
-         shm_mmap_.unmap();
-         if (!options_->read_only) {
-             std::filesystem::remove(db_path_ + "-shm");
+         
+         if (db_mmap_.is_mapped()) {
+             db_mmap_.unmap();
          }
-         db_file_.resize(new_size);
-         db_file_.unlock();
+         if (shm_mmap_.is_mapped()) {
+             shm_mmap_.unmap();
+         }
+         if (!options_->read_only) {
+             std::error_code ec;
+             std::filesystem::remove(db_path_ + "-shm", ec);
+         }
+         if (db_file_.is_open()) {
+             if (new_size > 0) {
+                 db_file_.resize(new_size);
+             }
+             db_file_.unlock();
+         }
      }
  }
 
@@ -130,15 +141,12 @@ void DBImpl::InitDBFile() {
 
 void DBImpl::InitShmFile() {
     const std::string shm_path = db_path_ + "-shm";
+    std::error_code ec;
+    std::filesystem::remove(shm_path, ec);
     tinyio::file shm_file;
     shm_file.open(shm_path, tinyio::access_mode::write);
-    bool init_shm = false;
     if (shm_file.size() < sizeof(ShmStruct)) {
         shm_file.resize(sizeof(ShmStruct));
-        init_shm = true;
-    }
-    if (std::filesystem::exists(db_path_ + "-wal")) {
-        init_shm = true;
     }
     std::error_code error_code;
     shm_mmap_ = mio::make_mmap_sink(shm_path, error_code);
@@ -146,10 +154,6 @@ void DBImpl::InitShmFile() {
         throw IoError{ "unable to map shm file." };
     }
     shm_.emplace(reinterpret_cast<ShmStruct*>(shm_mmap_.data()));
-    if (init_shm) {
-        shm_->Recover();
-    }
-    
 }
 
 void DBImpl::InitLogFile() {

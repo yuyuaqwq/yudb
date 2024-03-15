@@ -58,8 +58,6 @@ void Pager::Rollback() {
         FreeToMap(alloc_pair.first, alloc_pair.second);
     }
     alloc_records_.clear();
-
-
 }
 
 PageId Pager::Alloc(PageCount count) {
