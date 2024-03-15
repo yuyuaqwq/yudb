@@ -95,7 +95,6 @@ ViewTx DBImpl::View() {
      return tx_manager_->View(options_->defaluit_comparator);
  }
 
-
 void DBImpl::Remmap(uint64_t new_size) {
      db_mmap_pending_.emplace_back(std::move(db_mmap_));
      // 1GB之前二倍扩展
