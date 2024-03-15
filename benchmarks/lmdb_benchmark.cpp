@@ -63,11 +63,12 @@ public:
             MDB_txn* txn;
             MDB_stat mst;
 
-            E(mdb_txn_begin(env_, NULL, 0, &txn));
-            E(mdb_dbi_open(txn, NULL, 0, &dbi));
 
 
             for (int i = 0; i < count_; ++i) {
+                E(mdb_txn_begin(env_, NULL, 0, &txn));
+                E(mdb_dbi_open(txn, NULL, 0, &dbi));
+
                 mdb_key.mv_size = key[i].size();
                 mdb_key.mv_data = const_cast<void*>(reinterpret_cast<const void*>(key[i].data()));
                 mdb_data.mv_size = value[i].size();
@@ -77,9 +78,10 @@ public:
                     //printf("error");
                 }
                 ++i;
+                E(mdb_txn_commit(txn));
+                E(mdb_env_stat(env_, &mst));
             }
-            E(mdb_txn_commit(txn));
-            E(mdb_env_stat(env_, &mst));
+
 
             auto end_time = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);

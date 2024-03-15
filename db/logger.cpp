@@ -34,6 +34,9 @@ void Logger::AppendLog(const std::span<const uint8_t>* begin, const std::span<co
 void Logger::FlushLog() {
     if (disable_writing_) return;
     writer_.FlushBuffer();
+    if (db_->options()->sync) {
+        writer_.Sync();
+    }
 }
 
 void Logger::Reset() {

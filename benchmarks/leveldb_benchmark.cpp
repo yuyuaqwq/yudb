@@ -6,34 +6,20 @@
 
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
-
-std::string RandomString(size_t min_size, size_t max_size) {
-    int size;
-    if (min_size == max_size) {
-        size = min_size;
-    }
-    else {
-        size = (rand() % (max_size - min_size)) + min_size;
-    }
-    std::string str(size, ' ');
-    for (auto i = 0; i < size; i++) {
-        str[i] = rand() % 26 + 'a';
-    }
-    return str;
-}
+#include "util/test_util.h"
 
 class Benchmark {
 public:
     leveldb::DB* db_;
     int seed_{ 0 };
-    int count_{ 1000000 };
+    int count_{ 10000000 };
 
     void Run() {
 
 
         srand(seed_);
 
-        std::string path = "Z:/leveldb_benchmark";
+        std::string path = "./leveldb_benchmark";
         std::filesystem::remove_all(path);
         leveldb::Options options;
         options.create_if_missing = true;
@@ -44,8 +30,8 @@ public:
         std::vector<std::string> key(count_);
         std::vector<std::string> value(count_);
         for (auto i = 0; i < count_; i++) {
-            key[i] = RandomString(16, 16);
-            value[i] = RandomString(100, 100);
+            key[i] = yudb::RandomByteArray(16, 16);
+            value[i] = yudb::RandomByteArray(100, 100);
         }
 
 
@@ -54,6 +40,7 @@ public:
             leveldb::WriteBatch batch;
             for (int i = 0; i < count_; ++i) {
                 batch.Put(key[i], value[i]);
+                //db_->Put({}, key[i], value[i]);
                 ++i;
             }
             db_->Write({}, &batch);

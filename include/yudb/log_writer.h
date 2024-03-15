@@ -23,10 +23,11 @@ public:
     void AppendRecordToBuffer(std::span<const uint8_t> data);
     void AppendRecordToBuffer(std::string_view data);
     void FlushBuffer();
+    void Sync();
 
     auto& file() { return file_; }
     auto& size() const { return size_; }
-
+   
 private:
     void AppendRecord(std::span<const uint8_t> data);
     void EmitPhysicalRecord(RecordType type, const uint8_t* ptr, size_t size);

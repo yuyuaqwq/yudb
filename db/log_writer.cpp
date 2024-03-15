@@ -64,6 +64,10 @@ void Writer::FlushBuffer() {
     }
 }
 
+void Writer::Sync() {
+    file_.sync();
+}
+
 void Writer::AppendRecord(std::span<const uint8_t> data) {
     assert(block_offset_ <= kBlockSize);
     auto ptr = data.data();

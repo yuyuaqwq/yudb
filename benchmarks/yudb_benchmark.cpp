@@ -3,97 +3,152 @@
 #define BENCHMARK_STATIC_DEFINE
 #include <benchmark/benchmark.h>
 
+#include "yudb/version.h"
 #include "yudb/db.h"
+#include "util/test_util.h"
 
-std::string RandomString(size_t min_size, size_t max_size) {
-    int size;
-    if (min_size == max_size) {
-        size = min_size;
-    }
-    else {
-        size = (rand() % (max_size - min_size)) + min_size;
-    }
-    std::string str(size, ' ');
-    for (auto i = 0; i < size; i++) {
-        str[i] = rand() % 26 + 'a';
-    }
-    return str;
-}
+namespace yudb {
+
+static const char* FLAGS_benchmarks =
+    "fillseq,"
+    "fillseqsync,"
+    "fillseqbatch,"
+    "fillrandom,"
+    "fillrandsync,"
+    "fillrandbatch,"
+    "overwrite,"
+    "overwritebatch,"
+    "readrandom,"
+    "readseq,"
+    "fillrand100K,"
+    "fillseq100K,"
+    "readseq,"
+    "readrand100K,";
 
 class Benchmark {
-public:
+private:
     std::unique_ptr<yudb::DB> db_;
     int seed_{ 0 };
-    int count_{ 100 };
+    int count_{ 1000000 };
+    std::chrono::steady_clock::time_point start_;
+    const int kKeySize = 16;
+    const int kValueSize = 100;
 
-    void Run() {
-        yudb::Options options{
-            .max_wal_size = 1024 * 1024 * 64,
-        };
+    std::vector<std::string> key_;
+    std::vector<std::string> value_;
 
-        srand(seed_);
+    void PrintEnvironment() {
+        std::fprintf(stderr, "yudb:     version %s\n", YUDB_VERSION_STR);
+    }
 
-        std::string path = "Z:/yudb_benchmark.ydb";
-        //std::filesystem::remove(path);
+    void PrintHeader() {
+        PrintEnvironment();
+        std::fprintf(stdout, "Keys:       %d bytes each\n", kKeySize);
+        std::fprintf(stdout, "Values:     %d bytes each\n", kValueSize);
+        std::fprintf(stdout, "------------------------------------------------\n");
+    }
+
+    void Open() {
+        std::string path = "./yudb_benchmark.ydb";
+        std::filesystem::remove(path);
         std::filesystem::remove(path + "-shm");
         std::filesystem::remove(path + "-wal");
-        db_ = yudb::DB::Open(options, path);
+        db_ = yudb::DB::Open({}, path);
+    }
 
-        std::vector<std::string> key(count_);
-        std::vector<std::string> value(count_);
+
+public:
+    enum Order { SEQUENTIAL, RANDOM };
+
+    void Run() {
+        Open();
+
+        srand(seed_);
+        key_.resize(10000000);
+        value_.resize(10000000);
         for (auto i = 0; i < count_; i++) {
-            key[i] = RandomString(16, 16);
-            value[i] = RandomString(100, 100);
+            key_[i] = RandomString(kKeySize, kKeySize);
+            key_[i] = RandomString(kValueSize, kValueSize);
         }
+        
+        start_ = std::chrono::high_resolution_clock::now();
+        Write(false, SEQUENTIAL, 10000000, 1);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_);
+        std::cout << "put: " << duration.count() << " microseconds" << std::endl;
 
+        //{
+        //    auto start_time = std::chrono::high_resolution_clock::now();
+        //    for (int i = 0; i < count_; ++i) {
+        //        auto tx = db_->Update();
+        //        auto bucket = tx.UserBucket();
+        //        
+        //        ++i;
+        //        
+        //    }
+        //    auto end_time = std::chrono::high_resolution_clock::now();
+        //    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        //    std::cout << "put: " << duration.count() << " microseconds" << std::endl;
+        //}
 
-        {
-            auto start_time = std::chrono::high_resolution_clock::now();
+        //{
+        //    auto start_time = std::chrono::high_resolution_clock::now();
+        //    auto tx = db_->View();
+        //    auto bucket = tx.UserBucket();
+        //    for (int i = 0; i < count_; ++i) {
+        //        auto iter = bucket.Get(key_[i].data(), key_[i].size());
+        //        if (iter == bucket.end() || iter->value() != value_[i]) {
+        //            printf("%d error\n", i);
+        //        }
+        //        ++i;
+        //    }
+        //    auto end_time = std::chrono::high_resolution_clock::now();
+        //    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        //    std::cout << "get: " << duration.count() << " microseconds" << std::endl;
+        //}
+
+        //{
+        //    auto start_time = std::chrono::high_resolution_clock::now();
+        //    auto tx = db_->Update();
+        //    auto bucket = tx.UserBucket();
+        //    for (int i = 0; i < count_; ++i) {
+        //        bucket.Delete(key_[i].data(), key_[i].size());
+        //        ++i;
+        //    }
+        //    //tx.Commit();
+        //    auto end_time = std::chrono::high_resolution_clock::now();
+        //    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        //    std::cout << "delete: " << duration.count() << " microseconds" << std::endl;
+        //}
+    }
+
+    void Write(bool write_sync, Order order, int num_entries, int entries_per_batch) {
+        for (int i = 0; i < num_entries; i += entries_per_batch) {
             auto tx = db_->Update();
             auto bucket = tx.UserBucket();
-            for (int i = 0; i < count_; ++i) {
-                bucket.Put(key[i].data(), key[i].size(), value[i].data(), value[i].size());
-                ++i;
+            for (int j = 0; j < entries_per_batch; j++) {
+                bucket.Put(key_[i].data(), key_[i].size(), value_[i].data(), value_[i].size());
             }
             tx.Commit();
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-            std::cout << "put: " << duration.count() << " microseconds" << std::endl;
         }
+    }
 
-        {
-            auto start_time = std::chrono::high_resolution_clock::now();
+    void Read(Order order, int num_entries, int entries_per_batch) {
+        for (int i = 0; i < num_entries; i += entries_per_batch) {
             auto tx = db_->View();
             auto bucket = tx.UserBucket();
-            for (int i = 0; i < count_; ++i) {
-                auto iter = bucket.Get(key[i].data(), key[i].size());
-                if (iter == bucket.end() || iter->value() != value[i]) {
-                    printf("%d error\n", i);
+            for (int j = 0; j < entries_per_batch; j++) {
+                auto iter = bucket.Get(key_[i].data(), key_[i].size());
+                if (iter == bucket.end() || iter->value() != value_[i]) {
+                    fprintf(stderr, " %d error\n", i);
                 }
-                ++i;
             }
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-            std::cout << "get: " << duration.count() << " microseconds" << std::endl;
-        }
-
-        {
-            auto start_time = std::chrono::high_resolution_clock::now();
-            auto tx = db_->Update();
-            auto bucket = tx.UserBucket();
-            for (int i = 0; i < count_; ++i) {
-                bucket.Delete(key[i].data(), key[i].size());
-                ++i;
-            }
-            //tx.Commit();
-            auto end_time = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-            std::cout << "delete: " << duration.count() << " microseconds" << std::endl;
         }
     }
 };
+} // namespace yudb
 
 int main() {
-    Benchmark benchmark;
+    yudb::Benchmark benchmark;
     benchmark.Run();
 }
