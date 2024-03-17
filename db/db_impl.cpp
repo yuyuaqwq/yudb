@@ -89,11 +89,11 @@ UpdateTx DBImpl::Update() {
     if (options_->read_only) {
         throw InvalidArgumentError{ "the database is read-only." };
     }
-    return UpdateTx{ &tx_manager_->Update(options_->defaluit_comparator) };
+    return UpdateTx{ &tx_manager_->Update(options_->comparator) };
  }
 
 ViewTx DBImpl::View() {
-     return tx_manager_->View(options_->defaluit_comparator);
+     return tx_manager_->View(options_->comparator);
  }
 
 void DBImpl::Remmap(uint64_t new_size) {

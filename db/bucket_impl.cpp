@@ -72,7 +72,7 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
             }
             map_iter->second.second = iter.value<PageId>();
         }
-        bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable, tx().tx_manager().db().options()->defaluit_comparator);
+        bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable, tx().tx_manager().db().options()->comparator);
         map_iter->second.first = bucket_id;
     } else {
         bucket_id = map_iter->second.first;
