@@ -94,6 +94,16 @@ bool TxManager::IsViewExists(TxId view_txid) const {
     return iter != view_tx_map_.end();
 }
 
+void TxManager::AppendSubBucketLog(BucketId bucket_id, std::span<const uint8_t> key) {
+    BucketLogHeader format;
+    format.type = LogType::kSubBucket;
+    format.bucket_id = bucket_id;
+    std::span<const uint8_t> arr[2];
+    arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketSubBucketLogHeaderSize };
+    arr[1] = key;
+    db_->logger().AppendLog(std::begin(arr), std::end(arr));
+}
+
 void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket) {
     BucketLogHeader format;
     if (is_bucket) {

@@ -16,7 +16,6 @@ public:
     explicit ViewBucket(BucketImpl* bucket);
     ~ViewBucket();
 
-    ViewBucket SubViewBucket(std::string_view key, Comparator comparator);
     ViewBucket SubViewBucket(std::string_view key);
     Iterator Get(const void* key_buf, size_t key_size) const;
     Iterator Get(std::string_view key) const;
@@ -39,7 +38,6 @@ public:
     UpdateBucket() = delete;
     ~UpdateBucket();
 
-    UpdateBucket SubUpdateBucket(std::string_view key, Comparator comparator);
     UpdateBucket SubUpdateBucket(std::string_view key);
     bool DeleteSubBucket(std::string_view key);
 

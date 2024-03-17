@@ -53,7 +53,7 @@ void BucketImpl::Delete(Iterator* iter) {
     btree_.Delete(&iter->iter_);
 }
 
-BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable, Comparator comparator) {
+BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
     auto map_iter = sub_bucket_map_.find({ key.data(), key.size() });
     BucketId bucket_id;
     if (map_iter == sub_bucket_map_.end()) {
@@ -72,7 +72,7 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable, Comparato
             }
             map_iter->second.second = iter.value<PageId>();
         }
-        bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable, comparator);
+        bucket_id = tx_->NewSubBucket(&map_iter->second.second, writable, tx().tx_manager().db().options()->defaluit_comparator);
         map_iter->second.first = bucket_id;
     } else {
         bucket_id = map_iter->second.first;
@@ -93,7 +93,7 @@ void BucketImpl::DeleteSubBucket(Iterator* iter) {
     if (!iter->is_bucket()) {
         throw InvalidArgumentError{ "attempt to delete a key value pair that is not a sub bucket." };
     }
-    auto& sub_bucket = SubBucket(iter->key(), true, {});
+    auto& sub_bucket = SubBucket(iter->key(), true);
     auto map_iter = sub_bucket_map_.find({ iter->key().data(), iter->key().size() });
     do  {
         auto first = sub_bucket.begin();
@@ -133,14 +133,9 @@ ViewBucket::ViewBucket(BucketImpl* bucket) : bucket_{ bucket } {};
 
 ViewBucket::~ViewBucket() = default;
 
-ViewBucket ViewBucket::SubViewBucket(std::string_view key, Comparator comparator) {
-    return ViewBucket{ &bucket_->SubBucket(key, false, comparator) };
-}
-
 ViewBucket ViewBucket::SubViewBucket(std::string_view key) {
-    return ViewBucket{ &bucket_->SubBucket(key, false, bucket_->tx().tx_manager().db().options()->defaluit_comparator) };
+    return ViewBucket{ &bucket_->SubBucket(key, false) };
 }
-
 
 ViewBucket::Iterator ViewBucket::Get(const void* key_buf, size_t key_size) const {
     return bucket_->Get(key_buf, key_size);
@@ -169,12 +164,8 @@ ViewBucket::Iterator ViewBucket::end() const noexcept {
 
 UpdateBucket::~UpdateBucket() = default;
 
-UpdateBucket UpdateBucket::SubUpdateBucket(std::string_view key, Comparator comparator) {
-    return UpdateBucket{ &bucket_->SubBucket(key, true, comparator) };
-}
-
 UpdateBucket UpdateBucket::SubUpdateBucket(std::string_view key) {
-    return UpdateBucket{ &bucket_->SubBucket(key, true, bucket_->tx().tx_manager().db().options()->defaluit_comparator) };
+    return UpdateBucket{ &bucket_->SubBucket(key, true) };
 }
 
 bool UpdateBucket::DeleteSubBucket(std::string_view key) {

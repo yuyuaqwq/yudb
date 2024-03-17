@@ -26,8 +26,8 @@ public:
     bool Delete(const void* key_buf, size_t key_size);
     void Delete(Iterator* iter);
 
-    BucketImpl& SubBucket(std::string_view key, bool writable, Comparator comparator);
-    BucketImpl& SubBucket(Iterator* iter, bool writable, Comparator comparator);
+    BucketImpl& SubBucket(std::string_view key, bool writable);
+    BucketImpl& SubBucket(Iterator* iter, bool writable);
     bool DeleteSubBucket(std::string_view key);
     void DeleteSubBucket(Iterator* iter);
 

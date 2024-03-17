@@ -114,6 +114,27 @@ void Logger::Recover() {
             current_tx = std::nullopt;
             break;
         }
+        case LogType::kSubBucket: {
+            if (!init) {
+                throw LoggerError{ "unrecoverable logs." };
+            }
+            assert(record->size() == kBucketDeleteLogHeaderSize);
+            auto log = reinterpret_cast<BucketLogHeader*>(record->data());
+            auto& tx = tx_manager.update_tx();
+            BucketImpl* bucket;
+            if (log->bucket_id == kUserRootBucketId) {
+                bucket = &tx.user_bucket();
+            } else {
+                bucket = &tx.AtSubBucket(log->bucket_id);
+            }
+            auto key = reader.ReadRecord();
+            if (!key) {
+                end = true;
+                break;
+            }
+            bucket->SubBucket(key->data(), true);
+            break;
+        }
         case LogType::kPut_IsBucket:
         case LogType::kPut_NotBucket: {
             if (!init) {
@@ -148,13 +169,19 @@ void Logger::Recover() {
             assert(record->size() == kBucketDeleteLogHeaderSize);
             auto log = reinterpret_cast<BucketLogHeader*>(record->data());
             auto& tx = tx_manager.update_tx();
-            auto& bucket = tx.AtSubBucket(log->bucket_id);
+            BucketImpl* bucket;
+            if (log->bucket_id == kUserRootBucketId) {
+                bucket = &tx.user_bucket();
+            }
+            else {
+                bucket = &tx.AtSubBucket(log->bucket_id);
+            }
             auto key = reader.ReadRecord();
             if (!key) {
                 end = true;
                 break;
             }
-            bucket.Delete(key->data(), key->size());
+            bucket->Delete(key->data(), key->size());
             break;
         }
         }

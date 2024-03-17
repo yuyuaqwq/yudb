@@ -29,6 +29,7 @@ public:
 
     bool CopyNeeded(TxId txid) const;
 
+    void AppendSubBucketLog(BucketId bucket_id, std::span<const uint8_t> key);
     void AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket);
     void AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key);
 

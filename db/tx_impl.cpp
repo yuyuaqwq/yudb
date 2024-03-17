@@ -64,6 +64,10 @@ bool TxImpl::CopyNeeded(TxId txid) const {
     return txid < current_txid;
 }
 
+void TxImpl::AppendSubBucketLog(BucketId bucket_id, std::span<const uint8_t> key) {
+    tx_manager_->AppendSubBucketLog(bucket_id, key);
+}
+
 void TxImpl::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket) {
     tx_manager_->AppendPutLog(bucket_id, key, value, is_bucket);
 }
