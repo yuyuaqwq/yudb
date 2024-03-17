@@ -165,7 +165,7 @@ void DBImpl::InitLogFile() {
         logger_->Recover();
         logger_->Reset();
     }
-    logger_->AppendPersistedLog();
+    logger_->AppendWalTxIdLog();
 }
 
 } // namespace yudb

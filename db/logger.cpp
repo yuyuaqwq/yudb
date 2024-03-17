@@ -71,11 +71,11 @@ void Logger::Recover() {
         }
         auto type = *reinterpret_cast<LogType*>(record->data());
         switch (type) {
-        case LogType::kPersisted: {
+        case LogType::kWalTxId: {
             if (init) {
                 throw LoggerError{ "unrecoverable logs." };
             }
-            auto log = reinterpret_cast<PersistedLogHeader*>(record->data());
+            auto log = reinterpret_cast<WalTxIdLogHeader*>(record->data());
             if (meta.meta_struct().txid > log->txid) {
                 end = true;
             }
@@ -229,15 +229,15 @@ void Logger::Checkpoint() {
     meta.Save();
     db_->tx_manager().set_persisted_txid(meta.meta_struct().txid);
     Reset();
-    AppendPersistedLog();
+    AppendWalTxIdLog();
 }
 
-void Logger::AppendPersistedLog() {
-    PersistedLogHeader log;
-    log.type = LogType::kPersisted;
+void Logger::AppendWalTxIdLog() {
+    WalTxIdLogHeader log;
+    log.type = LogType::kWalTxId;
     log.txid = db_->meta().meta_struct().txid;
     std::span<const uint8_t> arr[1];
-    arr[0] = { reinterpret_cast<const uint8_t*>(&log), sizeof(PersistedLogHeader) };
+    arr[0] = { reinterpret_cast<const uint8_t*>(&log), sizeof(WalTxIdLogHeader) };
     AppendLog(std::begin(arr), std::end(arr));
 }
 

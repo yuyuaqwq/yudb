@@ -7,7 +7,7 @@
 namespace yudb {
 
 enum class LogType : uint8_t {
-    kPersisted,
+    kWalTxId,
     kBegin,
     kRollback,
     kCommit,
@@ -18,7 +18,7 @@ enum class LogType : uint8_t {
 };
 
 #pragma pack(push, 1)
-struct PersistedLogHeader {
+struct WalTxIdLogHeader {
     LogType type;
     TxId txid;
 };

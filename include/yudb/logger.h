@@ -14,7 +14,7 @@ public:
     ~Logger();
 
     void AppendLog(const std::span<const uint8_t>* begin, const std::span<const uint8_t>* end);
-    void AppendPersistedLog();
+    void AppendWalTxIdLog();
     void FlushLog();
 
     void Reset();
