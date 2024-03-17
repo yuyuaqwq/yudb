@@ -44,6 +44,7 @@ namespace yudb{
      }
      db->pager_.emplace(db.get(), db->options_->page_size);
      db->tx_manager_.emplace(db.get());
+     db->tx_manager_->set_persisted_txid(db->meta_->meta_struct().txid);
 
      db->InitLogFile();
      if (db->options_->read_only) {

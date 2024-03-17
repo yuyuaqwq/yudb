@@ -31,7 +31,7 @@ BucketImpl::Iterator BucketImpl::LowerBound(const void* key_buf, size_t key_size
 void BucketImpl::Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size, bool is_bucket) {
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key_buf), key_size };
     std::span<const uint8_t> value_span{ reinterpret_cast<const uint8_t*>(value_buf), value_size };
-    tx_->AppendPutLog(bucket_id_, key_span, value_span);
+    tx_->AppendPutLog(bucket_id_, key_span, value_span, is_bucket);
 
     btree_.Put(key_span, value_span, is_bucket);
 }
@@ -39,7 +39,7 @@ void BucketImpl::Put(const void* key_buf, size_t key_size, const void* value_buf
 void BucketImpl::Update(Iterator* iter, const void* value_buf, size_t value_size) {
     auto key = iter->key();
     std::span<const uint8_t> key_span{ reinterpret_cast<const uint8_t*>(key.data()), key.size()};
-    tx_->AppendPutLog(bucket_id_, key_span, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
+    tx_->AppendPutLog(bucket_id_, key_span, { reinterpret_cast<const uint8_t*>(value_buf), value_size }, iter->is_bucket());
     btree_.Update(&iter->iter_, { reinterpret_cast<const uint8_t*>(value_buf), value_size });
 }
 

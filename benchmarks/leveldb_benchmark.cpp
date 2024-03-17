@@ -12,14 +12,14 @@ class Benchmark {
 public:
     leveldb::DB* db_;
     int seed_{ 0 };
-    int count_{ 10000000 };
+    int count_{ 1000000 };
 
     void Run() {
 
 
         srand(seed_);
 
-        std::string path = "./leveldb_benchmark";
+        std::string path = "Z:/leveldb_benchmark";
         std::filesystem::remove_all(path);
         leveldb::Options options;
         options.create_if_missing = true;
@@ -37,13 +37,13 @@ public:
 
         {
             auto start_time = std::chrono::high_resolution_clock::now();
-            leveldb::WriteBatch batch;
+            //leveldb::WriteBatch batch;
             for (int i = 0; i < count_; ++i) {
-                batch.Put(key[i], value[i]);
-                //db_->Put({}, key[i], value[i]);
+                //batch.Put(key[i], value[i]);
+                db_->Put({}, key[i], value[i]);
                 ++i;
             }
-            db_->Write({}, &batch);
+            //db_->Write({}, &batch);
             auto end_time = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
             std::cout << "put: " << duration.count() << " microseconds" << std::endl;

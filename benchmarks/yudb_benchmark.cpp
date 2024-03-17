@@ -49,7 +49,10 @@ private:
     }
 
     void Open() {
-        std::string path = "./yudb_benchmark.ydb";
+        yudb::Options options{
+            .max_wal_size = 1024 * 1024 * 1024,
+        };
+        std::string path = "Z:/yudb_benchmark.ydb";
         std::filesystem::remove(path);
         std::filesystem::remove(path + "-shm");
         std::filesystem::remove(path + "-wal");
@@ -64,18 +67,24 @@ public:
         Open();
 
         srand(seed_);
-        key_.resize(10000000);
-        value_.resize(10000000);
+        key_.resize(count_);
+        value_.resize(count_);
         for (auto i = 0; i < count_; i++) {
             key_[i] = RandomString(kKeySize, kKeySize);
-            key_[i] = RandomString(kValueSize, kValueSize);
+            value_[i] = RandomString(kValueSize, kValueSize);
         }
         
         start_ = std::chrono::high_resolution_clock::now();
-        Write(false, SEQUENTIAL, 10000000, 1);
+        Write(false, SEQUENTIAL, count_, 1);
         auto end_time = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_);
         std::cout << "put: " << duration.count() << " microseconds" << std::endl;
+
+        start_ = std::chrono::high_resolution_clock::now();
+        Read(SEQUENTIAL, count_, 1);
+        end_time = std::chrono::high_resolution_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_);
+        std::cout << "get: " << duration.count() << " microseconds" << std::endl;
 
         //{
         //    auto start_time = std::chrono::high_resolution_clock::now();

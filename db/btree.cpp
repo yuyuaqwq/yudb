@@ -178,7 +178,7 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
     if (left_sibling) --parent_slot_id;
 
     BranchNode sibling{ this, sibling_id, true };
-    if (bucket_->tx().IsLegacyTx(sibling.last_modified_txid())) {
+    if (bucket_->tx().CopyNeeded(sibling.last_modified_txid())) {
         sibling = BranchNode{ this, sibling.Copy().Release() };
         if (left_sibling) {
             parent.SetLeftChild(parent_slot_id, sibling.page_id());
@@ -280,7 +280,7 @@ void BTree::Delete(Iterator* iter) {
     if (left_sibling) --parent_slot_id;
 
     LeafNode sibling{ this, sibling_id, true };
-    if (bucket_->tx().IsLegacyTx(sibling.last_modified_txid())) {
+    if (bucket_->tx().CopyNeeded(sibling.last_modified_txid())) {
         sibling = LeafNode{ this, sibling.Copy().Release() };
         if (left_sibling) {
             parent.SetLeftChild(parent_slot_id, sibling.page_id());

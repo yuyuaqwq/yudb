@@ -52,16 +52,20 @@ void TxImpl::Commit() {
     tx_manager_->Commit();
 }
 
-bool TxImpl::IsLegacyTx(TxId txid) const {
-    return txid < this->txid();
+bool TxImpl::CopyNeeded(TxId txid) const {
+    auto current_txid = this->txid();
+    if (txid < current_txid - 1) {
+        if (txid > tx_manager_->persisted_txid()) {
+            if (!tx_manager_->IsViewExists(txid)) {
+                return false;
+            }
+        }
+    }
+    return txid < current_txid;
 }
 
-void TxImpl::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
-    tx_manager_->AppendPutLog(bucket_id, key, value);
-}
-
-void TxImpl::AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
-    tx_manager_->AppendInsertLog(bucket_id, key, value);
+void TxImpl::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket) {
+    tx_manager_->AppendPutLog(bucket_id, key, value, is_bucket);
 }
 
 void TxImpl::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {

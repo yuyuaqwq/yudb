@@ -114,7 +114,8 @@ void Logger::Recover() {
             current_tx = std::nullopt;
             break;
         }
-        case LogType::kPut: {
+        case LogType::kPut_IsBucket:
+        case LogType::kPut_NotBucket: {
             if (!init) {
                 throw LoggerError{ "unrecoverable logs." };
             }
@@ -137,7 +138,7 @@ void Logger::Recover() {
                 end = true;
                 break;
             }
-            bucket->Put(key->data(), key->size(), value->data(), value->size(), false);
+            bucket->Put(key->data(), key->size(), value->data(), value->size(), type == LogType::kPut_IsBucket);
             break;
         }
         case LogType::kDelete: {
@@ -172,6 +173,7 @@ void Logger::Recover() {
         }
         meta.Switch();
         meta.Save();
+        db_->tx_manager().set_persisted_txid(meta.meta_struct().txid);
     }
 }
 
@@ -198,6 +200,7 @@ void Logger::Checkpoint() {
     }
     meta.Switch();
     meta.Save();
+    db_->tx_manager().set_persisted_txid(meta.meta_struct().txid);
     Reset();
     AppendPersistedLog();
 }

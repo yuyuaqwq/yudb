@@ -270,10 +270,12 @@ void BTreeIterator::CopyAllPagesByPath() {
     }
     auto& tx = btree_->bucket().tx();
     auto lower_pgid = kPageInvalidId;
+    bool copy_needed = false;
     for (ptrdiff_t i = stack_.size() - 1; i >= 0; i--) {
         auto& [pgid, slot_id] = stack_[i];
         Node node{ btree_, pgid, true };
-        if (!tx.IsLegacyTx(node.last_modified_txid())) {
+        copy_needed = tx.CopyNeeded(node.last_modified_txid());
+        if (!copy_needed) {
             if (node.IsBranch()) {
                 BranchNode branch_node{ btree_, node.Release() };
                 assert(lower_pgid != kPageInvalidId);
@@ -281,7 +283,6 @@ void BTreeIterator::CopyAllPagesByPath() {
             }
             return;
         }
-
         auto new_node = node.Copy();
         if (new_node.IsBranch()) {
             assert(lower_pgid != kPageInvalidId);

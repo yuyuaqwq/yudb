@@ -27,10 +27,9 @@ public:
     void RollBack();
     void Commit();
 
-    bool IsLegacyTx(TxId txid) const;
+    bool CopyNeeded(TxId txid) const;
 
-    void AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
-    void AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value);
+    void AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket);
     void AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key);
 
     auto& user_bucket() { return user_bucket_; }

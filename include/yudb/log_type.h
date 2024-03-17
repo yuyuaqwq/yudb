@@ -11,8 +11,8 @@ enum class LogType : uint8_t {
     kBegin,
     kRollback,
     kCommit,
-    kInsert,
-    kPut,
+    kPut_IsBucket,
+    kPut_NotBucket,
     kDelete,
 };
 
@@ -29,7 +29,7 @@ struct BucketLogHeader {
 #pragma pack(pop)
 
 constexpr size_t kBucketPutLogHeaderSize = sizeof(BucketLogHeader);
+constexpr size_t kBucketUpdateLogHeaderSize = sizeof(BucketLogHeader);
 constexpr size_t kBucketDeleteLogHeaderSize = sizeof(BucketLogHeader);
-constexpr size_t kBucketInsertLogHeaderSize = sizeof(BucketLogHeader);
 
 } // namespace yudb

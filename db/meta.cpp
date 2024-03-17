@@ -20,7 +20,7 @@ void Meta::Init() {
     first->page_size = db_->options()->page_size;
     first->min_version = YUDB_VERSION;
     first->page_count = 2;
-    first->txid = 1;
+    first->txid = 2;
     first->user_root = kPageInvalidId;
     first->free_list_pgid = kPageInvalidId;
     first->free_pair_count = 0;
@@ -28,7 +28,7 @@ void Meta::Init() {
     Save();
 
     Switch();
-    first->txid = 0;
+    first->txid = 1;
     Save();
 
     Switch();

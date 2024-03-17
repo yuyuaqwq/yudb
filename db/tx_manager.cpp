@@ -10,6 +10,7 @@ TxManager::TxManager(DBImpl* db) :
     db_{ db }
 {
     pager().LoadFreeList();
+
 }
 
 TxManager::~TxManager() {
@@ -87,23 +88,22 @@ void TxManager::Commit() {
     db_->shm()->update_lock().unlock();
 }
 
-void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
+bool TxManager::IsViewExists(TxId view_txid) const {
+    std::unique_lock lock{ db_->shm()->meta_lock() };
+    const auto iter = view_tx_map_.find(view_txid);
+    return iter != view_tx_map_.end();
+}
+
+void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket) {
     BucketLogHeader format;
-    format.type = LogType::kPut;
+    if (is_bucket) {
+        format.type = LogType::kPut_IsBucket;
+    } else {
+        format.type = LogType::kPut_NotBucket;
+    }
     format.bucket_id = bucket_id;
     std::span<const uint8_t> arr[3];
     arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketPutLogHeaderSize };
-    arr[1] = key;
-    arr[2] = value;
-    db_->logger().AppendLog(std::begin(arr), std::end(arr));
-}
-
-void TxManager::AppendInsertLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
-    BucketLogHeader format;
-    format.type = LogType::kInsert;
-    format.bucket_id = bucket_id;
-    std::span<const uint8_t> arr[3];
-    arr[0] = { reinterpret_cast<const uint8_t*>(&format), kBucketInsertLogHeaderSize };
     arr[1] = key;
     arr[2] = value;
     db_->logger().AppendLog(std::begin(arr), std::end(arr));
