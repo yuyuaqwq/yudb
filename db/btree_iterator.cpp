@@ -58,10 +58,7 @@ bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
         return false;
     }
     if (Empty() || status() == Status::kInvalid) {
-        if (right.Empty() || right.status() == Status::kInvalid) {
-            return true;
-        }
-        return false;
+        return right.Empty() || right.status() == Status::kInvalid;
     }
     auto& [pgid, index] = Front();
     auto& [pgid2, index2] = right.Front();

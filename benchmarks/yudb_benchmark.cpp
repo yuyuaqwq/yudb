@@ -1,8 +1,5 @@
 #include <filesystem>
 
-#define BENCHMARK_STATIC_DEFINE
-#include <benchmark/benchmark.h>
-
 #include "yudb/version.h"
 #include "yudb/db.h"
 #include "util/test_util.h"
@@ -193,6 +190,7 @@ public:
                 Read(RANDOM, rand_key_, rand_value_100k_, num_ / 1000, 1);
             }
             Stop(name);
+
         }
     }
 
