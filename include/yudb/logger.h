@@ -31,7 +31,7 @@ private:
     log::Writer writer_;
     bool disable_writing_{ false };
 
-    bool checkpoint_needed_;
+    bool checkpoint_needed_{ false };
 };
 
 } // namespace yudb
