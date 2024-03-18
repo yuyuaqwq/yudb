@@ -7,7 +7,7 @@
 #include "yudb/db.h"
 #include "util/test_util.h"
 
-namespace yudb_benchmark {
+namespace yudb {
 
 static int FLAGS_num = 1000000;
 
@@ -56,6 +56,7 @@ private:
         PrintEnvironment();
         std::fprintf(stdout, "Keys:       %d bytes each\n", kKeySize);
         std::fprintf(stdout, "Values:     %d bytes each\n", kValueSize);
+        std::fprintf(stdout, "Entries:    %d\n", num_);
         std::fprintf(stdout, "------------------------------------------------\n");
     }
 
@@ -65,7 +66,7 @@ private:
             .max_wal_size = 64 * 1024 * 1024,
             .sync = sync
         };
-        std::string path = "Z:/D/yudb_benchmark.ydb";
+        std::string path = "z:/yudb_benchmark.ydb";
         std::filesystem::remove(path);
         std::filesystem::remove(path + "-shm");
         std::filesystem::remove(path + "-wal");
@@ -118,7 +119,6 @@ private:
             std::string(name.data(), name.size()).c_str(), double(duration.count()) / done_, rate.c_str());
         std::fflush(stdout);
     }
-
 
 public:
     enum Order { SEQUENTIAL, RANDOM };
@@ -219,10 +219,7 @@ public:
             for (int j = 0; j < entries_per_batch; j++) {
                 auto iter = bucket.Get(key[i+j].data(), key[i+j].size());
                 if (iter != bucket.end()) {
-                    // 实际进行读取
-                    std::string key = {iter.key().data(), iter.key().size()};
-                    std::string value = { iter.value().data(), iter.value().size() };
-                    bytes_ += key.size() + value.size();
+                    bytes_ += iter.key().size() + iter.value().size();
                 }
                 FinishedSingleOp();
             }
@@ -233,17 +230,15 @@ public:
         auto tx = db_->View();
         auto bucket = tx.UserBucket();
         for (auto& iter : bucket) {
-            // 实际进行读取
-            std::string key = { iter.key().data(), iter.key().size() };
-            std::string value = { iter.value().data(), iter.value().size() };
-            bytes_ += key.size() + value.size();
+            bytes_ += iter.key().size() + iter.value().size();
             FinishedSingleOp();
         }
     }
 };
-} // namespace yudb
+
+} // namespace yudb_benchmark
 
 int main() {
-    yudb_benchmark::Benchmark benchmark;
+    yudb::Benchmark benchmark;
     benchmark.Run();
 }
