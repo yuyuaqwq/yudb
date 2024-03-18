@@ -259,6 +259,7 @@ void BTreeIterator::CopyAllPagesByPath() {
     auto& tx = btree_->bucket().tx();
     auto lower_pgid = kPageInvalidId;
     bool copy_needed = false;
+    // 自底向上复制页面
     for (ptrdiff_t i = stack_.size() - 1; i >= 0; i--) {
         auto& [pgid, slot_id] = stack_[i];
         Node node{ btree_, pgid, true };
@@ -269,6 +270,7 @@ void BTreeIterator::CopyAllPagesByPath() {
                 assert(lower_pgid != kPageInvalidId);
                 branch_node.SetLeftChild(slot_id, lower_pgid);
             }
+            // 如果不需要复制，则可以提前结束，因为如果是底下的页面不需要复制，那么这条路径的页面一定经过复制了
             return;
         }
         auto new_node = node.Copy();

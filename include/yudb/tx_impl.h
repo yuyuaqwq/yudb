@@ -27,6 +27,7 @@ public:
     void RollBack();
     void Commit();
 
+    // 指定页面是否需要拷贝
     bool CopyNeeded(TxId txid) const;
 
     void AppendSubBucketLog(BucketId bucket_id, std::span<const uint8_t> key);

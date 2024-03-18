@@ -21,8 +21,11 @@ public:
     TxImpl& Update(Comparator comparator);
     ViewTx View(Comparator comparator);
 
-    void RollBack();
+    // 读事务回滚
     void RollBack(TxId view_txid);
+    // 写事务回滚
+    void RollBack();
+    // 写事务提交
     void Commit();
 
     bool IsTxExpired(TxId view_txid) const;

@@ -56,9 +56,11 @@ void TxImpl::Commit() {
 
 bool TxImpl::CopyNeeded(TxId txid) const {
     auto current_txid = this->txid();
+    // 如果是当前Wal中开启的写事务分配的页面，并且不会有读事务看见，则可以释放
     if (tx_manager_->IsTxExpired(txid) && txid > tx_manager_->persisted_txid()) {
         return false;
     }
+    // 如果是当前写事务分配的页面也允许直接释放
     return txid < current_txid;
 }
 
