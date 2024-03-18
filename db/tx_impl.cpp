@@ -54,13 +54,6 @@ void TxImpl::Commit() {
 
 bool TxImpl::CopyNeeded(TxId txid) const {
     auto current_txid = this->txid();
-    if (txid < current_txid - 1) {
-        if (txid > tx_manager_->persisted_txid()) {
-            if (!tx_manager_->IsViewExists(txid)) {
-                return false;
-            }
-        }
-    }
     return txid < current_txid;
 }
 

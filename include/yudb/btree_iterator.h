@@ -13,9 +13,8 @@ namespace yudb {
 
 class BTree;
 
-/*
-* 栈空/kInvalid表示end
-*/
+// B+Tree迭代器
+// 栈空/kInvalid表示end
 class BTreeIterator {
 public:
     using iterator_category = std::bidirectional_iterator_tag;

@@ -10,7 +10,7 @@ Logger::Logger(DBImpl* db, std::string_view log_path) :
     db_{ db },
     log_path_{ log_path }
 {
-    writer_.Open(log_path);
+    writer_.Open(log_path, db_->options()->sync ? tinyio::access_mode::sync_needed : tinyio::access_mode::write);
 }
 
 Logger::~Logger() {
@@ -41,7 +41,7 @@ void Logger::FlushLog() {
 
 void Logger::Reset() {
     writer_.Close();
-    writer_.Open(log_path_);
+    writer_.Open(log_path_, db_->options()->sync ? tinyio::access_mode::sync_needed : tinyio::access_mode::write);
 }
 
 bool Logger::RecoverNeeded() {
@@ -200,7 +200,6 @@ void Logger::Recover() {
         }
         meta.Switch();
         meta.Save();
-        db_->tx_manager().set_persisted_txid(meta.meta_struct().txid);
     }
 }
 
@@ -227,7 +226,6 @@ void Logger::Checkpoint() {
     }
     meta.Switch();
     meta.Save();
-    db_->tx_manager().set_persisted_txid(meta.meta_struct().txid);
     Reset();
     AppendWalTxIdLog();
 }

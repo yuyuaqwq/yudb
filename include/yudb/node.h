@@ -57,6 +57,7 @@ protected:
     void Compactify();
 
     uint8_t* Ptr();
+    uint8_t* GetRawRecordPtr(SlotId slot_id);
     uint8_t* GetRecordPtr(SlotId slot_id);
 
     PageId StoreRecordToOverflowPages(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value);

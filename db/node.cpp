@@ -177,14 +177,20 @@ uint8_t* Node::Ptr() {
     return reinterpret_cast<uint8_t*>(struct_);
 }
 
+uint8_t* Node::GetRawRecordPtr(SlotId slot_id) {
+    auto& slot = struct_->slots[slot_id];
+    assert(slot_id < count());
+    return Ptr() + slot.record_offset;
+}
+
 uint8_t* Node::GetRecordPtr(SlotId slot_id) {
+    auto raw_record = GetRawRecordPtr(slot_id);
     auto& slot = struct_->slots[slot_id];
     if (!slot.is_overflow_pages) {
-        assert(slot_id < count());
-        return Ptr() + slot.record_offset;
+        return raw_record;
     }
     auto& pager = btree_->bucket().pager();
-    auto overflow_record = reinterpret_cast<OverflowRecord*>(Ptr() + slot.record_offset);
+    auto overflow_record = reinterpret_cast<OverflowRecord*>(raw_record);
     return pager.GetPtr(overflow_record->pgid, 0);
 }
 
@@ -223,9 +229,8 @@ void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<c
         struct_->header.data_offset -= sizeof(record);
         struct_->header.space_used += sizeof(record);
         slot.record_offset = struct_->header.data_offset;
-        slot.is_overflow_pages = false;
-        auto overflow_reocrd_ptr = GetRecordPtr(slot_id);
         slot.is_overflow_pages = true;
+        auto overflow_reocrd_ptr = GetRawRecordPtr(slot_id);
         std::memcpy(overflow_reocrd_ptr, &record, sizeof(record));
     } else {
         assert(struct_->header.data_offset >= size);
@@ -233,9 +238,9 @@ void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<c
         struct_->header.space_used += size;
         slot.record_offset = struct_->header.data_offset;
         slot.is_overflow_pages = false;
-        std::memcpy(GetRecordPtr(slot_id), key.data(), key.size());
+        std::memcpy(GetRawRecordPtr(slot_id), key.data(), key.size());
         if (!value.empty()) {
-            std::memcpy(GetRecordPtr(slot_id) + key.size(), value.data(), value.size());
+            std::memcpy(GetRawRecordPtr(slot_id) + key.size(), value.data(), value.size());
         }
     }
     assert(SlotSpace() + FreeSpace() == struct_->header.data_offset);
@@ -256,7 +261,7 @@ void Node::CopyRecordRange(Node* dst) {
         dst->struct_->header.data_offset -= size;
         dst->struct_->header.space_used += size;
         auto dst_ptr = dst->Ptr() + dst->struct_->header.data_offset;
-        std::memcpy(dst_ptr, GetRecordPtr(i), size);
+        std::memcpy(dst_ptr, GetRawRecordPtr(i), size);
         slot.record_offset = dst->struct_->header.data_offset;
     }
 }
@@ -417,9 +422,9 @@ void BranchNode::Delete(SlotId slot_id, bool right_child) {
     auto& slot = struct_->slots[slot_id];
     if (slot.is_overflow_pages) {
         struct_->header.space_used -= sizeof(OverflowRecord);
-        slot.is_overflow_pages = false;
-        auto overflow_record = reinterpret_cast<OverflowRecord*>(GetRecordPtr(slot_id));
+        auto overflow_record = reinterpret_cast<OverflowRecord*>(GetRawRecordPtr(slot_id));
         auto& pager = btree_->bucket().pager();
+        slot.is_overflow_pages = false;
         pager.Free(overflow_record->pgid, pager.GetPageCount(slot.key_size));
     } else {
         struct_->header.space_used -= slot.key_size;
@@ -520,9 +525,9 @@ void LeafNode::Delete(SlotId slot_id) {
     auto size = slot.key_size + slot.value_size;
     if (slot.is_overflow_pages) {
         struct_->header.space_used -= sizeof(OverflowRecord);
-        slot.is_overflow_pages = false;
-        auto overflow_record = reinterpret_cast<OverflowRecord*>(GetRecordPtr(slot_id));
+        auto overflow_record = reinterpret_cast<OverflowRecord*>(GetRawRecordPtr(slot_id));
         auto& pager = btree_->bucket().pager();
+        slot.is_overflow_pages = false;
         pager.Free(overflow_record->pgid, pager.GetPageCount(size));
         
     } else {

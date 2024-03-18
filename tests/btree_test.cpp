@@ -27,7 +27,7 @@ public:
     void Open(Comparator comparator) {
         yudb::Options options{
             .max_wal_size = 1024 * 1024 * 64,
-            .defaluit_comparator = comparator,
+            .comparator = comparator,
         };
         if (update_tx_.has_value()) {
             update_tx_->RollBack();
@@ -363,20 +363,6 @@ TEST_F(BTreeTest, LeafMerge2) {
         ASSERT_TRUE(btree_->Delete(span));
     }
     ASSERT_EQ(btree_->begin(), btree_->end());
-}
-
-TEST_F(BTreeTest, BranchPut) {
-    const std::string key1(2030, '1');
-    const std::string value1 = "a";
-    btree_->Put(FromString(key1), FromString(value1), true);
-
-    const std::string key2(2030, '2');
-    const std::string value2 = "b";
-    btree_->Put(FromString(key2), FromString(value2), true);
-
-
-
-
 }
 
 TEST_F(BTreeTest, BranchSplit) {

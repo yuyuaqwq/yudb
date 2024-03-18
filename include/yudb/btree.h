@@ -16,7 +16,7 @@ namespace yudb {
 class BucketImpl;
 
 
-// 为磁盘设计的B+树
+// 为磁盘设计的B+Tree
 class BTree : noncopyable {
 public:
     using Iterator = BTreeIterator;

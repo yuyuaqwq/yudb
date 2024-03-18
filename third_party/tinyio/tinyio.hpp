@@ -25,7 +25,8 @@ namespace tinyio {
 
 enum class access_mode {
     read,
-    write
+    write,
+    sync_needed,
 };
 
 enum class share_mode {
@@ -57,14 +58,18 @@ inline DWORD int64_low(int64_t n) noexcept {
 }
 
 inline file_handle_type open_file_helper(const std::filesystem::path& path, const access_mode mode) {
+    DWORD flags = 0;
+    if (mode == access_mode::sync_needed) {
+        //flags |= FILE_FLAG_NO_BUFFERING;
+        flags |= FILE_FLAG_WRITE_THROUGH;
+    }
     return ::CreateFileW(path.wstring().c_str(),
             mode == access_mode::read ? GENERIC_READ : GENERIC_READ | GENERIC_WRITE,
             FILE_SHARE_READ | FILE_SHARE_WRITE,
             0,
             OPEN_ALWAYS,
-            FILE_ATTRIBUTE_NORMAL,
+            FILE_ATTRIBUTE_NORMAL | flags,
             0);
-    // FILE_FLAG_WRITE_THROUGH
 }
 } // win
 #endif // _WIN32
@@ -107,7 +112,7 @@ inline file_handle_type open_file(const std::filesystem::path& path, const acces
     std::error_code ec;
     auto handle = open_file(path, mode, ec);
     if (ec) {
-        throw std::ios_base::failure{"tinyio::detail::win::open_file"};
+        throw std::ios_base::failure{"tinyio::detail::win::open_file."};
     }
     return handle;
 }
@@ -187,7 +192,7 @@ public:
         std::error_code ec;
         seekg(pos, ec);
         if (ec) {
-            throw std::ios_base::failure{ "tinyio::file::seekg" };
+            throw std::ios_base::failure{ "tinyio::file::seekg." };
         }
     }
 

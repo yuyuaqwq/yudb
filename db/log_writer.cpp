@@ -11,8 +11,8 @@ namespace log {
 Writer::Writer() = default;
 Writer::~Writer() = default;
 
-void Writer::Open(std::string_view path) {
-    file_.open(path, tinyio::access_mode::write);
+void Writer::Open(std::string_view path, tinyio::access_mode access_mode) {
+    file_.open(path, access_mode);
     file_.seekg(0);
     rep_.reserve(kBlockSize);
 }

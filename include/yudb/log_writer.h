@@ -18,7 +18,7 @@ public:
     Writer();
     ~Writer();
 
-    void Open(std::string_view path);
+    void Open(std::string_view path, tinyio::access_mode access_mode);
     void Close();
     void AppendRecordToBuffer(std::span<const uint8_t> data);
     void AppendRecordToBuffer(std::string_view data);

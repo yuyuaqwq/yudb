@@ -25,7 +25,7 @@ namespace yudb{
      }
 
      db->db_path_ = path;
-     db->db_file_.open(path, tinyio::access_mode::write);
+     db->db_file_.open(path, tinyio::access_mode::sync_needed);
      db->db_file_.lock(tinyio::share_mode::exclusive);
      bool init_meta = false;
      if (!db->options_->read_only) {
@@ -44,7 +44,6 @@ namespace yudb{
      }
      db->pager_.emplace(db.get(), db->options_->page_size);
      db->tx_manager_.emplace(db.get());
-     db->tx_manager_->set_persisted_txid(db->meta_->meta_struct().txid);
 
      db->InitLogFile();
      if (db->options_->read_only) {
