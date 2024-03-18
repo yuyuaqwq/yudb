@@ -54,10 +54,13 @@ void BucketImpl::Delete(Iterator* iter) {
 }
 
 BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
-    auto map_iter = sub_bucket_map_.find({ key.data(), key.size() });
+    if (!sub_bucket_map_.has_value()) {
+        sub_bucket_map_.emplace();
+    }
+    auto map_iter = sub_bucket_map_->find({ key.data(), key.size() });
     BucketId bucket_id;
-    if (map_iter == sub_bucket_map_.end()) {
-        auto res = sub_bucket_map_.insert({ { key.data(), key.size() }, { 0, kPageInvalidId } });
+    if (map_iter == sub_bucket_map_->end()) {
+        auto res = sub_bucket_map_->insert({ { key.data(), key.size() }, { 0, kPageInvalidId } });
         map_iter = res.first;
         auto iter = Get(key.data(), key.size());
         if (iter == end()) {
@@ -94,17 +97,17 @@ void BucketImpl::DeleteSubBucket(Iterator* iter) {
         throw InvalidArgumentError{ "attempt to delete a key value pair that is not a sub bucket." };
     }
     auto& sub_bucket = SubBucket(iter->key(), true);
-    auto map_iter = sub_bucket_map_.find({ iter->key().data(), iter->key().size() });
+    auto map_iter = sub_bucket_map_->find({ iter->key().data(), iter->key().size() });
     do  {
         auto first = sub_bucket.begin();
         if (first == sub_bucket.end()) {
             break;
         }
         if (first.is_bucket()) {
-            auto map_iter = sub_bucket.sub_bucket_map_.find({ first->key().data(), first->key().size() });
+            auto map_iter = sub_bucket.sub_bucket_map_->find({ first->key().data(), first->key().size() });
             DeleteSubBucket(&first);
             tx_->DeleteSubBucket(map_iter->second.first);
-            sub_bucket.sub_bucket_map_.erase(map_iter);
+            sub_bucket.sub_bucket_map_->erase(map_iter);
             auto invalid_pgid = kPageInvalidId;
             sub_bucket.Update(&first, &invalid_pgid, sizeof(invalid_pgid));
         }

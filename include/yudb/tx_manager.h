@@ -4,6 +4,7 @@
 #include <optional>
 #include <map>
 
+#include "MemoryPool/MemoryPool.h"
 #include "yudb/noncopyable.h"
 #include "yudb/log_writer.h"
 #include "yudb/tx.h"
@@ -47,7 +48,8 @@ private:
 
     TxId persisted_txid_{ kTxInvalidId };
     std::optional<TxImpl> update_tx_;
-    std::map<TxId, uint32_t> view_tx_map_;      // txid : view_tx_count
+    std::map<TxId, uint32_t, std::less<>, 
+        MemoryPool<std::pair<const TxId, uint32_t>>> view_tx_map_;      // txid : view_tx_count
     TxId min_view_txid_;        // 仅在写事务更新
 };
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <variant>
+#include <optional>
 #include <map>
 
 #include "yudb/btree.h"
@@ -41,15 +41,16 @@ public:
     auto& writable() const { return writable_; }
     auto& btree() { return btree_; }
     auto& btree() const { return btree_; }
-    auto& sub_bucket_map() const { return sub_bucket_map_; }
-    auto& sub_bucket_map() { return sub_bucket_map_; }
+    bool has_sub_bucket_map() const { return sub_bucket_map_.has_value(); }
+    auto& sub_bucket_map() const { assert(sub_bucket_map_.has_value()); return *sub_bucket_map_; }
+    auto& sub_bucket_map() { assert(sub_bucket_map_.has_value()); return *sub_bucket_map_; }
 
 protected:
     TxImpl* const tx_;
     BucketId bucket_id_;
     const bool writable_;
     BTree btree_;
-    std::map<std::string, std::pair<BucketId, PageId>> sub_bucket_map_;
+    std::optional<std::map<std::string, std::pair<BucketId, PageId>>> sub_bucket_map_;
 };
 
 } // namespace yudb

@@ -14,26 +14,26 @@ public:
     Stack() = default;
     ~Stack() = default;
 
-    //Stack(const Stack& right) {
-    //    operator=(right);
-    //}
-    //void operator=(const Stack& right) {
-    //    cur_pos_ = right.cur_pos_;
-    //    for (auto i = 0; i < cur_pos_; i++) {
-    //        array_[i] = right.array_[i];
-    //    }
-    //}
+    Stack(const Stack& right) {
+        operator=(right);
+    }
+    void operator=(const Stack& right) {
+        cur_pos_ = right.cur_pos_;
+        for (auto i = 0; i < cur_pos_; i++) {
+            array_[i] = right.array_[i];
+        }
+    }
 
-    //Stack(Stack&& right) {
-    //    operator=(std::move(right));
-    //}
-    //void operator=(Stack&& right) {
-    //    cur_pos_ = right.cur_pos_;
-    //    for (auto i = 0; i < cur_pos_; i++) {
-    //        array_[i] = std::move(right.array_[i]);
-    //    }
-    //    right.cur_pos_ = 0;
-    //}
+    Stack(Stack&& right) {
+        operator=(std::move(right));
+    }
+    void operator=(Stack&& right) {
+        cur_pos_ = right.cur_pos_;
+        for (auto i = 0; i < cur_pos_; i++) {
+            array_[i] = std::move(right.array_[i]);
+        }
+        right.cur_pos_ = 0;
+    }
 
 
     T& front() noexcept {

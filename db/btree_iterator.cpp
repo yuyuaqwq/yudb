@@ -57,18 +57,9 @@ bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
     if (btree_ != right.btree_) {
         return false;
     }
-    if (Empty() || right.Empty()) {
-        if (Empty()) {
-            if (right.Empty()) {
-                return true;
-            }
-            if (right.status() == Status::kInvalid) {
-                return true;
-            }
-        } else if (right.Empty()) {
-            if (status() == Status::kInvalid) {
-                return true;
-            }
+    if (Empty() || status() == Status::kInvalid) {
+        if (right.Empty() || right.status() == Status::kInvalid) {
+            return true;
         }
         return false;
     }
