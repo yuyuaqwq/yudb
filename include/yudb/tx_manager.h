@@ -48,7 +48,7 @@ private:
     TxId persisted_txid_{ kTxInvalidId };
     std::optional<TxImpl> update_tx_;
     std::map<TxId, uint32_t> view_tx_map_;      // txid : view_tx_count
-    std::atomic<TxId> min_view_txid_;
+    TxId min_view_txid_;        // 仅在写事务更新
 };
 
 } // namespace yudb
