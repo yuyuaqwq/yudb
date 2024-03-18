@@ -30,7 +30,8 @@ private:
     const std::string log_path_;
     log::Writer writer_;
     bool disable_writing_{ false };
-    bool checkpoint_needed_{ false };
+
+    bool checkpoint_needed_;
 };
 
 } // namespace yudb

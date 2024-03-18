@@ -10,7 +10,7 @@ TxManager::TxManager(DBImpl* db) :
     db_{ db }
 {
     pager().LoadFreeList();
-
+    min_view_txid_ = db_->meta().meta_struct().txid;
 }
 
 TxManager::~TxManager() {
@@ -24,10 +24,6 @@ TxManager::~TxManager() {
 }
 
 TxImpl& TxManager::Update(Comparator comparator) {
-    if (db_->logger().CheckPointNeeded()) {
-        db_->logger().Checkpoint();
-    }
-
     db_->shm()->update_lock().lock();
     db_->ClearMmap();
 
@@ -40,14 +36,8 @@ TxImpl& TxManager::Update(Comparator comparator) {
     if (update_tx_->txid() == kTxInvalidId) {
         throw TxManagerError("txid overflow.");
     }
-    const auto iter = view_tx_map_.cbegin();
-    TxId min_txid;
-    if (iter != view_tx_map_.cend()) {
-        min_txid = iter->first;
-    } else {
-        min_txid = update_tx_->txid();
-    }
-    pager().Release(min_txid - 1);
+    auto min_view_txid = min_view_txid_.load();
+    pager().Release(min_view_txid - 1);
     return *update_tx_;
 }
 
@@ -64,7 +54,15 @@ ViewTx TxManager::View(Comparator comparator) {
 }
 
 void TxManager::RollBack() {
+    std::unique_lock lock{ db_->shm()->meta_lock() };
+    if (view_tx_map_.empty()) {
+        min_view_txid_.store(update_tx_->txid() - 1);
+    }
+
     AppendRollbackLog();
+    if (db_->logger().CheckPointNeeded()) {
+        db_->logger().Checkpoint();
+    }
     pager().Rollback();
     update_tx_ = std::nullopt;
     db_->shm()->update_lock().unlock();
@@ -78,20 +76,35 @@ void TxManager::RollBack(TxId view_txid) {
     --iter->second;
     if (iter->second == 0) {
         view_tx_map_.erase(iter);
+        if (iter->first == min_view_txid_.load()) {
+            if (view_tx_map_.empty()) {
+                min_view_txid_.store(db_->meta().meta_struct().txid, std::memory_order_release);
+            } else {
+                const auto iter = view_tx_map_.cbegin();
+                assert(iter != view_tx_map_.end());
+                min_view_txid_.store(iter->first);
+            }
+        }
     }
 }
 
 void TxManager::Commit() {
+    std::unique_lock lock{ db_->shm()->meta_lock() };
+    if (view_tx_map_.empty()) {
+        min_view_txid_.store(update_tx_->txid() - 1);
+    }
+
     db_->meta().Reset(update_tx_->meta_struct());
     AppendCommitLog();
+    if (db_->logger().CheckPointNeeded()) {
+        db_->logger().Checkpoint();
+    }
     update_tx_ = std::nullopt;
     db_->shm()->update_lock().unlock();
 }
 
-bool TxManager::IsViewExists(TxId view_txid) const {
-    std::unique_lock lock{ db_->shm()->meta_lock() };
-    const auto iter = view_tx_map_.find(view_txid);
-    return iter != view_tx_map_.end();
+bool TxManager::IsTxExpired(TxId txid) const {
+    return txid < min_view_txid_.load();
 }
 
 void TxManager::AppendSubBucketLog(BucketId bucket_id, std::span<const uint8_t> key) {

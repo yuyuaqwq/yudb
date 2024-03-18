@@ -15,7 +15,9 @@ Logger::Logger(DBImpl* db, std::string_view log_path) :
 
 Logger::~Logger() {
     if (!db_->options()->read_only) {
+        auto tx = db_->Update();
         Checkpoint();
+        tx.Commit();
         writer_.Close();
         std::filesystem::remove(log_path_);
     }
@@ -200,23 +202,19 @@ void Logger::Recover() {
         }
         meta.Switch();
         meta.Save();
+        tx_manager.set_persisted_txid(meta.meta_struct().txid);
     }
 }
 
 void Logger::Checkpoint() {
-    if (checkpoint_needed_) checkpoint_needed_ = false;
-
     auto& meta = db_->meta();
     auto& pager = db_->pager();
     auto& tx_manager = db_->tx_manager();
-
-    if (tx_manager.has_update_tx()) {
-        throw LoggerError{ "checkpoint execution is not allowed when there is a write transaction." };
+    if (!tx_manager.has_update_tx()) {
+        throw LoggerError{ "Checkpoint can only be invoked within a write transaction." };
     }
 
-    auto tx = db_->Update();
     db_->pager().SaveFreeList();
-    tx.Commit();
 
     pager.WriteAllDirtyPages();
     std::error_code error_code;
@@ -226,8 +224,11 @@ void Logger::Checkpoint() {
     }
     meta.Switch();
     meta.Save();
+    tx_manager.set_persisted_txid(meta.meta_struct().txid);
     Reset();
     AppendWalTxIdLog();
+
+    if (checkpoint_needed_) checkpoint_needed_ = false;
 }
 
 void Logger::AppendWalTxIdLog() {

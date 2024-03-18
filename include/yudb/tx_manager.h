@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <optional>
 #include <map>
 
@@ -23,7 +24,7 @@ public:
     void RollBack(TxId view_txid);
     void Commit();
 
-    bool IsViewExists(TxId view_txid) const;
+    bool IsTxExpired(TxId view_txid) const;
 
     void AppendSubBucketLog(BucketId bucket_id, std::span<const uint8_t> key);
     void AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket);
@@ -33,6 +34,8 @@ public:
     TxImpl& update_tx();
     bool has_update_tx() const { return update_tx_.has_value(); };
     Pager& pager() const;
+    auto& persisted_txid() const { return persisted_txid_; }
+    void set_persisted_txid(TxId new_persisted_txid) { persisted_txid_ = new_persisted_txid; }
 
 private:
     void AppendBeginLog();
@@ -42,8 +45,10 @@ private:
 private:
     DBImpl* const db_;
 
+    TxId persisted_txid_{ kTxInvalidId };
     std::optional<TxImpl> update_tx_;
-    std::map<TxId, uint32_t> view_tx_map_;
+    std::map<TxId, uint32_t> view_tx_map_;      // txid : view_tx_count
+    std::atomic<TxId> min_view_txid_;
 };
 
 } // namespace yudb
