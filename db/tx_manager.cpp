@@ -37,6 +37,7 @@ TxImpl& TxManager::Update(Comparator comparator) {
         throw TxManagerError("txid overflow.");
     }
 
+    // ¸üÐÂmin_view_txid
     if (view_tx_map_.empty()) {
         min_view_txid_ = db_->meta().meta_struct().txid;
     } else {
