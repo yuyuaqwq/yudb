@@ -14,7 +14,7 @@ static int FLAGS_num = 1000000;
 static std::string_view FLAGS_benchmarks =
     "fillseq,"
     "readseq,"
-    "fillseqsync,"
+    "fillsync,"
     "fillseqbatch,"
     "readseqbatch,"
     "fillrandom,"
@@ -25,8 +25,9 @@ static std::string_view FLAGS_benchmarks =
     "overwrite,"
     "overwritebatch,"
     "fillrand100K,"
+    "readrand100K,"
     "fillseq100K,"
-    "readrand100K,";
+;
 
 class Benchmark {
 private:
@@ -65,11 +66,11 @@ private:
             .max_wal_size = 64 * 1024 * 1024,
             .sync = sync
         };
-        std::string path = "Z:/D/yudb_benchmark.ydb";
+        std::string path = "C:/D/yudb_benchmark.ydb";
         std::filesystem::remove(path);
         std::filesystem::remove(path + "-shm");
         std::filesystem::remove(path + "-wal");
-        db_ = yudb::DB::Open({}, path);
+        db_ = yudb::DB::Open(options, path);
     }
 
     void Start() {
@@ -125,18 +126,20 @@ public:
     enum DBState { FRESH, EXISTING };
 
     void Run() {
+        PrintHeader();
+
         srand(seed_);
         seq_key_.resize(num_);
         seq_value_.resize(num_);
-        for (auto i = 0; i < num_ / 1000; i++) {
+        for (auto i = 0; i < num_; i++) {
             seq_key_[i] = std::format("{:016d}", i);
-            //seq_value_[i] = std::format("{:0100d}", i);
+            seq_value_[i] = std::format("{:0100d}", i);
         }
         rand_key_.resize(num_);
         rand_value_.resize(num_);
-        for (auto i = 0; i < num_ / 1000; i++) {
+        for (auto i = 0; i < num_; i++) {
             rand_key_[i] = yudb::RandomString(kKeySize, kKeySize);
-            //rand_value_[i] = yudb::RandomString(kValueSize, kValueSize);
+            rand_value_[i] = yudb::RandomString(kValueSize, kValueSize);
         }
         seq_value_100k_.resize(num_ / 1000);
         rand_value_100k_.resize(num_ / 1000);
@@ -163,8 +166,8 @@ public:
             bool write_sync = false;
             if (name == "fillseq") {
                 Write(write_sync, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_, 1);
-            } else if(name == "fillseqsync") {
-                Write(write_sync, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_ / 100, 1);
+            } else if(name == "fillsync") {
+                Write(true, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_ / 100, 1);
             } else if(name == "fillseqbatch") {
                 Write(write_sync, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_, 1000);
             } else if (name == "fillrandom") {
@@ -217,7 +220,10 @@ public:
             for (int j = 0; j < entries_per_batch; j++) {
                 auto iter = bucket.Get(key[i+j].data(), key[i+j].size());
                 if (iter != bucket.end()) {
-                    bytes_ += iter.key().size() + iter.value().size();
+                    // 实际进行读取
+                    std::string key = {iter.key().data(), iter.key().size()};
+                    std::string value = { iter.value().data(), iter.value().size() };
+                    bytes_ += key.size() + value.size();
                 }
                 FinishedSingleOp();
             }
@@ -228,7 +234,10 @@ public:
         auto tx = db_->View();
         auto bucket = tx.UserBucket();
         for (auto& iter : bucket) {
-            bytes_ += iter.key().size() + iter.value().size();
+            // 实际进行读取
+            std::string key = { iter.key().data(), iter.key().size() };
+            std::string value = { iter.value().data(), iter.value().size() };
+            bytes_ += key.size() + value.size();
             FinishedSingleOp();
         }
     }
