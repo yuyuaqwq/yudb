@@ -544,9 +544,5 @@ TEST_F(DBTest, PutAndDeleteInRandom) {
 
 }
 
-TEST_F(DBTest, Recover) {
-    // todo:
-}
-
 } // namespace yudb
 

@@ -44,9 +44,9 @@ public:
         auto db_impl = static_cast<DBImpl*>(db_.get());
         pager_ = &db_impl->pager();
         tx_manager_ = &db_impl->tx_manager();
-        auto& tx_impl = tx_manager_->Update(comparator);
-        update_tx_.emplace(&tx_impl);
-        bucket_ = &tx_impl.user_bucket();
+        update_tx_.emplace(tx_manager_->Update());
+        auto& tx = tx_manager_->update_tx();
+        bucket_ = &tx.user_bucket();
         btree_ = &bucket_->btree();
     }
 

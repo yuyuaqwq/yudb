@@ -9,6 +9,7 @@ namespace yudb {
 namespace log {
 
 Writer::Writer() = default;
+
 Writer::~Writer() = default;
 
 void Writer::Open(std::string_view path, tinyio::access_mode access_mode) {
@@ -22,7 +23,6 @@ void Writer::Close() {
     block_offset_ = 0;
     size_ = 0;
 }
-
 
 void Writer::AppendRecordToBuffer(std::span<const uint8_t> data) {
     auto size = kHeaderSize + data.size();

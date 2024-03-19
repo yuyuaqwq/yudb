@@ -8,7 +8,7 @@ namespace yudb {
 TEST(LogTest, ReadWrite) {
     {
         yudb::log::Writer writer;
-        writer.Open("Z:/log_test.ydb-wal");
+        writer.Open("Z:/log_test.ydb-wal", tinyio::access_mode::write);
         writer.AppendRecordToBuffer("");
         writer.AppendRecordToBuffer("abc");
         writer.AppendRecordToBuffer("0000000000");

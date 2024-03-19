@@ -17,10 +17,6 @@ public:
         Open();
     }
 
-    ~PagerTest() {
-        db_.reset();
-    }
-
     void Open() {
         yudb::Options options{
             .max_wal_size = 1024 * 1024 * 64,
@@ -122,15 +118,15 @@ TEST_F(PagerTest, AllocAndFree) {
         auto tx = db_->Update();
         auto pgid = pager_->Alloc(1);
         ASSERT_EQ(pgid, 1120);
-        tx.Commit();
         logger_->Checkpoint();
+        tx.Commit();
     }
     {
         auto tx = db_->Update();
         auto pgid = pager_->Alloc(48);
         ASSERT_EQ(pgid, 1122);
-        tx.Commit();
         logger_->Checkpoint();
+        tx.Commit();
     }
 }
 

@@ -57,8 +57,11 @@ bool BTreeIterator::operator==(const BTreeIterator& right) const noexcept {
     if (btree_ != right.btree_) {
         return false;
     }
-    if (Empty() || status() == Status::kInvalid) {
-        return right.Empty() || right.status() == Status::kInvalid;
+    if (Empty()) {
+        return right.status() == Status::kInvalid;
+    }
+    else if (right.Empty()) {
+        return status() == Status::kInvalid;
     }
     auto& [pgid, index] = Front();
     auto& [pgid2, index2] = right.Front();

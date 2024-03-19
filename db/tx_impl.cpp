@@ -7,9 +7,9 @@
 
 namespace yudb {
 
-TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable, Comparator comparator) :
+TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
     tx_manager_{ tx_manager },
-    user_bucket_{ this, kUserRootBucketId, &meta_format_.user_root, writable, comparator },
+    user_bucket_{ this, kUserRootBucketId, &meta_format_.user_root, writable, tx_manager_->db().options()->comparator },
     writable_{ writable }
 {
     CopyMetaInfo(&meta_format_, meta);
@@ -79,8 +79,8 @@ void TxImpl::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {
 Pager& TxImpl::pager() const { return tx_manager_->pager(); }
 
 
-ViewTx::ViewTx(TxManager* tx_manager, const MetaStruct& meta, std::shared_mutex* mmap_mutex, Comparator comparator) :
-    tx_{ tx_manager, meta, false, comparator },
+ViewTx::ViewTx(TxManager* tx_manager, const MetaStruct& meta, std::shared_mutex* mmap_mutex) :
+    tx_{ tx_manager, meta, false },
     mmap_lock_{ *mmap_mutex } {}
 
 ViewTx::~ViewTx() {
@@ -99,6 +99,12 @@ UpdateTx::~UpdateTx() {
     if (tx_) {
         RollBack();
     }
+}
+
+UpdateTx::UpdateTx(UpdateTx&& right) noexcept {
+    assert(tx_ == nullptr);
+    tx_ = right.tx_;
+    right.tx_ = nullptr;
 }
 
 UpdateBucket UpdateTx::UserBucket() {
