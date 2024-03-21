@@ -7,6 +7,7 @@
 #include "yudb/page_format.h"
 #include "yudb/node.h"
 #include "yudb/stack.h"
+#include "yudb/error.h"
 
 namespace yudb {
 
