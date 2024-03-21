@@ -1,8 +1,5 @@
 #include <filesystem>
 
-#define BENCHMARK_STATIC_DEFINE
-#include <benchmark/benchmark.h>
-
 #include <lmdb.h>
 
 #include "util/test_util.h"
