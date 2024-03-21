@@ -1,7 +1,7 @@
 # tests/CMakeLists.txt
 
 find_package(GTest QUIET)
-if(GTEST_FOUND OR WIN32)
+if(LMDB_FOUND OR WIN32)
     message(STATUS "Building tests.")
     set(SOURCES
 		btree_test.cpp

@@ -5,11 +5,7 @@
 
 namespace yudb {
 
-/*
-https://blog.csdn.net/gongmin856/article/details/77101397
-*/
-
-
+// https://blog.csdn.net/gongmin856/article/details/77101397
 class Crc32 {
 public:
     Crc32();

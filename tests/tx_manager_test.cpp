@@ -3,7 +3,6 @@
 #include <gtest/gtest.h>
 
 #include "yudb/db_impl.h"
-#include "yudb/logger.h"
 
 namespace yudb {
 
@@ -85,7 +84,6 @@ TEST_F(TxManagerTest, TxExpired) {
 
     ASSERT_TRUE(tx_manager_->IsTxExpired(view_tx1_txid));
 }
-
 
 
 } // namespace yudb

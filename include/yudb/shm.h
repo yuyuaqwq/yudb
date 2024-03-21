@@ -6,7 +6,6 @@
 #include "yudb/noncopyable.h"
 #include "yudb/meta_format.h"
 
-
 namespace yudb {
 
 #pragma pack(push, 1)

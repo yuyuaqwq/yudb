@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cassert>
-
 #include <array>
 
 namespace yudb {
