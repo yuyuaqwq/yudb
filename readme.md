@@ -64,7 +64,7 @@ Values:     100 bytes each
 Entries:    1000000
 ------------------------------------------------
 fillseq      :     617.089 micros/op;    0.2 MB/s
-readseq      :       0.000 micros/op;
+readseq      :       0.053 micros/op; 2070.5 MB/s
 fillsync     :     684.248 micros/op;    0.2 MB/s (10000ops)
 fillseqbatch :       2.753 micros/op;   40.2 MB/s
 fillrandom   :     647.463 micros/op;    0.2 MB/s
