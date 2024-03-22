@@ -32,6 +32,7 @@ yudb是一个使用B-Tree作为索引，基于MMap的嵌入式键值数据库，
 System: Windows11 x64
 CPU: 11th Gen Intel(R) Core(TM) i5-11260H @ 2.60GHz   2.61 GHz
 RAM: 32GB
+Hard: 512GB SSD
 Compiler: MSVC 1939, Release, /O2
 ```
 
