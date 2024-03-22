@@ -119,12 +119,12 @@ void BTreeIterator::First(PageId pgid) {
             }
             break;
         }
-        stack_.push_back({ pgid, 0 });
+        Push({ pgid, 0 });
         assert(node.count() > 0);
         BranchNode branch_node{ btree_, node.Release() };
         pgid = branch_node.GetLeftChild(0);
     } while (true);
-    stack_.push_back({ pgid, 0 });
+    Push({ pgid, 0 });
 }
 
 void BTreeIterator::Last(PageId pgid) {
@@ -137,13 +137,13 @@ void BTreeIterator::Last(PageId pgid) {
             }
             break;
         }
-        stack_.push_back({ pgid, node.count() - 1 });
+        Push({ pgid, node.count() - 1 });
         assert(node.count() > 0);
         BranchNode branch_node{ btree_, node.Release() };
         pgid = branch_node.GetLeftChild(node.count() - 1);
     } while (true);
     Node node{ btree_, pgid, false };
-    stack_.push_back({ pgid, node.count() - 1 });
+    Push({ pgid, node.count() - 1 });
 }
 
 void BTreeIterator::Next() {
@@ -196,13 +196,13 @@ bool BTreeIterator::Top(std::span<const uint8_t> key) {
 
 bool BTreeIterator::Down(std::span<const uint8_t> key) {
     PageId pgid;
-    if (stack_.empty()) {
+    if (Empty()) {
         pgid = btree_->root_pgid_;
         if (pgid == kPageInvalidId) {
             return false;
         }
     } else {
-        auto [parent_pgid, slot_id] = stack_.front();
+        auto [parent_pgid, slot_id] = Front();
         assert(cached_node_->page_id() == parent_pgid);
         if (cached_node_->IsLeaf()) {
             return false;
@@ -231,7 +231,7 @@ bool BTreeIterator::Down(std::span<const uint8_t> key) {
     } else {
         slot_id = 0;
     }
-    stack_.push_back(std::pair{ pgid, slot_id });
+    Push(std::pair{ pgid, slot_id });
     return true;
 }
 

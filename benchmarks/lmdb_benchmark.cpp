@@ -13,7 +13,6 @@ static std::string_view FLAGS_benchmarks =
     "readseq,"
     "fillsync,"
     "fillseqbatch,"
-    "readseqbatch,"
     "fillrandom,"
     "readrandom,"
     "fillrandbatch,"
@@ -21,7 +20,7 @@ static std::string_view FLAGS_benchmarks =
     "overwrite,"
     "overwritebatch,"
     "fillrand100K,"
-    "readrand100K,"
+    //"readrand100K,"
     "fillseq100K,"
 ;
 
@@ -66,7 +65,7 @@ private:
         if (env_) {
             mdb_env_close(env_);
         }
-        std::string path = "Z:/lmdb_benchmark";
+        std::string path = "C:/D/lmdb_benchmark";
         std::filesystem::remove_all(path);
         std::filesystem::create_directory(path);
         int rc;
@@ -116,6 +115,9 @@ private:
         std::string rate;
         if (bytes_ > 0) {
             rate = std::format("{:6.1f} MB/s", (bytes_ / 1048576.0) / (duration.count() / 1e6));
+            if (done_ != num_) {
+                rate += std::format(" ({}ops)", done_);
+            }
         }
 
         std::fprintf(stdout, "%-12s : %11.3f micros/op; %s\n",
@@ -181,8 +183,6 @@ public:
             } else if (name == "overwritebatch") {
                 Write(write_sync, RANDOM, EXISTING, rand_key_, rand_value_, num_, 1000);
             } else if (name == "readseq") {
-                Read(SEQUENTIAL, seq_key_, seq_value_, num_, 1);
-            } else if (name == "readseqbatch") {
                 ReadSequential();
             } else if (name == "readrandom") {
                 Read(RANDOM, rand_key_, rand_value_, num_, 1);

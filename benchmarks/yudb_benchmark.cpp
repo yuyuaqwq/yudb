@@ -13,7 +13,6 @@ static std::string_view FLAGS_benchmarks =
     "readseq,"
     "fillsync,"
     "fillseqbatch,"
-    "readseqbatch,"
     "fillrandom,"
     "readrandom,"
     "fillrandbatch,"
@@ -21,7 +20,7 @@ static std::string_view FLAGS_benchmarks =
     "overwrite,"
     "overwritebatch,"
     "fillrand100K,"
-    "readrand100K,"
+    //"readrand100K,"
     "fillseq100K,"
 ;
 
@@ -63,7 +62,7 @@ private:
             .max_wal_size = 64 * 1024 * 1024,
             .sync = sync
         };
-        std::string path = "z:/yudb_benchmark.ydb";
+        std::string path = "C:/D/yudb_benchmark.ydb";
         std::filesystem::remove(path);
         std::filesystem::remove(path + "-shm");
         std::filesystem::remove(path + "-wal");
@@ -110,6 +109,9 @@ private:
         std::string rate;
         if (bytes_ > 0) {
             rate = std::format("{:6.1f} MB/s", (bytes_ / 1048576.0) / (duration.count() / 1e6));
+            if (done_ != num_) {
+                rate += std::format(" ({}ops)", done_);
+            }
         }
 
         std::fprintf(stdout, "%-12s : %11.3f micros/op; %s\n",
@@ -157,6 +159,10 @@ public:
                 benchmarks = {};
             }
 
+            if (name == "readseq") {
+                printf("??");
+            }
+
             Start();
 
             bool write_sync = false;
@@ -175,8 +181,6 @@ public:
             } else if (name == "overwritebatch") {
                 Write(write_sync, RANDOM, EXISTING, rand_key_, rand_value_, num_, 1000);
             } else if (name == "readseq") {
-                Read(SEQUENTIAL, seq_key_, seq_value_, num_, 1);
-            } else if (name == "readseqbatch") {
                 ReadSequential();
             } else if (name == "readrandom") {
                 Read(RANDOM, rand_key_, rand_value_, num_, 1);
@@ -190,6 +194,11 @@ public:
                 Read(RANDOM, rand_key_, rand_value_100k_, num_ / 1000, 1);
             }
             Stop(name);
+
+
+            if (name == "readseq") {
+                printf("??");
+            }
 
         }
     }
