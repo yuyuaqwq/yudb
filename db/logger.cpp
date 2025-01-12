@@ -200,7 +200,7 @@ void Logger::Recover() {
     disable_writing_ = false;
     pager.WriteAllDirtyPages();
     if (current_tx.has_value()) {
-        // 不完整的日志记录，丢弃最后的事务
+        // Incomplete log record, discard the last transaction
         current_tx->RollBack();
     }
     if (meta.meta_struct().txid > raw_txid) {

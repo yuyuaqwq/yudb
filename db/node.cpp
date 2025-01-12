@@ -116,7 +116,7 @@ PageSize Node::MaxInlineRecordSize() {
     PageSize max_size = page_size() -
         sizeof(NodeStruct::header) -
         sizeof(NodeStruct::padding);
-    // 确保每个节点至少可以存储两条记录
+    // Ensure that each node can store at least two records
     max_size -= sizeof(Slot) * 2;
     assert(max_size % 2 == 0);
     return max_size / 2;
@@ -231,7 +231,7 @@ void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<c
         slot.value_size = value.size();
     }
     if (size > MaxInlineRecordSize()) {
-        // 需要创建overflow pages存放
+        // Need to create overflow pages to store
         auto pgid = StoreRecordToOverflowPages(slot_id, key, value);
         OverflowRecord record{ .pgid = pgid };
         assert(struct_->header.data_offset >= sizeof(record));
@@ -386,7 +386,7 @@ bool BranchNode::Update(SlotId slot_id, std::span<const uint8_t> key) {
     auto saved_slot = struct_->slots[slot_id];
     DeleteRecord(slot_id);
     if (!RequestSpaceFor(key, {}, false)) {
-        // 空间不足，还原删除的记录
+        // Insufficient space, restore the deleted record
         RestoreRecord(slot_id, saved_slot);
         return false;
     }
@@ -502,7 +502,7 @@ bool LeafNode::Update(SlotId slot_id, std::span<const uint8_t> key, std::span<co
     auto saved_slot = struct_->slots[slot_id];
     DeleteRecord(slot_id);
     if (!RequestSpaceFor(key, value, false)) {
-        // 空间不足，还原删除的记录
+        // Insufficient space, restore the deleted record
         RestoreRecord(slot_id, saved_slot);
         return false;
     }

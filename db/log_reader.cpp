@@ -84,18 +84,18 @@ const LogRecord* Reader::ReadPhysicalRecord() {
                 offset_ = 0;
                 size_ = file_.read(&buffer_[0], kBlockSize);
                 if (size_ == 0) {
-                    // 到达文件末尾
+                    // Reached the end of the file
                     eof_ = true;
                     return nullptr;
                 }
                 else if (size_ < kBlockSize) {
-                    // 到达文件末尾，但仍有数据，继续循环处理
+                    // Reached the end of the file, but still some data remains, continue processing
                     eof_ = true;
                 }
                 continue;
             }
             else {
-                // 可能是写header时crash
+                // Possibly crashed when writing the header
                 size_ = 0;
                 return nullptr;
             }
@@ -107,12 +107,12 @@ const LogRecord* Reader::ReadPhysicalRecord() {
             if (!eof_) {
                 throw LoggerError{ "incorrect log record size." };
             }
-            // 可能是写data时crash
+            // Possibly crashed when writing data
             return nullptr;
         }
 
         if (record->type == RecordType::kZeroType && record->size == 0) {
-            // 写入时block正好余下7字节的场景，size只能为0
+            // Scenario where the block exactly leaves 7 bytes when writing, size must be 0
             size_ = 0;
             return nullptr;
         }

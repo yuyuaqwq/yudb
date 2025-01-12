@@ -1,5 +1,5 @@
 //The MIT License(MIT)
-//Copyright © 2024 https://github.com/yuyuaqwq
+//Copyright ?? 2024 https://github.com/yuyuaqwq
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files(the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and /or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions :
 //
@@ -65,11 +65,11 @@ void TxImpl::Commit() {
 
 bool TxImpl::CopyNeeded(TxId txid) const {
     auto current_txid = this->txid();
-    // 如果是当前Wal中开启的写事务分配的页面，并且不会有读事务看见，则可以释放
+    // If the page is allocated by the write transaction currently open in the Wal, and will not be seen by any read transactions, it can be freed
     if (tx_manager_->IsTxExpired(txid) && txid > tx_manager_->persisted_txid()) {
         return false;
     }
-    // 如果是当前写事务分配的页面也允许直接释放
+    // If the page is allocated by the current write transaction, it can also be directly freed
     return txid < current_txid;
 }
 
