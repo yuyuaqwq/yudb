@@ -15,8 +15,6 @@ set(SOURCES
     btree_iterator.cpp
     bucket_impl.cpp
     db_impl.cpp
-    log_reader.cpp
-    log_writer.cpp
     logger.cpp
     meta.cpp
     node.cpp
@@ -24,10 +22,13 @@ set(SOURCES
     pager.cpp
     tx_impl.cpp
     tx_manager.cpp
-    ../util/crc32.cpp
 )
 
 add_library(yudb ${SOURCES})
 
-target_include_directories(yudb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include)
-target_include_directories(yudb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../third_party)
+target_include_directories(yudb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(yudb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+target_include_directories(yudb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../third_party)
+
+target_include_directories(yudb PRIVATE ${WAL_HEADER_DIR})
+target_link_libraries(yudb PRIVATE ${WAL_LIB})

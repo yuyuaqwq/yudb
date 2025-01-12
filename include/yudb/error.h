@@ -15,15 +15,19 @@ namespace yudb {
 
 class Error : public std::exception {
 public:
-    Error(const char* message) : msg(message) {}
-    virtual const char* what() const noexcept override {
-        return msg.c_str();
-    }
-private:
-    std::string msg;
+    using Base = std::exception;
+    explicit Error(char const* const msg) noexcept
+        : Base(msg) {}
+
 };
 
 class InvalidArgumentError : public Error {
+public:
+    using Error::Error;
+};
+
+
+class LoggerError : public Error {
 public:
     using Error::Error;
 };
@@ -34,11 +38,6 @@ public:
 };
 
 class MetaError : public Error {
-public:
-    using Error::Error;
-};
-
-class LoggerError : public Error {
 public:
     using Error::Error;
 };

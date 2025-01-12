@@ -12,10 +12,16 @@
 #include <vector>
 #include <shared_mutex>
 
-#include "yudb/tx_impl.h"
-#include "yudb/bucket.h"
+#include <yudb/noncopyable.h>
+#include <yudb/bucket.h>
+#include <yudb/meta_format.h>
+
+#include <yudb/tx_impl.h>
 
 namespace yudb {
+
+class TxManager;
+class TxImpl;
 
 class ViewTx : noncopyable {
 public:
@@ -28,6 +34,7 @@ private:
     friend class TxManager;
 
     std::shared_lock<std::shared_mutex> mmap_lock_;
+    // TxImpl* tx_;    // Can use stack object.
     TxImpl tx_;
 };
 

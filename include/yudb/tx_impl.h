@@ -1,5 +1,5 @@
 //The MIT License(MIT)
-//Copyright © 2024 https://github.com/yuyuaqwq
+//Copyright ?? 2024 https://github.com/yuyuaqwq
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files(the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and /or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions :
 //
@@ -15,10 +15,10 @@
 #include <memory>
 #include <string_view>
 
-#include "yudb/tx_format.h"
-#include "yudb/meta.h"
-#include "yudb/bucket_impl.h"
-#include "yudb/noncopyable.h"
+#include <yudb/noncopyable.h>
+#include <yudb/tx_format.h>
+#include <yudb/meta.h>
+#include <yudb/bucket_impl.h>
 
 namespace yudb {
 
@@ -36,7 +36,7 @@ public:
     void RollBack();
     void Commit();
 
-    // 指定页面是否需要拷贝
+    // Specifies whether the page needs to be copied.
     bool CopyNeeded(TxId txid) const;
 
     void AppendSubBucketLog(BucketId bucket_id, std::span<const uint8_t> key);

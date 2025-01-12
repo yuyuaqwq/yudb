@@ -9,8 +9,9 @@
 
 #include "yudb/logger.h"
 
+#include <wal/log_reader.h>
+
 #include "yudb/db_impl.h"
-#include "yudb/log_reader.h"
 #include "yudb/tx.h"
 
 namespace yudb{
@@ -61,7 +62,7 @@ bool Logger::RecoverNeeded() {
 
 void Logger::Recover() {
     disable_writing_ = true;
-    yudb::log::Reader reader;
+    wal::Reader reader;
     reader.Open(log_path_);
     std::optional<UpdateTx> current_tx;
     bool end = false, init = false;

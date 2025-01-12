@@ -13,10 +13,10 @@
 #include <optional>
 #include <variant>
 
-#include "yudb/page_format.h"
-#include "yudb/node.h"
-#include "yudb/stack.h"
-#include "yudb/error.h"
+#include <yudb/page_format.h>
+#include <yudb/node.h>
+#include <yudb/stack.h>
+#include <yudb/error.h>
 
 namespace yudb {
 
@@ -101,7 +101,7 @@ private:
 private:
     BTree* btree_;
     Stack stack_;       // The index must be a node that is less than or equal to the key at the time of search.
-    Status status_{ Status::kInvalid };
+    Status status_ = Status::kInvalid;
 
     mutable std::optional<Node> cached_node_;
 };

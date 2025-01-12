@@ -9,9 +9,8 @@
 
 #pragma once
 
-#include "yudb/bucket_impl.h"
-#include "yudb/bucket_iterator.h"
-#include "yudb/noncopyable.h"
+#include <yudb/noncopyable.h>
+#include <yudb/bucket_iterator.h>
 
 namespace yudb {
 

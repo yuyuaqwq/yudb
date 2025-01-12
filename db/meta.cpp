@@ -7,11 +7,12 @@
 //
 //THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#include "yudb/meta.h"
+#include <yudb/meta.h>
 
-#include "yudb/version.h"
-#include "yudb/db_impl.h"
-#include "yudb/crc32.h"
+#include <wal/crc32.h>
+
+#include <yudb/version.h>
+#include <yudb/db_impl.h>
 
 namespace yudb {
 
@@ -68,7 +69,7 @@ void Meta::Load() {
     }
 
     //Verify if the metadata is complete. If it is incomplete, use another one
-    Crc32 crc32;
+    wal::Crc32 crc32;
     crc32.Append(select, kMetaSize - sizeof(uint32_t));
     auto crc32_value = crc32.End();
     if (crc32_value != select->crc32) {
@@ -95,7 +96,7 @@ void Meta::Load() {
 }
 
 void Meta::Save() {
-    Crc32 crc32;
+    wal::Crc32 crc32;
     crc32.Append(meta_struct_, kMetaSize - sizeof(uint32_t));
     meta_struct_->crc32 = crc32.End();
     db_->db_file().seekg(cur_meta_index_ * meta_struct_->page_size);

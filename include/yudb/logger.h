@@ -9,7 +9,8 @@
 
 #pragma once
 
-#include "yudb/log_writer.h"
+#include <wal/log_writer.h>
+
 #include "yudb/log_type.h"
 #include "yudb/noncopyable.h"
 
@@ -37,7 +38,7 @@ private:
     DBImpl* const db_;
 
     const std::string log_path_;
-    log::Writer writer_;
+    wal::Writer writer_;
     bool disable_writing_{ false };
 
     bool checkpoint_needed_{ false };

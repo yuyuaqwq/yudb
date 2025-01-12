@@ -13,10 +13,12 @@
 #include <optional>
 #include <map>
 
+#include <wal/log_writer.h>
+
 #include "pool/static_memory_pool.hpp"
 #include "yudb/noncopyable.h"
-#include "yudb/log_writer.h"
 #include "yudb/tx.h"
+#include "yudb/tx_impl.h"
 
 namespace yudb {
 

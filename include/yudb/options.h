@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "yudb/page_format.h"
-#include "yudb/comparator.h"
+#include <yudb/page_format.h>
+#include <yudb/comparator.h>
 
 namespace yudb {
 

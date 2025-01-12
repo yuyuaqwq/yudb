@@ -9,8 +9,9 @@
 
 #include "yudb/db_impl.h"
 
-#include "tinyio/tinyio.hpp"
-#include "yudb/crc32.h"
+#include <wal/tinyio.hpp>
+#include <wal/crc32.h>
+
 #include "yudb/error.h"
 #include "yudb/version.h"
 
