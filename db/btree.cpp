@@ -141,7 +141,8 @@ std::tuple<BranchNode, SlotId, PageId, bool> BTree::GetSibling(Iterator* iter) {
     bool left_sibling = false;
     PageId sibling_pgid;
     if (parent_slot_id == parent.count()) {
-        // 是父节点中最大的元素，只能选择左兄弟节点
+        // If it is the largest element in the parent node, 
+        // only the left sibling node can be chosen.
         left_sibling = true;
         sibling_pgid = parent.GetLeftChild(parent_slot_id - 1);
     } else {
@@ -167,8 +168,8 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
     node.Delete(left_del_slot_id, true);
 
     if (iter->Empty()) {
-        // 如果没有父节点
-        // 判断是否没有任何子节点了，是则变更余下最后一个子节点为根节点
+        // If there is no parent node
+        // Check if there are no child nodes; if true, change the last remaining child node to the root node
         if (node.count() == 0) {
             assert(node.page_id() == root_pgid_);
             auto old_root = root_pgid_;
@@ -196,12 +197,12 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
         }
     }
     if (sibling.GetFillRate() > 0.5 && sibling.count() >= 2) {
-        // 若兄弟节点内填充率充足
+        // If the sibling node's fill rate is sufficient
         std::span<const uint8_t> new_key;
         if (left_sibling) {
-            // 左兄弟节点的末尾元素上升到父节点指定位置
-            // 父节点的对应元素下降到当前节点的头部
-            // 上升元素其右子节点挂在下降的父节点元素的左侧
+            // The last element of the left sibling node rises to the specified position in the parent node
+            // The corresponding element in the parent node descends to the head of the current node
+            // The right child of the rising element is attached to the left side of the descending parent node element
 
             //                                27
             //      12          17                               37
@@ -213,13 +214,13 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
             bool success = node.Insert(0, parent.GetKey(parent_slot_id), sibling.GetTailChild(), false);
             assert(success);
             new_key = sibling.GetKey(sibling.count() - 1);
-            // 删除不会引发Compactify，所以可以先删除
+            // Deletion does not trigger Compactify, so it can be deleted first
             sibling.Pop(true);
         } else {
             parent.SetLeftChild(parent_slot_id + 1, sibling.page_id());
-            // 右兄弟节点的头元素上升到父节点的指定位置
-            // 父节点的对应元素下降到当前节点的尾部
-            // 上升元素其左子节点挂在下降的父节点元素的右侧
+            // The first element of the right sibling node rises to the specified position in the parent node
+            // The corresponding element in the parent node descends to the tail of the current node
+            // The left child of the rising element is attached to the right side of the descending parent node element
 
             //                       17
             //      12                                    27            37
@@ -231,12 +232,12 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
             bool success = node.Append(parent.GetKey(parent_slot_id), sibling.GetLeftChild(0), true);
             assert(success);
             new_key = sibling.GetKey(0);
-            // 删除不会引发Compactify，所以可以先删除
+            // Deletion does not trigger Compactify, so it can be deleted first
             sibling.Delete(0, false);
         }
         bool success = parent.Update(parent_slot_id, new_key);
         if (success == false) {
-            // 父节点内的空间不足以更新key，删除父节点对应的元素，将其转换为向上插入
+            // If there is not enough space in the parent node to update the key, delete the corresponding element in the parent node and convert it to an upward insertion
             parent.Delete(parent_slot_id, true);
             iter->Push({ parent.page_id(), parent_slot_id });
             if (left_sibling) {
@@ -248,14 +249,14 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
         return;
     }
 
-    // 合并
+    // Merge
     if (left_sibling) {
         Merge(std::move(sibling), std::move(node), parent.GetKey(parent_slot_id));
     } else {
         Merge(std::move(node), std::move(sibling), parent.GetKey(parent_slot_id));
     }
 
-    // 向上删除父元素
+    // Delete the parent element upwards
     Delete(iter, std::move(parent), parent_slot_id);
 }
 
@@ -281,7 +282,7 @@ void BTree::Delete(Iterator* iter) {
 
     iter->Pop();
     if (iter->Empty()) {
-        // 没有父节点，是叶子节点就跳过
+        // No parent node, skip if it's a leaf node
         return;
     }
 
@@ -298,12 +299,12 @@ void BTree::Delete(Iterator* iter) {
         }
     }
 
-    // 兄弟节点填充率充足
+    // Sibling node has sufficient fill rate
     if (sibling.GetFillRate() > 0.5 && sibling.count() >= 2) {
         std::span<const uint8_t> new_key;
         if (left_sibling) {
-            // 左兄弟节点的末尾的元素插入到当前节点的头部
-            // 更新父元素key为当前节点的新首元素key
+            // The last element of the left sibling is inserted at the head of the current node
+            // Update the parent's key to the new first key of the current node
             SlotId tail_slot_id = sibling.count() - 1;
             auto success = node.Insert(0, sibling.GetKey(tail_slot_id), sibling.GetValue(tail_slot_id));
             assert(success);
@@ -311,8 +312,8 @@ void BTree::Delete(Iterator* iter) {
             sibling.Pop();
             new_key = node.GetKey(0);
         } else {
-            // 右兄弟节点的头部的元素插入到当前节点的尾部
-            // 更新父元素key为右兄弟的新首元素
+            // The first element of the right sibling is inserted at the tail of the current node
+            // Update the parent's key to the new first key of the right sibling
             auto success = node.Append(sibling.GetKey(0), sibling.GetValue(0));
             assert(success);
             node.SetIsBucket(node.count() - 1, sibling.IsBucket(0));
@@ -321,7 +322,8 @@ void BTree::Delete(Iterator* iter) {
         }
         bool success = parent.Update(parent_slot_id, new_key, parent.GetLeftChild(parent_slot_id), false);
         if (success == false) {
-            // 父节点内的空间不足以更新key，删除父节点对应的元素，将其转换为向上插入
+            // The parent node lacks space to update the key, delete the corresponding element in the parent node,
+            // and convert it into an upward insertion
             parent.Delete(parent_slot_id, true);
             iter->Push({ parent.page_id(), parent_slot_id });
             if (left_sibling) {
@@ -333,14 +335,14 @@ void BTree::Delete(Iterator* iter) {
         return;
     }
 
-    // 合并
+    // Merge
     if (left_sibling) {
         Merge(std::move(sibling), std::move(node));
     } else {
         Merge(std::move(node), std::move(sibling));
     }
 
-    // 向上删除父元素
+    // Delete the parent element upwards
     Delete(iter, std::move(parent), parent_slot_id);
 }
 
@@ -387,13 +389,13 @@ std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, 
     std::span<const uint8_t> up_key;
     if (left->count() >= 2) {
         assert(right.count() >= 1);
-        // 左侧末尾元素上升
+        // The last element of the left side rises
         up_key = left->GetKey(left->count() - 1);
         left->Pop(true);
         
     } else {
         assert(right.count() >= 2);
-        // 右侧首元素上升
+        // The first element of the right side rises
         up_key = right.GetKey(0);
         auto left_child = right.GetLeftChild(0);
         right.Delete(0, false);
@@ -450,9 +452,9 @@ LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uin
     std::reverse(right.slots(), right.slots() + right.count());
     assert(left->GetFillRate() <= 0.5);
 
-    // 节点的填充率>50%，则可能插入失败
+    // If the fill rate of the node is >50%, the insertion may fail
     if (insert_slot_id > left->count()) {
-        // 失败则将首元素移动到左侧并重试
+        // If it fails, move the first element to the left side and retry
         assert(insert_slot_id != left->count());
         auto success = right.Insert(insert_slot_id - left->count(), key, value);
         if (!success) {
@@ -498,11 +500,11 @@ void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const ui
         return;
     }
 
-    // 需要分裂再向上插入
+    // Needs to split and then insert upward
     LeafNode right = Split(&node, slot_id, key, value, is_bucket);
     
     iter->Pop();
-    // 上升右节点的第一个节点
+    // Promote the first key of the right node
     Put(iter, std::move(node), std::move(right), right.GetKey(0));
 }
 

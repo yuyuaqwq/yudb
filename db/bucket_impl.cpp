@@ -73,7 +73,7 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
         map_iter = res.first;
         auto iter = Get(key.data(), key.size());
         if (iter == end()) {
-            // 提前预留足够的空间，以避免Commit时的Put触发分裂
+            // Reserve enough space in advance to avoid triggering a split during Commit's Put operation
             PageId pgid = kPageInvalidId;
             Put(key.data(), key.size(), &pgid, sizeof(pgid), true);
             iter = Get(key.data(), key.size());

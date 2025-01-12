@@ -22,8 +22,8 @@ namespace yudb {
 
 class BTree;
 
-// B+Tree迭代器
-// 栈空/kInvalid表示end
+// B+Tree Iterator
+// Stack empty/kInvalid represents end
 class BTreeIterator {
 public:
     using iterator_category = std::bidirectional_iterator_tag;
@@ -100,7 +100,7 @@ private:
 
 private:
     BTree* btree_;
-    Stack stack_;       // 索引必定是小于等于搜索时key的节点
+    Stack stack_;       // The index must be a node that is less than or equal to the key at the time of search.
     Status status_{ Status::kInvalid };
 
     mutable std::optional<Node> cached_node_;

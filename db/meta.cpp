@@ -46,7 +46,7 @@ void Meta::Init() {
 void Meta::Load() {
     auto ptr = db_->db_file_mmap().data();
 
-    // 校验可用元信息
+    // Verify available metadata
     auto first = reinterpret_cast<MetaStruct*>(ptr);
     auto second = reinterpret_cast<MetaStruct*>(ptr + db_->options()->page_size);
 
@@ -58,7 +58,7 @@ void Meta::Load() {
     }
 
     const MetaStruct* select;
-    // 优先选择新版本
+    // Prioritize selecting the new version
     cur_meta_index_ = 0;
     if (first->txid < second->txid) {
         cur_meta_index_ = 1;
@@ -67,7 +67,7 @@ void Meta::Load() {
         select = first;
     }
 
-    // 校验元信息是否完整，不完整则使用另一个
+    //Verify if the metadata is complete. If it is incomplete, use another one
     Crc32 crc32;
     crc32.Append(select, kMetaSize - sizeof(uint32_t));
     auto crc32_value = crc32.End();
@@ -86,7 +86,7 @@ void Meta::Load() {
         }
     }
 
-    // 页面尺寸要求一致
+    // Page size requirements are consistent
     if (select->page_size != db_->options()->page_size) {
         throw MetaError{ "database cannot match system page size." };
     }

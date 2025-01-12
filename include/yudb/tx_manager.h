@@ -30,11 +30,11 @@ public:
     UpdateTx Update();
     ViewTx View();
 
-    // 读事务回滚
+    // Read transaction rollback
     void RollBack(TxId view_txid);
-    // 写事务回滚
+    // Write transaction rollback
     void RollBack();
-    // 写事务提交
+    // Write transaction commit
     void Commit();
 
     bool IsTxExpired(TxId view_txid) const;
@@ -64,7 +64,8 @@ private:
 
     std::map<TxId, uint32_t, std::less<>,
         pool::StaticMemoryPool<std::pair<const TxId, uint32_t>>> view_tx_map_;      // txid : view_tx_count
-    TxId min_view_txid_;        // 仅在写事务更新
+    TxId min_view_txid_;        // Only updated in write transactions
+
 };
 
 } // namespace yudb

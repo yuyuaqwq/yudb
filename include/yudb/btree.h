@@ -1,11 +1,11 @@
-//The MIT License(MIT)
-//Copyright © 2024 https://github.com/yuyuaqwq
+// The MIT License (MIT)
+// Copyright © 2024 https://github.com/yuyuaqwq
 //
-//Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files(the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and /or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions :
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and /or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 //
-//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 //
-//THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #pragma once
 
@@ -24,8 +24,7 @@ namespace yudb {
 
 class BucketImpl;
 
-
-// 为磁盘设计的B+Tree
+// B+Tree designed for disk storage
 class BTree : noncopyable {
 public:
     using Iterator = BTreeIterator;
@@ -34,66 +33,62 @@ public:
     BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator);
     ~BTree();
 
-    // 树是否为空
+    // Check if the tree is empty
     bool Empty() const;
 
-    // 搜索第一个小于等于指定key的元素
-    // 返回指向元素的迭代器
+    // Search for the first element less than or equal to the specified key
+    // Returns an iterator pointing to the element
     Iterator LowerBound(std::span<const uint8_t> key);
 
-    // 搜索指定key的元素
-    // 返回指向元素的迭代器
+    // Search for the element with the specified key
+    // Returns an iterator pointing to the element
     Iterator Get(std::span<const uint8_t> key);
 
-    // 插入记录，允许重复key
+    // Insert a record, allowing duplicate keys
     void Insert(std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket);
 
-    // 插入记录，覆盖重复key对应的value
+    // Insert a record, overwriting the value for duplicate keys
     void Put(std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket);
 
-    // 直接更新指定迭代器指向的元素的value
+    // Directly update the value of the element pointed to by the specified iterator
     void Update(Iterator* iter, std::span<const uint8_t> value);
 
-    // 删除指定元素
+    // Delete the specified element
     bool Delete(std::span<const uint8_t> key);
     void Delete(Iterator* iter);
 
-    //void Print(bool str = false);
-
+    // Iterator functions
     Iterator begin() noexcept;
     Iterator end() noexcept;
 
     auto& bucket() const { return *bucket_; }
-    auto& comparator() const { return comparator_.ptr_;  }
+    auto& comparator() const { return comparator_.ptr_; }
 
 private:
-    // 获取兄弟节点
+    // Get the sibling node
     std::tuple<BranchNode, SlotId, PageId, bool> GetSibling(Iterator* iter);
 
-    //void Print(bool str, PageId pgid, int level);
-
-    // 分支节点的合并
+    // Merge branch nodes
     void Merge(BranchNode&& left, BranchNode&& right, std::span<const uint8_t> down_key);
 
-    // 分支节点的删除
+    // Delete from branch nodes
     void Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id);
 
-    // 叶子节点的合并
+    // Merge leaf nodes
     void Merge(LeafNode&& left, LeafNode&& right);
 
-
-    // 分支节点的分裂
-    // 返回左侧节点中末尾上升的元素，新右节点
+    // Split a branch node
+    // Returns the last element from the left node to move up and the new right node
     std::tuple<std::span<const uint8_t>, BranchNode> Split(BranchNode* left, SlotId insert_pos, std::span<const uint8_t> key, PageId insert_right_child);
 
-    // 分支节点的插入
+    // Insert into a branch node
     void Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8_t> key);
-    
-    // 叶子节点的分裂
-    // 返回新右节点
+
+    // Split a leaf node
+    // Returns the new right node
     LeafNode Split(LeafNode* left, SlotId insert_slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket);
 
-    // 叶子节点的插入
+    // Insert into a leaf node
     void Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value, bool insert_only, bool is_bucket);
 
 private:

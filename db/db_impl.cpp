@@ -106,7 +106,7 @@ ViewTx DBImpl::View() {
 
 void DBImpl::Remmap(uint64_t new_size) {
      db_mmap_pending_.emplace_back(std::move(db_mmap_));
-     // 1GB之前二倍扩展
+     // Double expansion before 1GB
      uint64_t map_size;
      const uint64_t max_expand_size = 1024 * 1024 * 1024;
      if (new_size <= max_expand_size) {
