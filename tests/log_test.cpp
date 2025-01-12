@@ -9,14 +9,14 @@
 
 #include <gtest/gtest.h>
 
-#include "yudb/log_reader.h"
-#include "yudb/log_writer.h"
+#include <wal/log_reader.h>
+#include <wal/log_writer.h>
 
 namespace yudb {
 
 TEST(LogTest, ReadWrite) {
     {
-        yudb::log::Writer writer;
+        wal::Writer writer;
         writer.Open("Z:/log_test.ydb-wal", tinyio::access_mode::write);
         writer.AppendRecordToBuffer("");
         writer.AppendRecordToBuffer("abc");
@@ -28,7 +28,7 @@ TEST(LogTest, ReadWrite) {
     }
 
     {
-        yudb::log::Reader reader;
+        wal::Reader reader;
         reader.Open("Z:/log_test.ydb-wal");
         auto res = reader.ReadRecord();
         ASSERT_TRUE(res.has_value());

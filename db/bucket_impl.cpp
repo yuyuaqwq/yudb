@@ -9,10 +9,11 @@
 
 #include "yudb/bucket_impl.h"
 
-#include "yudb/tx_manager.h"
-#include "yudb/pager.h"
-#include "yudb/db_impl.h"
 #include "yudb/bucket.h"
+
+#include "db_impl.h"
+#include "tx_manager.h"
+#include "pager.h"
 
 namespace yudb {
 

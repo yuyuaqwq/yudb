@@ -13,9 +13,8 @@
 #include <shared_mutex>
 
 #include <yudb/noncopyable.h>
-#include <yudb/bucket.h>
 #include <yudb/meta_format.h>
-
+#include <yudb/bucket.h>
 #include <yudb/tx_impl.h>
 
 namespace yudb {

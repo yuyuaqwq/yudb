@@ -23,8 +23,12 @@ if(LMDB_FOUND OR WIN32)
 	)
     add_executable(tests ${SOURCES})
 
-    target_include_directories(tests PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include)
-    target_include_directories(tests PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../third_party)
+    target_include_directories(tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+    target_include_directories(tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+    target_include_directories(tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../third_party)
+
+    target_include_directories(tests PRIVATE ${WAL_HEADER_DIR})
+    target_link_libraries(tests PRIVATE ${WAL_LIB})
 
     target_link_libraries(tests PRIVATE yudb)
     if(GTEST_FOUND)

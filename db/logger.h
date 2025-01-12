@@ -9,33 +9,40 @@
 
 #pragma once
 
-#include <cstdint>
+#include <wal/log_writer.h>
 
-#include "yudb/meta_format.h"
-#include "yudb/noncopyable.h"
+#include <yudb/noncopyable.h>
+
+#include "log_type.h"
 
 namespace yudb {
 
 class DBImpl;
 
-class Meta : noncopyable {
+class Logger : noncopyable {
 public:
-    Meta(DBImpl* db, MetaStruct* meta_struct);
-    ~Meta();
+    Logger(DBImpl* db, std::string_view log_path);
+    ~Logger();
 
-    void Init();
-    void Load();
-    void Save();
-    void Switch();
-    void Reset(const MetaStruct& meta_struct);
+    void AppendLog(const std::span<const uint8_t>* begin, const std::span<const uint8_t>* end);
+    void AppendWalTxIdLog();
+    void FlushLog();
 
-    const auto& meta_struct() const { return *meta_struct_; }
-    auto& meta_struct() { return *meta_struct_; }
+    void Reset();
+    bool CheckPointNeeded() const { return checkpoint_needed_; }
+    void Checkpoint();
+    bool RecoverNeeded();
+    void Recover();
+
 
 private:
     DBImpl* const db_;
-    MetaStruct* meta_struct_;
-    uint32_t cur_meta_index_{ 0 };
+
+    const std::string log_path_;
+    wal::Writer writer_;
+    bool disable_writing_{ false };
+
+    bool checkpoint_needed_{ false };
 };
 
 } // namespace yudb

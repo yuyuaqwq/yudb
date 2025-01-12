@@ -17,7 +17,7 @@
 
 #include <yudb/noncopyable.h>
 #include <yudb/tx_format.h>
-#include <yudb/meta.h>
+#include <yudb/meta_format.h>
 #include <yudb/bucket_impl.h>
 
 namespace yudb {

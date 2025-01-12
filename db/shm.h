@@ -9,39 +9,44 @@
 
 #pragma once
 
-#include <wal/log_writer.h>
+#include <atomic>
+#include <mutex>
 
-#include "yudb/log_type.h"
-#include "yudb/noncopyable.h"
+#include <yudb/noncopyable.h>
+#include <yudb/meta_format.h>
 
 namespace yudb {
 
-class DBImpl;
+#pragma pack(push, 1)
+struct ShmStruct {
+    std::atomic<uint32_t> connections{ 0 };
+    std::mutex update_lock;
+    std::mutex meta_lock;
+    MetaStruct meta_struct;
+};
+#pragma pack(pop)
 
-class Logger : noncopyable {
+class Shm : noncopyable {
 public:
-    Logger(DBImpl* db, std::string_view log_path);
-    ~Logger();
+    Shm(ShmStruct* shm_struct) : 
+        shm_struct_{ shm_struct }
+    {
+        ++shm_struct_->connections;
+    }
 
-    void AppendLog(const std::span<const uint8_t>* begin, const std::span<const uint8_t>* end);
-    void AppendWalTxIdLog();
-    void FlushLog();
+    ~Shm() {
+        --shm_struct_->connections;
+    }
 
-    void Reset();
-    bool CheckPointNeeded() const { return checkpoint_needed_; }
-    void Checkpoint();
-    bool RecoverNeeded();
-    void Recover();
-
-
+    auto& connections() const { return shm_struct_->connections; }
+    auto& connections() { return shm_struct_->connections; }
+    auto& meta_struct() const { return shm_struct_->meta_struct; }
+    auto& meta_struct() { return shm_struct_->meta_struct; }
+    auto& update_lock() { return shm_struct_->update_lock; }
+    auto& meta_lock() { return shm_struct_->meta_lock; }
+    
 private:
-    DBImpl* const db_;
-
-    const std::string log_path_;
-    wal::Writer writer_;
-    bool disable_writing_{ false };
-
-    bool checkpoint_needed_{ false };
+    ShmStruct* const shm_struct_;
 };
 
 } // namespace yudb

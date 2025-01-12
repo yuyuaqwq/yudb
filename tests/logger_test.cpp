@@ -9,8 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include "yudb/db_impl.h"
-#include "yudb/logger.h"
+#include "db/db_impl.h"
 
 namespace yudb {
 

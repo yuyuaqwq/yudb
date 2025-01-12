@@ -9,44 +9,33 @@
 
 #pragma once
 
-#include <atomic>
-#include <mutex>
+#include <cstdint>
 
-#include "yudb/noncopyable.h"
-#include "yudb/meta_format.h"
+#include <yudb/noncopyable.h>
+#include <yudb/meta_format.h>
 
 namespace yudb {
 
-#pragma pack(push, 1)
-struct ShmStruct {
-    std::atomic<uint32_t> connections{ 0 };
-    std::mutex update_lock;
-    std::mutex meta_lock;
-    MetaStruct meta_struct;
-};
-#pragma pack(pop)
+class DBImpl;
 
-class Shm : noncopyable {
+class Meta : noncopyable {
 public:
-    Shm(ShmStruct* shm_struct) : 
-        shm_struct_{ shm_struct }
-    {
-        ++shm_struct_->connections;
-    }
+    Meta(DBImpl* db, MetaStruct* meta_struct);
+    ~Meta();
 
-    ~Shm() {
-        --shm_struct_->connections;
-    }
+    void Init();
+    void Load();
+    void Save();
+    void Switch();
+    void Reset(const MetaStruct& meta_struct);
 
-    auto& connections() const { return shm_struct_->connections; }
-    auto& connections() { return shm_struct_->connections; }
-    auto& meta_struct() const { return shm_struct_->meta_struct; }
-    auto& meta_struct() { return shm_struct_->meta_struct; }
-    auto& update_lock() { return shm_struct_->update_lock; }
-    auto& meta_lock() { return shm_struct_->meta_lock; }
-    
+    const auto& meta_struct() const { return *meta_struct_; }
+    auto& meta_struct() { return *meta_struct_; }
+
 private:
-    ShmStruct* const shm_struct_;
+    DBImpl* const db_;
+    MetaStruct* meta_struct_;
+    uint32_t cur_meta_index_{ 0 };
 };
 
 } // namespace yudb
