@@ -16,9 +16,12 @@
 
 namespace yudb {
 
-BTreeIterator::BTreeIterator(BTree* btree) : btree_{ btree } {}
+BTreeIterator::BTreeIterator(BTree* btree) 
+    : btree_(btree) {}
 
-BTreeIterator::BTreeIterator(const BTreeIterator& right) : btree_{right.btree_} {
+BTreeIterator::BTreeIterator(const BTreeIterator& right)
+    : btree_(right.btree_)
+{
     operator=(right);
 }
 
