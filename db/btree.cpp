@@ -17,9 +17,9 @@
 namespace yudb {
 
 BTree::BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator) :
-    bucket_{ bucket },
-    root_pgid_ { *root_pgid },
-    comparator_{ comparator } {}
+    bucket_(bucket),
+    root_pgid_(*root_pgid),
+    comparator_(comparator) {}
 
 BTree::~BTree() = default;
 
@@ -28,7 +28,7 @@ bool BTree::Empty() const {
 }
 
 BTree::Iterator BTree::LowerBound(std::span<const uint8_t> key) {
-    Iterator iter{ this };
+    auto iter = Iterator(this);
     auto continue_ = iter.Top(key);
     while (continue_) {
         continue_ = iter.Down(key);
@@ -58,7 +58,7 @@ void BTree::Put(std::span<const uint8_t> key, std::span<const uint8_t> value, bo
 
 void BTree::Update(Iterator* iter, std::span<const uint8_t> value) {
     auto [pgid, slot_id] = iter->Front();
-    LeafNode node{ this, pgid, true };
+    auto node = LeafNode(this, pgid, true);
     assert(node.IsLeaf());
     node.Update(slot_id, node.GetKey(slot_id), value);
 }
@@ -74,13 +74,13 @@ bool BTree::Delete(std::span<const uint8_t> key) {
 }
 
 BTree::Iterator BTree::begin() noexcept {
-    Iterator iter{ this };
+    auto iter = Iterator(this);
     iter.First(root_pgid_);
     return iter;
 }
 
 BTree::Iterator BTree::end() noexcept {
-    return Iterator{ this };
+    return Iterator(this);
 }
 
 //void BTree::Print(bool str, PageId pgid, int level) {
@@ -137,7 +137,7 @@ BTree::Iterator BTree::end() noexcept {
 
 std::tuple<BranchNode, SlotId, PageId, bool> BTree::GetSibling(Iterator* iter) {
     auto [parent_pgid, parent_slot_id] = iter->Front();
-    BranchNode parent{ this, parent_pgid, true };
+    auto parent = BranchNode(this, parent_pgid, true);
 
     bool left_sibling = false;
     PageId sibling_pgid;
@@ -188,7 +188,7 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
     auto [parent, parent_slot_id, sibling_id, left_sibling] = GetSibling(iter);
     if (left_sibling) --parent_slot_id;
 
-    BranchNode sibling{ this, sibling_id, true };
+    auto sibling = BranchNode(this, sibling_id, true);
     if (bucket_->tx().CopyNeeded(sibling.last_modified_txid())) {
         sibling = BranchNode{ this, sibling.Copy().Release() };
         if (left_sibling) {
@@ -262,7 +262,7 @@ void BTree::Delete(Iterator* iter, BranchNode&& node, SlotId left_del_slot_id) {
 }
 
 void BTree::Merge(LeafNode&& left, LeafNode&& right) {
-    for (uint16_t i = 0; i < right.count(); i++) {
+    for (size_t i = 0; i < right.count(); i++) {
         bool success = left.Append(right.GetKey(i), right.GetValue(i));
         assert(success);
         left.SetIsBucket(left.count() - 1, right.IsBucket(i));
@@ -275,7 +275,7 @@ void BTree::Delete(Iterator* iter) {
     assert(!iter->is_bucket() || iter->is_bucket() && iter->value<PageId>() == kPageInvalidId);
 
     auto [pgid, pos] = iter->Front();
-    LeafNode node{ this, pgid, true };
+    auto node = LeafNode(this, pgid, true);
     node.Delete(pos);
     if (node.GetFillRate() >= 0.4) {
         return;
@@ -290,9 +290,9 @@ void BTree::Delete(Iterator* iter) {
     auto [parent, parent_slot_id, sibling_id, left_sibling] = GetSibling(iter);
     if (left_sibling) --parent_slot_id;
 
-    LeafNode sibling{ this, sibling_id, true };
+    auto sibling = LeafNode(this, sibling_id, true);
     if (bucket_->tx().CopyNeeded(sibling.last_modified_txid())) {
-        sibling = LeafNode{ this, sibling.Copy().Release() };
+        sibling = LeafNode(this, sibling.Copy().Release());
         if (left_sibling) {
             parent.SetLeftChild(parent_slot_id, sibling.page_id());
         } else {
@@ -350,7 +350,7 @@ void BTree::Delete(Iterator* iter) {
 std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, SlotId insert_slot_id, std::span<const uint8_t> insert_key, PageId insert_right_child) {
     assert(insert_slot_id <= left->count());
     
-    BranchNode right{ this, bucket_->pager().Alloc(1), true };
+    auto right = BranchNode(this, bucket_->pager().Alloc(1), true);
     right.Build(kPageInvalidId);
 
     auto saved_left_count = left->count();
@@ -408,14 +408,14 @@ std::tuple<std::span<const uint8_t>, BranchNode> BTree::Split(BranchNode* left, 
 void BTree::Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8_t> key) {
     if (iter->Empty()) {
         root_pgid_ = bucket_->pager().Alloc(1);
-        BranchNode node{ this, root_pgid_, true };
+        auto node = BranchNode(this, root_pgid_, true);
         node.Build(left.page_id());
         node.Append(key, right.page_id(), true);
         return;
     }
 
     auto [pgid, slot_id] = iter->Front();
-    BranchNode node{ this, pgid, true };
+    auto node = BranchNode(this, pgid, true);
 
     //      3       7
     // 1 2     3 4     7 8
@@ -434,7 +434,7 @@ void BTree::Put(Iterator* iter, Node&& left, Node&& right, std::span<const uint8
 LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket) {
     assert(insert_slot_id <= left->count());
 
-    LeafNode right{ this, bucket_->pager().Alloc(1), true };
+    auto right = LeafNode(this, bucket_->pager().Alloc(1), true);
     right.Build();
 
     auto saved_left_count = left->count();
@@ -480,7 +480,7 @@ LeafNode BTree::Split(LeafNode* left, SlotId insert_slot_id, std::span<const uin
 void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const uint8_t> value, bool insert_only, bool is_bucket) {
     if (iter->Empty()) {
         root_pgid_ = bucket_->pager().Alloc(1);
-        LeafNode node{ this, root_pgid_, true };
+        auto node = LeafNode(this, root_pgid_, true);
         node.Build();
         auto success = node.Insert(0, key, value); assert(success == true);
         node.SetIsBucket(0, is_bucket);
@@ -488,7 +488,7 @@ void BTree::Put(Iterator* iter, std::span<const uint8_t> key, std::span<const ui
     }
 
     auto [pgid, slot_id] = iter->Front();
-    LeafNode node{ this, pgid, true };
+    auto node = LeafNode(this, pgid, true);
     if (!insert_only && iter->status() == Iterator::Status::kEq) {
         assert(iter->is_bucket() == is_bucket);
         node.Update(slot_id, key, value);

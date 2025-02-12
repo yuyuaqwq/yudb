@@ -10,21 +10,27 @@
 
 # db/CMakeLists.txt
 
-set(SOURCES
-    btree.cpp
-    btree_iterator.cpp
-    bucket_impl.cpp
-    db_impl.cpp
-    logger.cpp
-    meta.cpp
-    node.cpp
-    page.cpp
-    pager.cpp
-    tx_impl.cpp
-    tx_manager.cpp
-)
+if(WIN32)
+    file(GLOB_RECURSE PRIVATE_HEADERS 
+        ./*.h
+        ./*.hpp
+        ./**/*.h
+        ./**/*.hpp)
+    source_group("Private Header Files" FILES ${PRIVATE_HEADERS})
+    
+    file(GLOB_RECURSE PUBLIC_HEADERS 
+        ../include/yudb/*.h
+        ../include/yudb/*.hpp
+        ../include/yudb/**/*.h
+        ../include/yudb/**/*.hpp)
+    source_group("Public Header Files" FILES ${PUBLIC_HEADERS})
+endif()
 
-add_library(yudb ${SOURCES})
+file(GLOB SRC
+    ./*.cpp
+    ./**/*.cpp)
+
+add_library(yudb ${SRC} ${PRIVATE_HEADERS} ${PUBLIC_HEADERS})
 
 target_include_directories(yudb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(yudb PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)

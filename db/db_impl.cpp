@@ -17,81 +17,81 @@
 
 namespace yudb{
 
- DB::~DB() = default;
+DB::~DB() = default;
 
- std::unique_ptr<DB> DB::Open(const Options& options, const std::string_view path) {
-     auto db = std::make_unique<DBImpl>();
-     db->options_.emplace(options);
-     auto page_size = mio::page_size();
-     if (page_size > kPageMaxSize) {
-         throw IoError{ "the system page size exceeds the range." };
-     }
-     if (db->options_->page_size == 0) {
-         db->options_->page_size = static_cast<PageSize>(page_size);
-     } else {
-         if (db->options_->page_size != mio::page_size()) {
-             throw InvalidArgumentError{ "page size mismatch." };
-         }
-     }
+std::unique_ptr<DB> DB::Open(const Options& options, const std::string_view path) {
+    auto db = std::make_unique<DBImpl>();
+    db->options_.emplace(options);
+    auto page_size = mio::page_size();
+    if (page_size > kPageMaxSize) {
+        throw IoError("the system page size exceeds the range.");
+    }
+    if (db->options_->page_size == 0) {
+        db->options_->page_size = static_cast<PageSize>(page_size);
+    } else {
+        if (db->options_->page_size != mio::page_size()) {
+            throw InvalidArgumentError("page size mismatch.");
+        }
+    }
 
-     db->db_path_ = path;
-     db->db_file_.open(path, tinyio::access_mode::sync_needed);
-     db->db_file_.lock(tinyio::share_mode::exclusive);
-     bool init_meta = false;
-     if (!db->options_->read_only) {
-         if (db->db_file_.size() == 0) {
-             db->db_file_.resize(db->options_->page_size * kPageInitCount);
-             init_meta = true;
-         }
-     }
-     db->InitDBFile();
-     db->InitShmFile();
-     db->meta_.emplace(db.get(), &db->shm_->meta_struct());
-     if (init_meta) {
-         db->meta_->Init();
-     } else {
-         db->meta_->Load();
-     }
-     db->pager_.emplace(db.get(), db->options_->page_size);
-     db->tx_manager_.emplace(db.get());
+    db->db_path_ = path;
+    db->db_file_.open(path, tinyio::access_mode::sync_needed);
+    db->db_file_.lock(tinyio::share_mode::exclusive);
+    bool init_meta = false;
+    if (!db->options_->read_only) {
+        if (db->db_file_.size() == 0) {
+            db->db_file_.resize(db->options_->page_size * kPageInitCount);
+            init_meta = true;
+        }
+    }
+    db->InitDBFile();
+    db->InitShmFile();
+    db->meta_.emplace(db.get(), &db->shm_->meta_struct());
+    if (init_meta) {
+        db->meta_->Init();
+    } else {
+        db->meta_->Load();
+    }
+    db->pager_.emplace(db.get(), db->options_->page_size);
+    db->tx_manager_.emplace(db.get());
 
-     db->InitLogFile();
-     if (db->options_->read_only) {
-         db->db_file_.unlock();
-         db->db_file_.lock(tinyio::share_mode::shared);
-     }
-     return db;
- }
+    db->InitLogFile();
+    if (db->options_->read_only) {
+        db->db_file_.unlock();
+        db->db_file_.lock(tinyio::share_mode::shared);
+    }
+    return db;
+}
 
 DBImpl::~DBImpl() {
-     if (options_.has_value()) {
-         logger_.reset();
-         tx_manager_.reset();
-         pager_.reset();
-         uint64_t new_size = 0;
-         if (meta_.has_value()) {
-             new_size = options_->page_size * meta_->meta_struct().page_count;
-         }
-         meta_.reset();
-         shm_.reset();
+    if (options_.has_value()) {
+        logger_.reset();
+        tx_manager_.reset();
+        pager_.reset();
+        uint64_t new_size = 0;
+        if (meta_.has_value()) {
+            new_size = options_->page_size * meta_->meta_struct().page_count;
+        }
+        meta_.reset();
+        shm_.reset();
          
-         if (db_mmap_.is_mapped()) {
-             db_mmap_.unmap();
-         }
-         if (shm_mmap_.is_mapped()) {
-             shm_mmap_.unmap();
-         }
-         if (!options_->read_only) {
-             std::error_code ec;
-             std::filesystem::remove(db_path_ + "-shm", ec);
-         }
-         if (db_file_.is_open()) {
-             if (new_size > 0) {
-                 db_file_.resize(new_size);
-             }
-             db_file_.unlock();
-         }
-     }
+        if (db_mmap_.is_mapped()) {
+            db_mmap_.unmap();
+        }
+        if (shm_mmap_.is_mapped()) {
+            shm_mmap_.unmap();
+        }
+        if (!options_->read_only) {
+            std::error_code ec;
+            std::filesystem::remove(db_path_ + "-shm", ec);
+        }
+        if (db_file_.is_open()) {
+            if (new_size > 0) {
+                db_file_.resize(new_size);
+            }
+            db_file_.unlock();
+        }
+    }
  }
 
 UpdateTx DBImpl::Update() {

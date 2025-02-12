@@ -121,7 +121,7 @@ void BTreeIterator::First(PageId pgid) {
     }
     status_ = Status::kIter;
     do {
-        Node node{ btree_, pgid, false };
+        auto node = Node(btree_, pgid, false);
         if (node.IsLeaf()) {
             if (node.count() == 0) {
                 return;
@@ -130,7 +130,7 @@ void BTreeIterator::First(PageId pgid) {
         }
         Push({ pgid, 0 });
         assert(node.count() > 0);
-        BranchNode branch_node{ btree_, node.Release() };
+        auto branch_node = BranchNode(btree_, node.Release());
         pgid = branch_node.GetLeftChild(0);
     } while (true);
     Push({ pgid, 0 });
@@ -139,7 +139,7 @@ void BTreeIterator::First(PageId pgid) {
 void BTreeIterator::Last(PageId pgid) {
     status_ = Status::kIter;
     do {
-        Node node{ btree_, pgid, false };
+        auto node = Node(btree_, pgid, false);
         if (node.IsLeaf()) {
             if (node.count() == 0) {
                 return;
@@ -148,7 +148,7 @@ void BTreeIterator::Last(PageId pgid) {
         }
         Push({ pgid, node.count() - 1 });
         assert(node.count() > 0);
-        BranchNode branch_node{ btree_, node.Release() };
+        auto branch_node = BranchNode(btree_, node.Release());
         pgid = branch_node.GetLeftChild(node.count() - 1);
     } while (true);
     Node node{ btree_, pgid, false };
@@ -159,18 +159,18 @@ void BTreeIterator::Next() {
     assert(!Empty());
     do {
         auto& [pgid, slot_id] = Front();
-        Node node{ btree_, pgid, false };
+        auto node = Node(btree_, pgid, false);
 
         if (++slot_id < node.count()) {
             if (node.IsLeaf()) {
                 return;
             }
-            BranchNode branch_node{ btree_, node.Release() };
+            auto branch_node = BranchNode(btree_, node.Release());
             First(branch_node.GetLeftChild(slot_id));
             return;
         }
         if (node.IsBranch() && slot_id == node.count()) {
-            BranchNode branch_node{ btree_, node.Release() };
+            auto branch_node = BranchNode(btree_, node.Release());
             First(branch_node.GetTailChild());
             return;
         }
@@ -185,13 +185,13 @@ void BTreeIterator::Prev() {
     }
     do {
         auto& [pgid, slot_id] = Front();
-        Node node{ btree_, pgid, false };
+        auto node = Node(btree_, pgid, false);
         if (slot_id > 0) {
             --slot_id;
             if (node.IsLeaf()) {
                 return;
             }
-            BranchNode branch_node{ btree_, node.Release() };
+            auto branch_node = BranchNode(btree_, node.Release());
             Last(branch_node.GetLeftChild(slot_id));
             return;
         }
@@ -216,7 +216,7 @@ bool BTreeIterator::Down(std::span<const uint8_t> key) {
         if (cached_node_->IsLeaf()) {
             return false;
         }
-        BranchNode branch_parent{ btree_, cached_node_->Release() };
+        auto branch_parent = BranchNode(btree_, cached_node_->Release());
         pgid = branch_parent.GetLeftChild(slot_id);
     }
     cached_node_.emplace(btree_, pgid, false);
@@ -271,24 +271,26 @@ void BTreeIterator::CopyAllPagesByPath() {
     auto& tx = btree_->bucket().tx();
     auto lower_pgid = kPageInvalidId;
     bool copy_needed = false;
-    // 自底向上复制页面
+    // Copy page from bottom to top
     for (ptrdiff_t i = stack_.size() - 1; i >= 0; i--) {
         auto& [pgid, slot_id] = stack_[i];
         Node node{ btree_, pgid, true };
         copy_needed = tx.CopyNeeded(node.last_modified_txid());
         if (!copy_needed) {
             if (node.IsBranch()) {
-                BranchNode branch_node{ btree_, node.Release() };
+                auto branch_node = BranchNode(btree_, node.Release());
                 assert(lower_pgid != kPageInvalidId);
                 branch_node.SetLeftChild(slot_id, lower_pgid);
             }
-            // 如果不需要复制，则可以提前结束，因为如果是底下的页面不需要复制，那么这条路径的页面一定经过复制了
+            // If there is no need to copy, you can end it early
+            // because if the page below does not need to be copied
+            // then the page in this path must have been copied
             return;
         }
         auto new_node = node.Copy();
         if (new_node.IsBranch()) {
             assert(lower_pgid != kPageInvalidId);
-            BranchNode branch_node{ btree_, new_node.Release() };
+            auto branch_node = BranchNode(btree_, new_node.Release());
             branch_node.SetLeftChild(slot_id, lower_pgid);
             lower_pgid = branch_node.page_id();
         } else {

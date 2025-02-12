@@ -17,19 +17,18 @@
 namespace yudb {
 
 TxManager::TxManager(DBImpl* db) :
-    db_{ db }
+    db_(db)
 {
     pager().LoadFreeList();
     min_view_txid_ = db_->meta().meta_struct().txid;
 }
 
 TxManager::~TxManager() {
-    std::unique_lock lock{ db_->shm()->meta_lock() };
-    if (update_tx_.has_value()) {
-        throw TxManagerError{ "there are write transactions that have not been exited." };
-    }
-    if (!view_tx_map_.empty()) {
-        throw TxManagerError{ "there are read transactions that have not been exited." };
+    auto lock = std::unique_lock(db_->shm()->meta_lock());
+
+    if (update_tx_.has_value()
+        || !view_tx_map_.empty()) {
+        throw TxManagerError("there are write transactions that have not been exited.");
     }
 }
 
@@ -40,7 +39,8 @@ UpdateTx TxManager::Update() {
     assert(!update_tx_.has_value());
     AppendBeginLog();
 
-    std::unique_lock lock{ db_->shm()->meta_lock() };
+    auto lock = std::unique_lock(db_->shm()->meta_lock());
+
     update_tx_.emplace(this, db_->meta().meta_struct(), true);
     update_tx_->set_txid(update_tx_->txid() + 1);
     if (update_tx_->txid() == kTxInvalidId) {
@@ -60,7 +60,8 @@ UpdateTx TxManager::Update() {
 }
 
 ViewTx TxManager::View() {
-    std::unique_lock lock{ db_->shm()->meta_lock() };
+    auto lock = std::unique_lock(db_->shm()->meta_lock());
+
     auto txid = db_->meta().meta_struct().txid;
     const auto iter = view_tx_map_.find(txid);
     if (iter == view_tx_map_.end()) {
@@ -72,7 +73,8 @@ ViewTx TxManager::View() {
 }
 
 void TxManager::RollBack() {
-    std::unique_lock lock{ db_->shm()->meta_lock() };
+    auto lock = std::unique_lock(db_->shm()->meta_lock());
+
     AppendRollbackLog();
     if (db_->logger().CheckPointNeeded()) {
         db_->logger().Checkpoint();
@@ -83,7 +85,8 @@ void TxManager::RollBack() {
 }
 
 void TxManager::RollBack(TxId view_txid) {
-    std::unique_lock lock{ db_->shm()->meta_lock() };
+    auto lock = std::unique_lock(db_->shm()->meta_lock());
+
     const auto iter = view_tx_map_.find(view_txid);
     assert(iter != view_tx_map_.end());
     assert(iter->second > 0);
@@ -94,7 +97,8 @@ void TxManager::RollBack(TxId view_txid) {
 }
 
 void TxManager::Commit() {
-    std::unique_lock lock{ db_->shm()->meta_lock() };
+    auto lock = std::unique_lock(db_->shm()->meta_lock());
+
     db_->meta().Reset(update_tx_->meta_struct());
     AppendCommitLog();
     if (db_->logger().CheckPointNeeded()) {

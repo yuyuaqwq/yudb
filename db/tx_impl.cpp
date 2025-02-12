@@ -18,9 +18,9 @@
 namespace yudb {
 
 TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
-    tx_manager_{ tx_manager },
-    user_bucket_{ this, kUserRootBucketId, &meta_format_.user_root, writable, tx_manager_->db().options()->comparator },
-    writable_{ writable }
+    tx_manager_(tx_manager),
+    user_bucket_(this, kUserRootBucketId, &meta_format_.user_root, writable, tx_manager_->db().options()->comparator),
+    writable_(writable)
 {
     CopyMetaInfo(&meta_format_, meta);
 }
@@ -90,8 +90,8 @@ Pager& TxImpl::pager() const { return tx_manager_->pager(); }
 
 
 ViewTx::ViewTx(TxManager* tx_manager, const MetaStruct& meta, std::shared_mutex* mmap_mutex) :
-    tx_{ tx_manager, meta, false },
-    mmap_lock_{ *mmap_mutex } {}
+    tx_(tx_manager, meta, false),
+    mmap_lock_(*mmap_mutex) {}
 
 ViewTx::~ViewTx() {
     tx_.RollBack();
@@ -100,7 +100,7 @@ ViewTx::~ViewTx() {
 
 ViewBucket ViewTx::UserBucket() {
     auto& root_bucket = tx_.user_bucket();
-    return ViewBucket{ &root_bucket };
+    return ViewBucket(&root_bucket);
 }
 
 UpdateTx::UpdateTx(TxImpl* tx) : tx_{ tx } {}
@@ -119,12 +119,12 @@ UpdateTx::UpdateTx(UpdateTx&& right) noexcept {
 
 UpdateBucket UpdateTx::UserBucket() {
     auto& root_bucket = tx_->user_bucket();
-    return UpdateBucket{ &root_bucket };
+    return UpdateBucket(&root_bucket);
 }
 
 void UpdateTx::RollBack() {
     if (tx_ == nullptr) {
-        throw TxManagerError{ "invalid tx." };
+        throw TxManagerError("invalid tx.");
     }
     tx_->RollBack();
     tx_ = nullptr;
@@ -132,7 +132,7 @@ void UpdateTx::RollBack() {
 
 void UpdateTx::Commit() {
     if (tx_ == nullptr) {
-        throw TxManagerError{ "invalid tx." };
+        throw TxManagerError("invalid tx.");
     }
     tx_->Commit();
     tx_ = nullptr;

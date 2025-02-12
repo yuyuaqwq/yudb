@@ -16,8 +16,8 @@
 namespace yudb {
 
 Pager::Pager(DBImpl* db, PageSize page_size) : db_{ db },
-    page_size_{ page_size },
-    tmp_page_{ reinterpret_cast<uint8_t*>(operator new(page_size)) } {}
+    page_size_(page_size),
+    tmp_page_(reinterpret_cast<uint8_t*>(operator new(page_size))) {}
 
 Pager::~Pager() {
     operator delete(tmp_page_);

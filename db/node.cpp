@@ -18,18 +18,18 @@
 namespace yudb {
 
 Node::Node(BTree* btree, PageId page_id, bool dirty) :
-    btree_{ btree },
-    page_{ btree_->bucket().pager().Reference(page_id, dirty) },
-    struct_{ reinterpret_cast<NodeStruct*>(page_->page_buf()) } {}
+    btree_(btree),
+    page_(btree_->bucket().pager().Reference(page_id, dirty)),
+    struct_(reinterpret_cast<NodeStruct*>(page_->page_buf())) {}
 
 Node::Node(BTree* btree, Page page_ref) :
-    btree_{ btree },
-    page_{ std::move(page_ref) },
-    struct_{ reinterpret_cast<NodeStruct*>(page_->page_buf()) } {}
+    btree_(btree),
+    page_(std::move(page_ref)),
+    struct_(reinterpret_cast<NodeStruct*>(page_->page_buf())) {}
 
 Node::Node(BTree* btree, uint8_t* page_buf) :
-    btree_{ btree },
-    struct_{ reinterpret_cast<NodeStruct*>(page_buf) } {}
+    btree_(btree),
+    struct_(reinterpret_cast<NodeStruct*>(page_buf)) {}
 
 Node::~Node() = default;
 
@@ -82,14 +82,14 @@ Node Node::Copy() const {
     auto& pager = btree_->bucket().pager();
     auto& tx = btree_->bucket().tx();
     assert(page_.has_value());
-    Node node{ btree_, pager.Copy(*page_) };
+    auto node = Node(btree_, pager.Copy(*page_));
     node.set_last_modified_txid(tx.txid());
     return node;
 }
 
 Node Node::AddReference() const {
     assert(page_.has_value());
-    return Node{ btree_, page_->AddReference() };
+    return Node(btree_, page_->AddReference());
 }
 
 Page Node::Release() {
@@ -171,7 +171,7 @@ PageSize Node::FreeSpaceAfterCompaction() {
 void Node::Compactify() {
     auto& pager = btree_->bucket().pager();
     auto& tmp_page = pager.tmp_page();
-    Node tmp_node{ btree_, tmp_page };
+    auto tmp_node = Node (btree_, tmp_page);
     std::memset(&tmp_node.struct_->header, 0, sizeof(tmp_node.struct_->header));
 
     tmp_node.struct_->header.data_offset = pager.page_size();
@@ -257,7 +257,7 @@ void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<c
 }
 
 void Node::CopyRecordRange(Node* dst) {
-    for (SlotId i = 0; i < struct_->header.count; ++i) {
+    for (size_t i = 0; i < struct_->header.count; ++i) {
         size_t size;
         auto& slot = struct_->slots[i];
         if (slot.is_overflow_pages) {
