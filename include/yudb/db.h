@@ -9,15 +9,21 @@
 
 #pragma once
 
+#include <yudb/error.h>
 #include <yudb/noncopyable.h>
 #include <yudb/options.h>
 #include <yudb/tx.h>
 
 namespace yudb {
 
+class IoError : public Error {
+public:
+    using Error::Error;
+};
+
 class DB : noncopyable {
 public:
-    DB() = default;
+    DB();
     virtual ~DB();
 
     static std::unique_ptr<DB> Open(const Options& options, const std::string_view path);

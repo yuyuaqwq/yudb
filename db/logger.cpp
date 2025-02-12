@@ -17,9 +17,9 @@
 
 namespace yudb{
 
-Logger::Logger(DBImpl* db, std::string_view log_path) : 
-    db_{ db },
-    log_path_{ log_path }
+Logger::Logger(DBImpl* db, std::string_view log_path)
+    :  db_(db)
+    , log_path_(log_path)
 {
     writer_.Open(log_path, db_->options()->sync ? tinyio::access_mode::sync_needed : tinyio::access_mode::write);
 }

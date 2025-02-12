@@ -24,6 +24,11 @@ namespace yudb {
 
 class DBImpl;
 
+class TxManagerError : public Error {
+public:
+    using Error::Error;
+};
+
 class TxManager : noncopyable {
 public:
     explicit TxManager(DBImpl* db);

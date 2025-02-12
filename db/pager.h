@@ -15,6 +15,7 @@
 #include <vector>
 #include <forward_list>
 
+#include <yudb/error.h>
 #include <yudb/noncopyable.h>
 #include <yudb/page.h>
 #include <yudb/tx_format.h>
@@ -23,6 +24,11 @@ namespace yudb {
 
 class DBImpl;
 class UpdateTx;
+
+class PagerError : public Error {
+public:
+    using Error::Error;
+};
 
 class Pager : noncopyable {
 public:

@@ -17,12 +17,11 @@
 
 namespace yudb {
 
-BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable, Comparator comparator) :
-    tx_(tx),
-    bucket_id_(bucket_id),
-    writable_(writable),
-    btree_(this, root_pgid, comparator)
-{}
+BucketImpl::BucketImpl(TxImpl* tx, BucketId bucket_id, PageId* root_pgid, bool writable, Comparator comparator)
+    : tx_(tx)
+    , bucket_id_(bucket_id)
+    , writable_(writable)
+    , btree_(this, root_pgid, comparator) {}
 
 BucketImpl::~BucketImpl() = default;
 

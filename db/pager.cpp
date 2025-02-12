@@ -15,9 +15,10 @@
 
 namespace yudb {
 
-Pager::Pager(DBImpl* db, PageSize page_size) : db_{ db },
-    page_size_(page_size),
-    tmp_page_(reinterpret_cast<uint8_t*>(operator new(page_size))) {}
+Pager::Pager(DBImpl* db, PageSize page_size) 
+    : db_(db)
+    , page_size_(page_size)
+    , tmp_page_(reinterpret_cast<uint8_t*>(operator new(page_size))) {}
 
 Pager::~Pager() {
     operator delete(tmp_page_);
@@ -76,7 +77,7 @@ PageId Pager::Alloc(PageCount count) {
     if (pgid == kPageInvalidId) {
         auto& page_count = update_tx.meta_struct().page_count;
         if (page_count + count < page_count) {
-            throw PagerError{ "page allocation failed, there are not enough available pages." };
+            throw PagerError("page allocation failed, there are not enough available pages.");
         }
         pgid = page_count;
         page_count += count;
@@ -161,9 +162,13 @@ void Pager::SaveFreeList() {
     for (auto& pending_pair : pending_map_) {
         pair_count += pending_pair.second.size();
     }
+
     size_t bytes = pair_count * sizeof(PagePair);
     meta.free_list_page_count = bytes / page_size();
-    if (bytes % page_size()) ++meta.free_list_page_count;
+    if (bytes % page_size()) {
+        ++meta.free_list_page_count;
+    }
+
     meta.free_list_pgid = Alloc(meta.free_list_page_count);
 
     std::vector<uint8_t> buf(bytes);
@@ -172,10 +177,12 @@ void Pager::SaveFreeList() {
         std::memcpy(&buf[i * sizeof(PagePair)], &pair, sizeof(pair));
         ++i;
     }
+
     for (auto& pending_pair : pending_map_) {
         std::memcpy(&buf[i * sizeof(PagePair)], &pending_pair.second[0], pending_pair.second.size() * sizeof(PagePair));
         i += pending_pair.second.size();
     }
+
     meta.free_pair_count = i;
 
     WriteByBytes(meta.free_list_pgid, 0, buf.data(), meta.free_pair_count * sizeof(PagePair));
@@ -190,18 +197,20 @@ PageId Pager::GetPageIdByPtr(const uint8_t* page_ptr) const {
 
 PageCount Pager::GetPageCount(const size_t bytes) const {
     PageCount page_count = bytes / page_size_;
-    if (bytes % page_size_) ++page_count;
+    if (bytes % page_size_) {
+        ++page_count;
+    }
     return page_count;
 }
 
 Page Pager::Reference(PageId pgid, bool dirty) {
     assert(pgid != kPageInvalidId);
     assert(pgid < kPageMaxCount);
-    return Page{ this, GetPtr(pgid, 0) };
+    return Page(this, GetPtr(pgid, 0));
 }
 
 Page Pager::AddReference(uint8_t* page_buf) {
-    return Page{ this, page_buf };
+    return Page(this, page_buf);
 }
 
 void Pager::Dereference(const uint8_t* page_buf) {

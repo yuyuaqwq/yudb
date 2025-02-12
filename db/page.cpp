@@ -13,10 +13,10 @@
 
 namespace yudb {
 
-Page::Page(Pager* pager, uint8_t* page_buf) :
-    pager_{ pager },
-    page_buf_{ page_buf },
-    page_id_{ pager->GetPageIdByPtr(page_buf) } {}
+Page::Page(Pager* pager, uint8_t* page_buf)
+    : pager_(pager)
+    , page_buf_(page_buf)
+    , page_id_(pager->GetPageIdByPtr(page_buf)) {}
 
 Page::~Page() {
     Dereference();

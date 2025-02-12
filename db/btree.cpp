@@ -16,10 +16,10 @@
 
 namespace yudb {
 
-BTree::BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator) :
-    bucket_(bucket),
-    root_pgid_(*root_pgid),
-    comparator_(comparator) {}
+BTree::BTree(BucketImpl* bucket, PageId* root_pgid, Comparator comparator)
+    : bucket_(bucket)
+    , root_pgid_(*root_pgid)
+    , comparator_(comparator) {}
 
 BTree::~BTree() = default;
 

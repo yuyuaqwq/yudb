@@ -11,6 +11,7 @@
 
 #include <wal/log_writer.h>
 
+#include <yudb/error.h>
 #include <yudb/noncopyable.h>
 
 #include "log_type.h"
@@ -18,6 +19,11 @@
 namespace yudb {
 
 class DBImpl;
+
+class LoggerError : public Error {
+public:
+    using Error::Error;
+};
 
 class Logger : noncopyable {
 public:

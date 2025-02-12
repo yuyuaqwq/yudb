@@ -17,19 +17,19 @@
 
 namespace yudb {
 
-Node::Node(BTree* btree, PageId page_id, bool dirty) :
-    btree_(btree),
-    page_(btree_->bucket().pager().Reference(page_id, dirty)),
-    struct_(reinterpret_cast<NodeStruct*>(page_->page_buf())) {}
+Node::Node(BTree* btree, PageId page_id, bool dirty)
+    : btree_(btree)
+    , page_(btree_->bucket().pager().Reference(page_id, dirty))
+    , struct_(reinterpret_cast<NodeStruct*>(page_->page_buf())) {}
 
-Node::Node(BTree* btree, Page page_ref) :
-    btree_(btree),
-    page_(std::move(page_ref)),
-    struct_(reinterpret_cast<NodeStruct*>(page_->page_buf())) {}
+Node::Node(BTree* btree, Page page_ref)
+    : btree_(btree)
+    , page_(std::move(page_ref))
+    , struct_(reinterpret_cast<NodeStruct*>(page_->page_buf())) {}
 
-Node::Node(BTree* btree, uint8_t* page_buf) :
-    btree_(btree),
-    struct_(reinterpret_cast<NodeStruct*>(page_buf)) {}
+Node::Node(BTree* btree, uint8_t* page_buf)
+    : btree_(btree)
+    , struct_(reinterpret_cast<NodeStruct*>(page_buf)) {}
 
 Node::~Node() = default;
 

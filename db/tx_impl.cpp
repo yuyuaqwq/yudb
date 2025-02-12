@@ -17,10 +17,10 @@
 
 namespace yudb {
 
-TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable) :
-    tx_manager_(tx_manager),
-    user_bucket_(this, kUserRootBucketId, &meta_format_.user_root, writable, tx_manager_->db().options()->comparator),
-    writable_(writable)
+TxImpl::TxImpl(TxManager* tx_manager, const MetaStruct& meta, bool writable)
+    : tx_manager_(tx_manager)
+    , user_bucket_(this, kUserRootBucketId, &meta_format_.user_root, writable, tx_manager_->db().options()->comparator)
+    , writable_(writable)
 {
     CopyMetaInfo(&meta_format_, meta);
 }

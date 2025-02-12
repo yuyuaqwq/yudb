@@ -11,12 +11,18 @@
 
 #include <cstdint>
 
+#include <yudb/error.h>
 #include <yudb/noncopyable.h>
 #include <yudb/meta_format.h>
 
 namespace yudb {
 
 class DBImpl;
+
+class MetaError : public Error {
+public:
+    using Error::Error;
+};
 
 class Meta : noncopyable {
 public:

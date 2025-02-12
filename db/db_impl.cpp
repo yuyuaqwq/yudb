@@ -17,6 +17,7 @@
 
 namespace yudb{
 
+DB::DB() = default;
 DB::~DB() = default;
 
 std::unique_ptr<DB> DB::Open(const Options& options, const std::string_view path) {

@@ -16,8 +16,8 @@
 
 namespace yudb {
 
-TxManager::TxManager(DBImpl* db) :
-    db_(db)
+TxManager::TxManager(DBImpl* db)
+    : db_(db)
 {
     pager().LoadFreeList();
     min_view_txid_ = db_->meta().meta_struct().txid;
