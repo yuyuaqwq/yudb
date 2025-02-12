@@ -71,7 +71,7 @@ private:
             .max_wal_size = 64 * 1024 * 1024,
             .sync = sync
         };
-        std::string path = "C:/D/yudb_benchmark.ydb";
+        std::string path = "./yudb_benchmark.ydb";
         std::filesystem::remove(path);
         std::filesystem::remove(path + "-shm");
         std::filesystem::remove(path + "-wal");

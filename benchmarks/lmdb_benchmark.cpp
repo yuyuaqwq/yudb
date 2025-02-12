@@ -74,7 +74,7 @@ private:
         if (env_) {
             mdb_env_close(env_);
         }
-        std::string path = "C:/D/lmdb_benchmark";
+        std::string path = "./lmdb_benchmark";
         std::filesystem::remove_all(path);
         std::filesystem::create_directory(path);
         int rc;
