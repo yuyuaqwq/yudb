@@ -35,7 +35,7 @@ public:
 private:
     DBImpl* const db_;
     MetaStruct* meta_struct_;
-    uint32_t cur_meta_index_{ 0 };
+    uint32_t cur_meta_index_ = 0;
 };
 
 } // namespace yudb
