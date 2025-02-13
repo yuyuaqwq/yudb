@@ -80,33 +80,40 @@ std::unique_ptr<DB> DB::Open(const Options& options, const std::string_view path
 }
 
 DBImpl::~DBImpl() {
-    if (options_.has_value()) {
-        logger_.reset();
-        tx_manager_.reset();
-        pager_.reset();
-        uint64_t new_size = 0;
-        if (meta_.has_value()) {
-            new_size = options_->page_size * meta_->meta_struct().page_count;
+    if (!options_.has_value()) {
+        return;
+    }
+
+    logger_.reset();
+    tx_manager_.reset();
+    pager_.reset();
+
+    uint64_t new_size = 0;
+    if (meta_.has_value()) {
+        new_size = options_->page_size * meta_->meta_struct().page_count;
+    }
+
+    meta_.reset();
+    shm_.reset();
+
+    if (db_mmap_.is_mapped()) {
+        db_mmap_.unmap();
+    }
+
+    if (shm_mmap_.is_mapped()) {
+        shm_mmap_.unmap();
+    }
+
+    if (!options_->read_only) {
+        std::error_code ec;
+        std::filesystem::remove(db_path_ + "-shm", ec);
+    }
+
+    if (db_file_.is_open()) {
+        if (new_size > 0) {
+            db_file_.resize(new_size);
         }
-        meta_.reset();
-        shm_.reset();
-         
-        if (db_mmap_.is_mapped()) {
-            db_mmap_.unmap();
-        }
-        if (shm_mmap_.is_mapped()) {
-            shm_mmap_.unmap();
-        }
-        if (!options_->read_only) {
-            std::error_code ec;
-            std::filesystem::remove(db_path_ + "-shm", ec);
-        }
-        if (db_file_.is_open()) {
-            if (new_size > 0) {
-                db_file_.resize(new_size);
-            }
-            db_file_.unlock();
-        }
+        db_file_.unlock();
     }
  }
 
