@@ -47,12 +47,12 @@ public:
     Node AddReference() const;
     Page Release();
 
-    const auto& header() const { return struct_->header; }
+    const auto& header() const { return data_->header; }
     uint16_t count() const;
-    Slot* slots() const { return struct_->slots; }
+    Slot* slots() const { return data_->slots; }
     PageId page_id() const;
     TxId last_modified_txid() const;
-    void set_last_modified_txid(TxId txid) { struct_->header.last_modified_txid = txid; }
+    void set_last_modified_txid(TxId txid) { data_->header.last_modified_txid = txid; }
 
 protected:
     PageSize MaxInlineRecordSize();
@@ -81,7 +81,7 @@ protected:
     BTree* const btree_;
 
     std::optional<Page> page_;
-    NodeStruct* struct_;
+    NodeData* data_;
 };
 
 class BranchNode : public Node {

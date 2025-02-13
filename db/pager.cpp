@@ -177,7 +177,7 @@ void Pager::SaveFreeList() {
 
     meta.free_list_pgid = Alloc(meta.free_list_page_count);
 
-    std::vector<uint8_t> buf(bytes);
+    auto buf = std::vector<uint8_t>(bytes);
     uint32_t i = 0;
     for (auto& pair : free_map_) {
         std::memcpy(&buf[i * sizeof(PagePair)], &pair, sizeof(pair));

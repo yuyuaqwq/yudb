@@ -34,7 +34,7 @@ struct NodeHeader {
     PageOffset data_offset; // the tail of the records.
 };
 
-struct NodeStruct {
+struct NodeData {
     NodeHeader header;
     union {
         PageId tail_child;

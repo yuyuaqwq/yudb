@@ -31,6 +31,9 @@ public:
 
     Page AddReference() const;
 
+    template<typename T>
+    T* get() { return reinterpret_cast<T*>(page_buf_); }
+
     auto page_buf() const { return page_buf_; }
     PageId page_id() const { return page_id_; };
 
