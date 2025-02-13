@@ -21,44 +21,60 @@ DB::~DB() = default;
 
 std::unique_ptr<DB> DB::Open(const Options& options, const std::string_view path) {
     auto db = std::make_unique<DBImpl>();
+
     db->options_.emplace(options);
+
+    auto& db_options = *db->options();
+    auto& db_file = db->db_file();
+
     auto page_size = mio::page_size();
     if (page_size > kPageMaxSize) {
         throw std::runtime_error("Page size exceeds maximum limit: " + std::to_string(page_size));
     }
-    if (db->options_->page_size == 0) {
-        db->options_->page_size = static_cast<PageSize>(page_size);
+    if (db_options.page_size == 0) {
+        db_options.page_size = static_cast<PageSize>(page_size);
     } else {
-        if (db->options_->page_size != mio::page_size()) {
+        if (db_options.page_size != mio::page_size()) {
             throw std::invalid_argument("Options page size mismatch.");
         }
     }
 
     db->db_path_ = path;
-    db->db_file_.open(path, tinyio::access_mode::sync_needed);
-    db->db_file_.lock(tinyio::share_mode::exclusive);
+    db_file.open(path, tinyio::access_mode::sync_needed);
+    db_file.lock(tinyio::share_mode::exclusive);
+
     bool init_meta = false;
-    if (!db->options_->read_only) {
-        if (db->db_file_.size() == 0) {
-            db->db_file_.resize(db->options_->page_size * kPageInitCount);
+    if (!db_options.read_only) {
+        if (db_file.size() == 0) {
+            db_file.resize(db->options_->page_size * kPageInitCount);
             init_meta = true;
         }
     }
+
     db->InitDBFile();
+
     db->InitShmFile();
+
     db->meta_.emplace(db.get(), &db->shm_->meta_struct());
+    auto& db_meta = db->meta();
+
     if (init_meta) {
-        db->meta_->Init();
+        db_meta.Init();
     } else {
-        db->meta_->Load();
+        db_meta.Load();
     }
+
     db->pager_.emplace(db.get(), db->options_->page_size);
+
     db->tx_manager_.emplace(db.get());
 
-    db->InitLogFile();
-    if (db->options_->read_only) {
-        db->db_file_.unlock();
-        db->db_file_.lock(tinyio::share_mode::shared);
+    if (db_options.mode == DbMode::kWal) {
+        db->InitLogFile();
+    }
+    
+    if (db_options.read_only) {
+        db_file.unlock();
+        db_file.lock(tinyio::share_mode::shared);
     }
     return db;
 }

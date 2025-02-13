@@ -41,7 +41,6 @@ UpdateTx TxManager::Update() {
         AppendBeginLog();
     }
     
-
     auto lock = std::unique_lock(db_->shm()->meta_lock());
 
     update_tx_.emplace(this, db_->meta().meta_struct(), true);
@@ -53,7 +52,8 @@ UpdateTx TxManager::Update() {
     // 更新min_view_txid
     if (view_tx_map_.empty()) {
         min_view_txid_ = db_->meta().meta_struct().txid;
-    } else {
+    }
+    else {
         const auto iter = view_tx_map_.cbegin();
         assert(iter != view_tx_map_.end());
         min_view_txid_ = iter->first;
@@ -69,7 +69,8 @@ ViewTx TxManager::View() {
     const auto iter = view_tx_map_.find(txid);
     if (iter == view_tx_map_.end()) {
         view_tx_map_.insert({ txid, 1});
-    } else {
+    }
+    else {
         ++iter->second;
     }
     return ViewTx(this, db_->meta().meta_struct(), &db_->db_file_mmap_lock());
@@ -80,12 +81,13 @@ void TxManager::RollBack() {
 
     if (db_->options()->mode == DbMode::kWal) {
         AppendRollbackLog();
+        if (db_->logger().CheckPointNeeded()) {
+            db_->logger().Checkpoint();
+        }
     }
     
-    if (db_->logger().CheckPointNeeded()) {
-        db_->logger().Checkpoint();
-    }
     pager().Rollback();
+
     update_tx_ = std::nullopt;
     db_->shm()->update_lock().unlock();
 }
