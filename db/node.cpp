@@ -219,10 +219,10 @@ PageId Node::StoreRecordToOverflowPages(SlotId slot_id, std::span<const uint8_t>
 
 void Node::StoreRecord(SlotId slot_id, std::span<const uint8_t> key, std::span<const uint8_t> value) {
     if (key.size() > page_size() || key.size() > kKeyMaxSize) {
-        throw InvalidArgumentError("key size exceeds the limit.");
+        throw std::invalid_argument("Key size exceeds the limit.");
     }
     if (value.size() > kValueMaxSize) {
-        throw InvalidArgumentError("value size exceeds the limit.");
+        throw std::invalid_argument("Value size exceeds the limit.");
     }
 
     auto size = key.size() + value.size();

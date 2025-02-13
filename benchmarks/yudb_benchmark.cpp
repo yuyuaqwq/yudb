@@ -68,8 +68,8 @@ private:
     void Open(bool sync) {
         db_ = {};
         yudb::Options options{
+            .sync = sync,
             .max_wal_size = 64 * 1024 * 1024,
-            .sync = sync
         };
         std::string path = "./yudb_benchmark.ydb";
         std::filesystem::remove(path);

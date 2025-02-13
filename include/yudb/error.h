@@ -21,9 +21,4 @@ public:
 
 };
 
-class InvalidArgumentError : public Error {
-public:
-    using Error::Error;
-};
-
 } // namespace yudb

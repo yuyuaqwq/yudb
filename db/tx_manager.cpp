@@ -37,7 +37,11 @@ UpdateTx TxManager::Update() {
     db_->ClearMmap();
 
     assert(!update_tx_.has_value());
-    AppendBeginLog();
+
+    if (db_->options()->mode == DbMode::kWal) {
+        AppendBeginLog();
+    }
+    
 
     auto lock = std::unique_lock(db_->shm()->meta_lock());
 
@@ -56,7 +60,7 @@ UpdateTx TxManager::Update() {
         min_view_txid_ = iter->first;
     }
     pager().Release(min_view_txid_ - 1);
-    return UpdateTx{ &*update_tx_ };
+    return UpdateTx(&*update_tx_);
 }
 
 ViewTx TxManager::View() {
@@ -69,13 +73,16 @@ ViewTx TxManager::View() {
     } else {
         ++iter->second;
     }
-    return ViewTx{ this, db_->meta().meta_struct(), &db_->db_file_mmap_lock() };
+    return ViewTx(this, db_->meta().meta_struct(), &db_->db_file_mmap_lock());
 }
 
 void TxManager::RollBack() {
     auto lock = std::unique_lock(db_->shm()->meta_lock());
 
-    AppendRollbackLog();
+    if (db_->options()->mode == DbMode::kWal) {
+        AppendRollbackLog();
+    }
+    
     if (db_->logger().CheckPointNeeded()) {
         db_->logger().Checkpoint();
     }
@@ -100,10 +107,17 @@ void TxManager::Commit() {
     auto lock = std::unique_lock(db_->shm()->meta_lock());
 
     db_->meta().Reset(update_tx_->meta_struct());
-    AppendCommitLog();
-    if (db_->logger().CheckPointNeeded()) {
-        db_->logger().Checkpoint();
+
+    if (db_->options()->mode == DbMode::kWal) {
+        AppendCommitLog();
+        if (db_->logger().CheckPointNeeded()) {
+            db_->logger().Checkpoint();
+        }
     }
+    else if (db_->options()->mode == DbMode::kUpdateInPlace) {
+        db_->pager().WriteAllDirtyPages();
+    }
+
     update_tx_ = std::nullopt;
     db_->shm()->update_lock().unlock();
 }
@@ -123,6 +137,10 @@ void TxManager::AppendSubBucketLog(BucketId bucket_id, std::span<const uint8_t> 
 }
 
 void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, std::span<const uint8_t> value, bool is_bucket) {
+    if (db_->options()->mode != DbMode::kWal) {
+        return;
+    }
+
     BucketLogHeader format;
     if (is_bucket) {
         format.type = LogType::kPut_IsBucket;
@@ -138,6 +156,10 @@ void TxManager::AppendPutLog(BucketId bucket_id, std::span<const uint8_t> key, s
 }
 
 void TxManager::AppendDeleteLog(BucketId bucket_id, std::span<const uint8_t> key) {
+    if (db_->options()->mode != DbMode::kWal) {
+        return;
+    }
+
     BucketLogHeader format;
     format.type = LogType::kDelete;
     format.bucket_id = bucket_id;

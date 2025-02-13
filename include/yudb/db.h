@@ -16,11 +16,6 @@
 
 namespace yudb {
 
-class IoError : public Error {
-public:
-    using Error::Error;
-};
-
 class DB : noncopyable {
 public:
     DB();

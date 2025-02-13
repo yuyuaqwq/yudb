@@ -97,7 +97,7 @@ bool BTreeIterator::is_bucket() const {
 
 std::pair<LeafNode&, SlotId> BTreeIterator::GetLeafNode(bool dirty) const {
     if (*this == btree_->end()) {
-        throw InvalidArgumentError("invalid iterator.");
+        throw std::invalid_argument("invalid iterator.");
     }
     auto& [pgid, slot_id] = Front();
     if (!cached_node_.has_value() || cached_node_->page_id() != pgid) {

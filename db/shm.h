@@ -19,7 +19,7 @@ namespace yudb {
 
 #pragma pack(push, 1)
 struct ShmStruct {
-    std::atomic<uint32_t> connections{ 0 };
+    std::atomic<uint32_t> connections = 0;
     std::mutex update_lock;
     std::mutex meta_lock;
     MetaStruct meta_struct;

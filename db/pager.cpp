@@ -56,6 +56,12 @@ void Pager::WriteAllDirtyPages() {
     //    cache_info->dirty = false;
     //    cache_manager_.Dereference(page_cache);
     //}
+
+    std::error_code ec;
+    db_->db_file_mmap().sync(ec);
+    if (ec) {
+        throw std::system_error(ec, "Failed to sync db file.");
+    }
 }
 
 void Pager::Rollback() {
@@ -139,8 +145,8 @@ void Pager::LoadFreeList() {
     auto ptr = GetPtr(meta.free_list_pgid, 0);
     auto free_list = reinterpret_cast<const PagePair*>(ptr);
     for (size_t i = 0; i < meta.free_pair_count; ++i) {
-        // SaveFreeList会直接保存未合并的pending pages
-        // 这里将其合并到free map
+        // SaveFreeList will directly save pending pages that have not been merged
+        // Merge it into the free map here
         if (free_list[i].second == 0) {
             continue;
         }
@@ -153,7 +159,7 @@ void Pager::SaveFreeList() {
     auto& update_tx = db_->tx_manager().update_tx();
     auto& meta = update_tx.meta_struct();
 
-    // 释放原free_list
+    // Release the original free_ist
     if (meta.free_list_pgid != kPageInvalidId) {
         Free(meta.free_list_pgid, meta.free_list_page_count);
     }

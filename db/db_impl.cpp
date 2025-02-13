@@ -25,13 +25,13 @@ std::unique_ptr<DB> DB::Open(const Options& options, const std::string_view path
     db->options_.emplace(options);
     auto page_size = mio::page_size();
     if (page_size > kPageMaxSize) {
-        throw IoError("the system page size exceeds the range.");
+        throw std::runtime_error("Page size exceeds maximum limit: " + std::to_string(page_size));
     }
     if (db->options_->page_size == 0) {
         db->options_->page_size = static_cast<PageSize>(page_size);
     } else {
         if (db->options_->page_size != mio::page_size()) {
-            throw InvalidArgumentError("page size mismatch.");
+            throw std::invalid_argument("Options page size mismatch.");
         }
     }
 
@@ -97,7 +97,7 @@ DBImpl::~DBImpl() {
 
 UpdateTx DBImpl::Update() {
     if (options_->read_only) {
-        throw InvalidArgumentError{ "the database is read-only." };
+        throw std::invalid_argument("the database is read-only.");
     }
     return tx_manager_->Update();
  }
@@ -128,7 +128,7 @@ void DBImpl::Remmap(uint64_t new_size) {
      std::error_code ec;
      db_mmap_.map(db_path_, ec);
      if (ec) {
-         throw IoError{ "unable to map db file."};
+         throw std::system_error(ec, "Unable to map db file.");
      }
  }
 
@@ -142,10 +142,10 @@ void DBImpl::ClearMmap() {
  }
 
 void DBImpl::InitDBFile() {
-    std::error_code error_code;
-    db_mmap_ = mio::make_mmap_sink(db_path_, error_code);
-    if (error_code) {
-        throw IoError{ "unable to map db file." };
+    std::error_code ec;
+    db_mmap_ = mio::make_mmap_sink(db_path_, ec);
+    if (ec) {
+        throw std::system_error(ec, "Unable to map db file.");
     }
 }
 
@@ -158,10 +158,9 @@ void DBImpl::InitShmFile() {
     if (shm_file.size() < sizeof(ShmStruct)) {
         shm_file.resize(sizeof(ShmStruct));
     }
-    std::error_code error_code;
-    shm_mmap_ = mio::make_mmap_sink(shm_path, error_code);
-    if (error_code) {
-        throw IoError{ "unable to map shm file." };
+    shm_mmap_ = mio::make_mmap_sink(shm_path, ec);
+    if (ec) {
+        throw std::system_error(ec, "Unable to map shm file.");
     }
     shm_.emplace(reinterpret_cast<ShmStruct*>(shm_mmap_.data()));
 }

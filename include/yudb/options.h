@@ -14,12 +14,21 @@
 
 namespace yudb {
 
+enum class DbMode {
+    kUpdateInPlace,
+    kWal,
+};
+
 struct Options {
-    PageSize page_size{ 0 };
-    const size_t max_wal_size{ 1024 * 1024 * 64 };
-    const Comparator comparator{ ByteArrayComparator };
-    const bool read_only{ false };
-    const bool sync{ false };
+    PageSize page_size = 0;
+    
+    const Comparator comparator = ByteArrayComparator;
+    const bool read_only = false;
+    const bool sync = false;
+
+    const DbMode mode = DbMode::kUpdateInPlace;
+
+    const size_t max_wal_size = 1024 * 1024 * 64;
 };
 
 } // namespace yudb

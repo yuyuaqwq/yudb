@@ -206,10 +206,10 @@ void Logger::Recover() {
         current_tx->RollBack();
     }
     if (meta.meta_struct().txid > raw_txid) {
-        std::error_code error_code;
-        db_->db_file_mmap().sync(error_code);
-        if (error_code) {
-            throw IoError{ "failed to sync db file." };
+        std::error_code ec;
+        db_->db_file_mmap().sync(ec);
+        if (ec) {
+            throw std::system_error(ec, "Failed to sync db file.");
         }
         meta.Switch();
         meta.Save();
@@ -228,10 +228,10 @@ void Logger::Checkpoint() {
     db_->pager().SaveFreeList();
 
     pager.WriteAllDirtyPages();
-    std::error_code error_code;
-    db_->db_file_mmap().sync(error_code);
-    if (error_code) {
-        throw IoError{ "failed to sync db file." };
+    std::error_code ec;
+    db_->db_file_mmap().sync(ec);
+    if (ec) {
+        throw std::system_error(ec, "Failed to sync db file.");
     }
     meta.Switch();
     meta.Save();

@@ -81,7 +81,7 @@ BucketImpl& BucketImpl::SubBucket(std::string_view key, bool writable) {
             assert(iter.is_bucket());
         } else {
             if (iter.is_bucket() == false) {
-                throw InvalidArgumentError{ "attempt to open a key value pair that is not a sub bucket." };
+                throw std::invalid_argument("attempt to open a key value pair that is not a sub bucket.");
             }
             map_iter->second.second = iter.value<PageId>();
         }
@@ -104,7 +104,7 @@ bool BucketImpl::DeleteSubBucket(std::string_view key) {
 
 void BucketImpl::DeleteSubBucket(Iterator* iter) {
     if (!iter->is_bucket()) {
-        throw InvalidArgumentError{ "attempt to delete a key value pair that is not a sub bucket." };
+        throw std::invalid_argument("attempt to delete a key value pair that is not a sub bucket.");
     }
     auto& sub_bucket = SubBucket(iter->key(), true);
     auto map_iter = sub_bucket_map_->find({ iter->key().data(), iter->key().size() });
