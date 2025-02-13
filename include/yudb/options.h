@@ -21,7 +21,6 @@ enum class DbMode {
 
 struct Options {
     PageSize page_size = 0;
-    
     const Comparator comparator = ByteArrayComparator;
     const bool read_only = false;
     const bool sync = false;
