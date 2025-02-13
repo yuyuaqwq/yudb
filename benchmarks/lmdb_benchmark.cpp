@@ -18,19 +18,19 @@ namespace yudb {
 static int FLAGS_num = 1000000;
 
 static std::string_view FLAGS_benchmarks =
-    "fillseq,"
-    "readseq,"
-    "fillsync,"
-    "fillseqbatch,"
-    "fillrandom,"
-    "readrandom,"
+    //"fillseq,"
+    //"readseq,"
+    //"fillsync,"
+    //"fillseqbatch,"
+    //"fillrandom,"
+    //"readrandom,"
     "fillrandbatch,"
-    "readrandbatch,"
-    "overwrite,"
-    "overwritebatch,"
-    "fillrand100K,"
-    //"readrand100K,"
-    "fillseq100K,"
+    //"readrandbatch,"
+    //"overwrite,"
+    //"overwritebatch,"
+    //"fillrand100K,"
+    ////"readrand100K,"
+    //"fillseq100K,"
 ;
 
 #define E(expr) CHECK((rc = (expr)) == MDB_SUCCESS, #expr)
@@ -40,9 +40,9 @@ static std::string_view FLAGS_benchmarks =
 
 class Benchmark {
 private:
-    MDB_env* env_;
-    int seed_{ 0 };
-    int num_{ FLAGS_num };
+    MDB_env* env_ = nullptr;
+    int seed_ = 0 ;
+    int num_ = FLAGS_num;
     
     std::chrono::steady_clock::time_point start_;
     int64_t bytes_;
@@ -186,7 +186,7 @@ public:
             } else if (name == "fillrandom") {
                 Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_, 1);
             } else if (name == "fillrandbatch") {
-                Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_, 1000);
+                Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_, 1000000);
             } else if (name == "overwrite") {
                 Write(write_sync, RANDOM, EXISTING, rand_key_, rand_value_, num_, 1);
             } else if (name == "overwritebatch") {
