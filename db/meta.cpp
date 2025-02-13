@@ -53,10 +53,10 @@ void Meta::Load() {
     auto second = reinterpret_cast<MetaStruct*>(ptr + db_->options()->page_size);
 
     if (first->sign != YUDB_SIGN && second->sign != YUDB_SIGN) {
-        throw MetaError("not a yudb file.");
+        throw std::runtime_error("Not a yudb file.");
     }
     if (YUDB_VERSION < first->min_version) {
-        throw MetaError("the target database version is too high.");
+        throw std::runtime_error("the target database version is too high.");
     }
 
     const MetaStruct* select;
@@ -84,13 +84,13 @@ void Meta::Load() {
         crc32.Append(select, kMetaSize - sizeof(uint32_t));
         crc32_value = crc32.End();
         if (crc32_value != select->crc32) {
-            throw MetaError("database is damaged.");
+            throw std::runtime_error("database is damaged.");
         }
     }
 
     // Page size requirements are consistent
     if (select->page_size != db_->options()->page_size) {
-        throw MetaError("database cannot match system page size.");
+        throw std::runtime_error("database cannot match system page size.");
     }
 
     std::memcpy(meta_struct_, select, kMetaSize);

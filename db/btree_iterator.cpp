@@ -12,7 +12,6 @@
 #include <yudb/btree.h>
 #include <yudb/bucket_impl.h>
 #include <yudb/tx_impl.h>
-#include <yudb/error.h>
 
 namespace yudb {
 

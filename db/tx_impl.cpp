@@ -124,7 +124,7 @@ UpdateBucket UpdateTx::UserBucket() {
 
 void UpdateTx::RollBack() {
     if (tx_ == nullptr) {
-        throw TxManagerError("invalid tx.");
+        throw std::runtime_error("Invalid tx.");
     }
     tx_->RollBack();
     tx_ = nullptr;
@@ -132,7 +132,7 @@ void UpdateTx::RollBack() {
 
 void UpdateTx::Commit() {
     if (tx_ == nullptr) {
-        throw TxManagerError("invalid tx.");
+        throw std::runtime_error("Invalid tx.");
     }
     tx_->Commit();
     tx_ = nullptr;

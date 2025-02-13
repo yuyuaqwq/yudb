@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <yudb/error.h>
 #include <yudb/noncopyable.h>
 #include <yudb/options.h>
 #include <yudb/tx.h>

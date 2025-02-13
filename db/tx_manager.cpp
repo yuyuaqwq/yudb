@@ -9,8 +9,6 @@
 
 #include "tx_manager.h"
 
-#include <yudb/error.h>
-
 #include "db_impl.h"
 #include "log_type.h"
 
@@ -28,7 +26,8 @@ TxManager::~TxManager() {
 
     if (update_tx_.has_value()
         || !view_tx_map_.empty()) {
-        throw TxManagerError("there are write transactions that have not been exited.");
+        // throw std::runtime_error("There are write transactions that have not been exited.");
+        std::abort();
     }
 }
 
@@ -48,7 +47,7 @@ UpdateTx TxManager::Update() {
     update_tx_.emplace(this, db_->meta().meta_struct(), true);
     update_tx_->set_txid(update_tx_->txid() + 1);
     if (update_tx_->txid() == kTxInvalidId) {
-        throw TxManagerError("txid overflow.");
+        throw std::runtime_error("Txid overflow.");
     }
 
     // 更新min_view_txid

@@ -11,7 +11,6 @@
 
 #include <yudb/bucket_impl.h>
 #include <yudb/tx.h>
-#include <yudb/error.h>
 
 #include "pager.h"
 

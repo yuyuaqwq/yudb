@@ -86,7 +86,7 @@ void Logger::Recover() {
         switch (type) {
         case LogType::kWalTxId: {
             if (init) {
-                throw LoggerError("unrecoverable logs.");
+                throw std::runtime_error("Unrecoverable logs.");
             }
             auto log = reinterpret_cast<WalTxIdLogHeader*>(record->data());
             if (meta.meta_struct().txid > log->txid) {
@@ -97,20 +97,20 @@ void Logger::Recover() {
         }
         case LogType::kBegin: {
             if (!init) {
-                throw LoggerError("unrecoverable logs.");
+                throw std::runtime_error("unrecoverable logs.");
             }
             if (current_tx.has_value()) {
-                throw LoggerError("unrecoverable logs.");
+                throw std::runtime_error("unrecoverable logs.");
             }
             current_tx.emplace(tx_manager.Update());
             break;
         }
         case LogType::kRollback: {
             if (!init) {
-                throw LoggerError("unrecoverable logs.");
+                throw std::runtime_error("unrecoverable logs.");
             }
             if (!current_tx.has_value()) {
-                throw LoggerError("unrecoverable logs.");
+                throw std::runtime_error("unrecoverable logs.");
             }
             current_tx->RollBack();
             current_tx = std::nullopt;
@@ -118,10 +118,10 @@ void Logger::Recover() {
         }
         case LogType::kCommit: {
             if (!init) {
-                throw LoggerError("unrecoverable logs.");
+                throw std::runtime_error("unrecoverable logs.");
             }
             if (!current_tx.has_value()) {
-                throw LoggerError("unrecoverable logs.");
+                throw std::runtime_error("unrecoverable logs.");
             }
             current_tx->Commit();
             current_tx = std::nullopt;
@@ -129,7 +129,7 @@ void Logger::Recover() {
         }
         case LogType::kSubBucket: {
             if (!init) {
-                throw LoggerError("unrecoverable logs.");
+                throw std::runtime_error("unrecoverable logs.");
             }
             assert(record->size() == kBucketDeleteLogHeaderSize);
             auto log = reinterpret_cast<BucketLogHeader*>(record->data());
@@ -151,7 +151,7 @@ void Logger::Recover() {
         case LogType::kPut_IsBucket:
         case LogType::kPut_NotBucket: {
             if (!init) {
-                throw LoggerError("unrecoverable logs.");
+                throw std::runtime_error("unrecoverable logs.");
             }
             assert(record->size() == kBucketPutLogHeaderSize);
             auto log = reinterpret_cast<BucketLogHeader*>(record->data());
@@ -177,7 +177,7 @@ void Logger::Recover() {
         }
         case LogType::kDelete: {
             if (!init) {
-                throw LoggerError("unrecoverable logs.");
+                throw std::runtime_error("unrecoverable logs.");
             }
             assert(record->size() == kBucketDeleteLogHeaderSize);
             auto log = reinterpret_cast<BucketLogHeader*>(record->data());
@@ -222,7 +222,7 @@ void Logger::Checkpoint() {
     auto& pager = db_->pager();
     auto& tx_manager = db_->tx_manager();
     if (!tx_manager.has_update_tx()) {
-        throw LoggerError{ "Checkpoint can only be invoked within a write transaction." };
+        throw std::runtime_error("Checkpoint can only be invoked within a write transaction.");
     }
 
     db_->pager().SaveFreeList();

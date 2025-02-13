@@ -12,7 +12,6 @@
 #include <wal/tinyio.hpp>
 #include <wal/crc32.h>
 
-#include <yudb/error.h>
 #include <yudb/version.h>
 
 namespace yudb{
