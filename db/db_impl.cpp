@@ -40,7 +40,7 @@ std::unique_ptr<DB> DB::Open(const Options& options, const std::string_view path
     }
 
     db->db_path_ = path;
-    db_file.open(path, tinyio::access_mode::sync_needed);
+    db_file.open(db->db_path_, tinyio::access_mode::sync_needed);
     db_file.lock(tinyio::share_mode::exclusive);
 
     bool init_meta = false;

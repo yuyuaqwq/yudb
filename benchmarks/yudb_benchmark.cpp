@@ -15,7 +15,7 @@
 
 namespace yudb {
 
-static int FLAGS_num = 100000;
+static int FLAGS_num = 1000;
 
 static std::string_view FLAGS_benchmarks =
     //"fillseq,"
@@ -188,7 +188,7 @@ public:
             } else if (name == "overwrite") {
                 Write(write_sync, RANDOM, EXISTING, rand_key_, rand_value_, num_ / 100, 1);
             } else if (name == "overwritebatch") {
-                Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_, 100000);
+                Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_, 1000);
             } else if (name == "readseq") {
                 ReadSequential();
             } else if (name == "readrandom") {
