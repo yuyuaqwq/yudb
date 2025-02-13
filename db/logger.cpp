@@ -225,18 +225,16 @@ void Logger::Checkpoint() {
         throw std::runtime_error("Checkpoint can only be invoked within a write transaction.");
     }
 
-    db_->pager().SaveFreeList();
-
+    pager.SaveFreeList();
     pager.WriteAllDirtyPages();
-    std::error_code ec;
-    db_->db_file_mmap().sync(ec);
-    if (ec) {
-        throw std::system_error(ec, "Failed to sync db file.");
-    }
+
     meta.Switch();
     meta.Save();
+
     tx_manager.set_persisted_txid(meta.meta_struct().txid);
+
     Reset();
+
     AppendWalTxIdLog();
 
     if (checkpoint_needed_) checkpoint_needed_ = false;

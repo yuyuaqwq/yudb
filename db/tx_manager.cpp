@@ -114,7 +114,11 @@ void TxManager::Commit() {
         }
     }
     else if (db_->options()->mode == DbMode::kUpdateInPlace) {
+        db_->pager().SaveFreeList();
         db_->pager().WriteAllDirtyPages();
+
+        db_->meta().Switch();
+        db_->meta().Save();
     }
 
     update_tx_ = std::nullopt;
