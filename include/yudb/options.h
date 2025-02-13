@@ -27,6 +27,7 @@ struct Options {
 
     const DbMode mode = DbMode::kUpdateInPlace;
 
+    // kWal
     const size_t max_wal_size = 1024 * 1024 * 64;
 };
 
