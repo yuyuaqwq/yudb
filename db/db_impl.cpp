@@ -119,7 +119,7 @@ DBImpl::~DBImpl() {
 
 UpdateTx DBImpl::Update() {
     if (options_->read_only) {
-        throw std::invalid_argument("the database is read-only.");
+        throw std::runtime_error("the database is read-only.");
     }
     return tx_manager_->Update();
  }
