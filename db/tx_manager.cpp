@@ -33,7 +33,7 @@ TxManager::~TxManager() {
 
 UpdateTx TxManager::Update() {
     db_->shm()->update_lock().lock();
-    db_->ClearMmap();
+    db_->ClearPendingMmap();
 
     assert(!update_tx_.has_value());
 
