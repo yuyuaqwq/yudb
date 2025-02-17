@@ -59,7 +59,9 @@ std::span<const uint8_t> Node::GetKey(SlotId slot_id) {
 
 std::pair<SlotId, bool> Node::LowerBound(std::span<const uint8_t> key) {
     bool eq = false;
-    auto pos = std::lower_bound(data_->slots, data_->slots + count(), key, [&](const Slot& slot, std::span<const uint8_t> search_key) -> bool {
+    auto pos = std::lower_bound(data_->slots, data_->slots + count(), key
+        , [&](const Slot& slot, std::span<const uint8_t> search_key) -> bool
+    {
         auto diff = &slot - data_->slots;
         SlotId slot_id = diff;
         auto slot_key = GetKey(slot_id);
