@@ -9,8 +9,8 @@
 
 #include <gtest/gtest.h>
 
-#include <wal/log_reader.h>
-#include <wal/log_writer.h>
+#include <wal/reader.h>
+#include <wal/writer.h>
 
 namespace atomkv {
 

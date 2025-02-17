@@ -9,7 +9,7 @@
 
 #include "logger.h"
 
-#include <wal/log_reader.h>
+#include <wal/reader.h>
 
 #include <atomkv/tx.h>
 

@@ -13,12 +13,13 @@
 #include <optional>
 #include <map>
 
-#include <wal/log_writer.h>
+#include <wal/writer.h>
 
-#include "pool/static_memory_pool.hpp"
-#include "atomkv/noncopyable.h"
-#include "atomkv/tx.h"
-#include "atomkv/tx_impl.h"
+#include <pool/static_memory_pool.hpp>
+
+#include <atomkv/noncopyable.h>
+#include <atomkv/tx.h>
+#include <atomkv/tx_impl.h>
 
 namespace atomkv {
 

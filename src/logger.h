@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <wal/log_writer.h>
+#include <wal/writer.h>
 
 #include <atomkv/noncopyable.h>
 
