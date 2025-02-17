@@ -15,7 +15,7 @@
 
 namespace yudb {
 
-static int FLAGS_num = 1000;
+static int FLAGS_num = 100000;
 
 static std::string_view FLAGS_benchmarks =
     //"fillseq,"
@@ -24,10 +24,10 @@ static std::string_view FLAGS_benchmarks =
     //"fillseqbatch,"
     //"fillrandom,"
     //"readrandom,"
-    //"fillrandbatch,"
+    "fillrandbatch,"
     //"readrandbatch,"
     //"overwrite,"
-    "overwritebatch,"
+    //"overwritebatch,"
     //"fillrand100K,"
     ////"readrand100K,"
     //"fillseq100K,"
@@ -180,15 +180,15 @@ public:
             } else if(name == "fillsync") {
                 Write(true, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_ / 100, 1);
             } else if(name == "fillseqbatch") {
-                Write(write_sync, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_, 1000);
+                Write(write_sync, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_, 1000000);
             } else if (name == "fillrandom") {
                 Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_ / 100, 1);
             } else if (name == "fillrandbatch") {
-                Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_, 1000);
+                Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_, num_);
             } else if (name == "overwrite") {
                 Write(write_sync, RANDOM, EXISTING, rand_key_, rand_value_, num_ / 100, 1);
             } else if (name == "overwritebatch") {
-                Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_, 1000);
+                Write(write_sync, RANDOM, EXISTING, rand_key_, rand_value_, num_, 1000);
             } else if (name == "readseq") {
                 ReadSequential();
             } else if (name == "readrandom") {

@@ -96,6 +96,7 @@ DBImpl::~DBImpl() {
     meta_.reset();
     shm_.reset();
 
+    ClearPendingMmap();
     if (db_mmap_.is_mapped()) {
         db_mmap_.unmap();
     }
@@ -141,7 +142,8 @@ void DBImpl::Remmap(uint64_t new_size) {
                  break;
              }
          }
-     } else {
+     }
+     else {
          map_size = new_size + (new_size % max_expand_size);
      }
      assert(map_size % pager_->page_size() == 0);
@@ -154,9 +156,9 @@ void DBImpl::Remmap(uint64_t new_size) {
      }
  }
 
-void DBImpl::ClearMmap() {
+void DBImpl::ClearPendingMmap() {
     if (db_mmap_pending_.empty()) return;
-     const std::unique_lock lock{ db_mmap_lock_ };
+     const auto lock = std::unique_lock(db_mmap_lock_);
      for (auto& mmap : db_mmap_pending_) {
          mmap.unmap();
      }

@@ -35,7 +35,7 @@ public:
     ViewTx View() override;
 
     void Remmap(uint64_t new_size);
-    void ClearMmap();
+    void ClearPendingMmap();
 
     auto& options() const { return options_; }
     auto& options() { return options_; }

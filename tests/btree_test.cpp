@@ -36,8 +36,8 @@ public:
 
     void Open(Comparator comparator) {
         yudb::Options options{
-            .max_wal_size = 1024 * 1024 * 64,
             .comparator = comparator,
+            .max_wal_size = 1024 * 1024 * 64,
         };
         if (update_tx_.has_value()) {
             update_tx_->RollBack();
