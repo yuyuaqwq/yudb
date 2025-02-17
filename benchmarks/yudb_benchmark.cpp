@@ -168,10 +168,6 @@ public:
                 benchmarks = {};
             }
 
-            if (name == "readseq") {
-                printf("??");
-            }
-
             Start();
 
             bool write_sync = false;
