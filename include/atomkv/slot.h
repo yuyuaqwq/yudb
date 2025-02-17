@@ -7,50 +7,36 @@
 //
 //THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#include <gtest/gtest.h>
+#pragma once
 
-#include "src/db_impl.h"
+#include <cstdint>
+#include <cstring>
+#include <cassert>
+
+#include <utility>
+
+#include <atomkv/page_format.h>
 
 namespace atomkv {
 
-class LoggerTest : public testing::Test {
-public:
-    std::unique_ptr<atomkv::DB> db_;
-    Pager* pager_{ nullptr };
-    Logger* logger_{ nullptr };
+using SlotId = int16_t;
+constexpr SlotId kSlotInvalidId = -1;
 
-public:
-    LoggerTest() {
-        Open();
-    }
+constexpr size_t kKeyMaxSize = 0x7fff;
+constexpr size_t kValueMaxSize = 0xffffffff;
 
-    void Open() {
-        atomkv::Options options{
-            .max_wal_size = 1024 * 1024 * 64,
-        };
-        db_.reset();
-        //std::string path = testing::TempDir() + "pager_test.ydb";
-        const std::string path = "Z:/logger_test.ydb";
-        std::filesystem::remove(path);
-        std::filesystem::remove(path + "-shm");
-        std::filesystem::remove(path + "-wal");
-        db_ = atomkv::DB::Open(options, path);
-        ASSERT_FALSE(!db_);
-
-        auto db_impl = static_cast<DBImpl*>(db_.get());
-        pager_ = &db_impl->pager();
-        logger_ = &db_impl->logger();
-    }
-
+#pragma pack(push, 1)
+struct Slot {
+    uint16_t record_offset : 15;
+    uint16_t is_overflow_pages : 1;
+    uint16_t key_size : 15;
+    uint16_t is_bucket : 1;
+    union {
+        PageId left_child;
+        uint32_t value_size;
+        static_assert(sizeof(left_child) == sizeof(value_size));
+    };
 };
+#pragma pack(pop)
 
-TEST_F(LoggerTest, CheckPoint) {
-    logger_->Checkpoint();
-}
-
-TEST_F(LoggerTest, Recover) {
-    logger_->Recover();
-}
-
-
-} // namespace atomkv
+} // namespace atomkv 

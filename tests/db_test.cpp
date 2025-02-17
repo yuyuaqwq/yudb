@@ -19,13 +19,13 @@
 
 #include <gtest/gtest.h>
 
-#include "yudb/db.h"
+#include "atomkv/db.h"
 
-namespace yudb {
+namespace atomkv {
 
 class DBTest : public testing::Test {
 public:
-    std::unique_ptr<yudb::DB> db_;
+    std::unique_ptr<atomkv::DB> db_;
     int seed_{ 0 };
     int count_{ 1000000 };
 
@@ -35,7 +35,7 @@ public:
     }
 
     void Open() {
-        yudb::Options options{
+        atomkv::Options options{
             .max_wal_size = 1024 * 1024 * 64,
         };
         //std::string path = testing::TempDir() + "db_test.ydb";
@@ -43,7 +43,7 @@ public:
         std::filesystem::remove(path);
         std::filesystem::remove(path + "-shm");
         std::filesystem::remove(path + "-wal");
-        db_ = yudb::DB::Open(options, path);
+        db_ = atomkv::DB::Open(options, path);
         ASSERT_FALSE(!db_);
     }
 
@@ -553,5 +553,5 @@ TEST_F(DBTest, PutAndDeleteInRandom) {
 
 }
 
-} // namespace yudb
+} // namespace atomkv
 

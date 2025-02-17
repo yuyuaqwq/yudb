@@ -9,15 +9,15 @@
 
 #include <gtest/gtest.h>
 
-#include "yudb/node.h"
+#include "atomkv/node.h"
 
-#include "db/db_impl.h"
+#include "src/db_impl.h"
 
-namespace yudb {
+namespace atomkv {
 
 class BTreeTest : public testing::Test {
 public:
-    std::unique_ptr<yudb::DB> db_;
+    std::unique_ptr<atomkv::DB> db_;
     Pager* pager_{ nullptr };
     TxManager* tx_manager_{ nullptr };
     std::optional<UpdateTx> update_tx_;
@@ -35,7 +35,7 @@ public:
     }
 
     void Open(Comparator comparator) {
-        yudb::Options options{
+        atomkv::Options options{
             .comparator = comparator,
             .max_wal_size = 1024 * 1024 * 64,
         };
@@ -48,7 +48,7 @@ public:
         std::filesystem::remove(path);
         std::filesystem::remove(path + "-shm");
         std::filesystem::remove(path + "-wal");
-        db_ = yudb::DB::Open(options, path);
+        db_ = atomkv::DB::Open(options, path);
         ASSERT_FALSE(!db_);
 
         auto db_impl = static_cast<DBImpl*>(db_.get());
@@ -501,4 +501,4 @@ TEST_F(BTreeTest, Iteration) {
     ASSERT_EQ(i, 10000);
 }
 
-} // namespace yudb
+} // namespace atomkv

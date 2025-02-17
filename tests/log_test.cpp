@@ -12,7 +12,7 @@
 #include <wal/log_reader.h>
 #include <wal/log_writer.h>
 
-namespace yudb {
+namespace atomkv {
 
 TEST(LogTest, ReadWrite) {
     {
@@ -56,4 +56,4 @@ TEST(LogTest, ReadWrite) {
     }
 }
 
-} // namespace yudb
+} // namespace atomkv

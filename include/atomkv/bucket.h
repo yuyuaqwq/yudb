@@ -7,50 +7,52 @@
 //
 //THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#include <gtest/gtest.h>
+#pragma once
 
-#include "src/db_impl.h"
+#include <atomkv/noncopyable.h>
+#include <atomkv/bucket_iterator.h>
 
 namespace atomkv {
 
-class LoggerTest : public testing::Test {
+class BucketImpl;
+
+class ViewBucket : noncopyable {
 public:
-    std::unique_ptr<atomkv::DB> db_;
-    Pager* pager_{ nullptr };
-    Logger* logger_{ nullptr };
+    using Iterator = BucketIterator;
 
 public:
-    LoggerTest() {
-        Open();
-    }
+    explicit ViewBucket(BucketImpl* bucket);
+    ~ViewBucket();
 
-    void Open() {
-        atomkv::Options options{
-            .max_wal_size = 1024 * 1024 * 64,
-        };
-        db_.reset();
-        //std::string path = testing::TempDir() + "pager_test.ydb";
-        const std::string path = "Z:/logger_test.ydb";
-        std::filesystem::remove(path);
-        std::filesystem::remove(path + "-shm");
-        std::filesystem::remove(path + "-wal");
-        db_ = atomkv::DB::Open(options, path);
-        ASSERT_FALSE(!db_);
+    ViewBucket SubViewBucket(std::string_view key);
+    Iterator Get(const void* key_buf, size_t key_size) const;
+    Iterator Get(std::string_view key) const;
+    Iterator LowerBound(const void* key_buf, size_t key_size) const;
+    Iterator LowerBound(std::string_view key) const;
 
-        auto db_impl = static_cast<DBImpl*>(db_.get());
-        pager_ = &db_impl->pager();
-        logger_ = &db_impl->logger();
-    }
+    Iterator begin() const noexcept;
+    Iterator end() const noexcept;
 
+    // void Print(bool str = false) const;
+
+protected:
+    BucketImpl* const bucket_;
 };
 
-TEST_F(LoggerTest, CheckPoint) {
-    logger_->Checkpoint();
-}
+class UpdateBucket : public ViewBucket {
+public:
+    using ViewBucket::ViewBucket;
 
-TEST_F(LoggerTest, Recover) {
-    logger_->Recover();
-}
+    UpdateBucket() = delete;
+    ~UpdateBucket();
 
+    UpdateBucket SubUpdateBucket(std::string_view key);
+    bool DeleteSubBucket(std::string_view key);
+
+    void Put(const void* key_buf, size_t key_size, const void* value_buf, size_t value_size);
+    void Put(std::string_view key, std::string_view value);
+    bool Delete(const void* key_buf, size_t key_size);
+    bool Delete(std::string_view key);
+};
 
 } // namespace atomkv

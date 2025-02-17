@@ -7,50 +7,46 @@
 //
 //THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#include <gtest/gtest.h>
+#pragma once
 
-#include "src/db_impl.h"
+#include <atomic>
+#include <mutex>
+
+#include <atomkv/noncopyable.h>
+#include <atomkv/meta_format.h>
 
 namespace atomkv {
 
-class LoggerTest : public testing::Test {
-public:
-    std::unique_ptr<atomkv::DB> db_;
-    Pager* pager_{ nullptr };
-    Logger* logger_{ nullptr };
-
-public:
-    LoggerTest() {
-        Open();
-    }
-
-    void Open() {
-        atomkv::Options options{
-            .max_wal_size = 1024 * 1024 * 64,
-        };
-        db_.reset();
-        //std::string path = testing::TempDir() + "pager_test.ydb";
-        const std::string path = "Z:/logger_test.ydb";
-        std::filesystem::remove(path);
-        std::filesystem::remove(path + "-shm");
-        std::filesystem::remove(path + "-wal");
-        db_ = atomkv::DB::Open(options, path);
-        ASSERT_FALSE(!db_);
-
-        auto db_impl = static_cast<DBImpl*>(db_.get());
-        pager_ = &db_impl->pager();
-        logger_ = &db_impl->logger();
-    }
-
+#pragma pack(push, 1)
+struct ShmStruct {
+    std::atomic<uint32_t> connections = 0;
+    std::mutex update_lock;
+    std::mutex meta_lock;
+    MetaStruct meta_struct;
 };
+#pragma pack(pop)
 
-TEST_F(LoggerTest, CheckPoint) {
-    logger_->Checkpoint();
-}
+class Shm : noncopyable {
+public:
+    Shm(ShmStruct* shm_struct) : 
+        shm_struct_{ shm_struct }
+    {
+        ++shm_struct_->connections;
+    }
 
-TEST_F(LoggerTest, Recover) {
-    logger_->Recover();
-}
+    ~Shm() {
+        --shm_struct_->connections;
+    }
 
+    auto& connections() const { return shm_struct_->connections; }
+    auto& connections() { return shm_struct_->connections; }
+    auto& meta_struct() const { return shm_struct_->meta_struct; }
+    auto& meta_struct() { return shm_struct_->meta_struct; }
+    auto& update_lock() { return shm_struct_->update_lock; }
+    auto& meta_lock() { return shm_struct_->meta_lock; }
+    
+private:
+    ShmStruct* const shm_struct_;
+};
 
 } // namespace atomkv

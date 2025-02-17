@@ -7,50 +7,35 @@
 //
 //THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#include <gtest/gtest.h>
+#pragma once
 
-#include "src/db_impl.h"
+#include <cstdint>
+
+#include <atomkv/noncopyable.h>
+#include <atomkv/meta_format.h>
 
 namespace atomkv {
 
-class LoggerTest : public testing::Test {
+class DBImpl;
+
+class Meta : noncopyable {
 public:
-    std::unique_ptr<atomkv::DB> db_;
-    Pager* pager_{ nullptr };
-    Logger* logger_{ nullptr };
+    Meta(DBImpl* db, MetaStruct* meta_struct);
+    ~Meta();
 
-public:
-    LoggerTest() {
-        Open();
-    }
+    void Init();
+    void Load();
+    void Save();
+    void Switch();
+    void Reset(const MetaStruct& meta_struct);
 
-    void Open() {
-        atomkv::Options options{
-            .max_wal_size = 1024 * 1024 * 64,
-        };
-        db_.reset();
-        //std::string path = testing::TempDir() + "pager_test.ydb";
-        const std::string path = "Z:/logger_test.ydb";
-        std::filesystem::remove(path);
-        std::filesystem::remove(path + "-shm");
-        std::filesystem::remove(path + "-wal");
-        db_ = atomkv::DB::Open(options, path);
-        ASSERT_FALSE(!db_);
+    const auto& meta_struct() const { return *meta_struct_; }
+    auto& meta_struct() { return *meta_struct_; }
 
-        auto db_impl = static_cast<DBImpl*>(db_.get());
-        pager_ = &db_impl->pager();
-        logger_ = &db_impl->logger();
-    }
-
+private:
+    DBImpl* const db_;
+    MetaStruct* meta_struct_;
+    uint32_t cur_meta_index_ = 0;
 };
-
-TEST_F(LoggerTest, CheckPoint) {
-    logger_->Checkpoint();
-}
-
-TEST_F(LoggerTest, Recover) {
-    logger_->Recover();
-}
-
 
 } // namespace atomkv

@@ -1,6 +1,6 @@
-## yudb
+## atomkv
 
-yudb是一个使用B-Tree作为索引，基于MMap的嵌入式键值数据库，使用C++开发，旨在改进LMDB的写事务的性能问题，并简化使用。
+atomkv是一个使用B-Tree作为索引，基于MMap的嵌入式键值数据库，使用C++开发，旨在改进LMDB的写事务的性能问题，并简化使用。
 
 > ***在v1.0.0发布以前，请勿用于生产环境***
 
@@ -38,9 +38,9 @@ Hard: 512GB SSD
 Compiler: MSVC 1939, Release, /O2
 ```
 
-### yudb
+### atomkv
 ```
-yudb:     version 0.0.1
+atomkv:     version 0.0.1
 Keys:       16 bytes each
 Values:     100 bytes each
 Entries:    1000000

@@ -11,13 +11,13 @@
 
 #include <gtest/gtest.h>
 
-#include "db/db_impl.h"
+#include "src/db_impl.h"
 
-namespace yudb {
+namespace atomkv {
 
 class PagerTest : public testing::Test {
 public:
-    std::unique_ptr<yudb::DB> db_;
+    std::unique_ptr<atomkv::DB> db_;
     Pager* pager_{ nullptr };
     Logger* logger_{ nullptr };
 
@@ -27,7 +27,7 @@ public:
     }
 
     void Open() {
-        yudb::Options options{
+        atomkv::Options options{
             .max_wal_size = 1024 * 1024 * 64,
         };
         db_.reset();
@@ -36,7 +36,7 @@ public:
         std::filesystem::remove(path);
         std::filesystem::remove(path + "-shm");
         std::filesystem::remove(path + "-wal");
-        db_ = yudb::DB::Open(options, path);
+        db_ = atomkv::DB::Open(options, path);
         ASSERT_FALSE(!db_);
 
         auto db_impl = static_cast<DBImpl*>(db_.get());
@@ -165,4 +165,4 @@ TEST_F(PagerTest, FreeListSaveAndLoad) {
 
 }
 
-} // namespace yudb
+} // namespace atomkv

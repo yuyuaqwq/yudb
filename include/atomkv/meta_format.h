@@ -7,50 +7,40 @@
 //
 //THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#include <gtest/gtest.h>
+#pragma once
 
-#include "src/db_impl.h"
+#include <cstdint>
+#include <cstddef>
+
+#include <atomkv/page_format.h>
+#include <atomkv/tx_format.h>
 
 namespace atomkv {
 
-class LoggerTest : public testing::Test {
-public:
-    std::unique_ptr<atomkv::DB> db_;
-    Pager* pager_{ nullptr };
-    Logger* logger_{ nullptr };
-
-public:
-    LoggerTest() {
-        Open();
-    }
-
-    void Open() {
-        atomkv::Options options{
-            .max_wal_size = 1024 * 1024 * 64,
-        };
-        db_.reset();
-        //std::string path = testing::TempDir() + "pager_test.ydb";
-        const std::string path = "Z:/logger_test.ydb";
-        std::filesystem::remove(path);
-        std::filesystem::remove(path + "-shm");
-        std::filesystem::remove(path + "-wal");
-        db_ = atomkv::DB::Open(options, path);
-        ASSERT_FALSE(!db_);
-
-        auto db_impl = static_cast<DBImpl*>(db_.get());
-        pager_ = &db_impl->pager();
-        logger_ = &db_impl->logger();
-    }
-
+#pragma pack(push, 1)
+struct MetaStruct {
+    uint32_t sign;
+    PageSize page_size;
+    uint32_t min_version;
+    PageCount page_count;
+    PageId user_root;
+    PageId free_list_pgid;
+    uint32_t free_pair_count;
+    PageCount free_list_page_count;
+    TxId txid;
+    uint32_t crc32;
 };
+#pragma pack(pop)
 
-TEST_F(LoggerTest, CheckPoint) {
-    logger_->Checkpoint();
+constexpr size_t kMetaSize = sizeof(MetaStruct);
+
+inline void CopyMetaInfo(MetaStruct* dst, const MetaStruct& src) {
+    dst->user_root = src.user_root;
+    dst->free_list_pgid = src.free_list_pgid;
+    dst->free_pair_count = src.free_pair_count;
+    dst->free_list_page_count = src.free_list_page_count;
+    dst->page_count = src.page_count;
+    dst->txid = src.txid;
 }
-
-TEST_F(LoggerTest, Recover) {
-    logger_->Recover();
-}
-
 
 } // namespace atomkv

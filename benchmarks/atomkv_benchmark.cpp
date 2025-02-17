@@ -1,16 +1,16 @@
 //The MIT License(MIT)
 //Copyright ? 2024 https://github.com/yuyuaqwq
 //
-//Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files(the ��Software��), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and /or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions :
+//Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files(the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and /or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions :
 //
 //The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 //
-//THE SOFTWARE IS PROVIDED ��AS IS��, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <filesystem>
 
-#include <lmdb.h>
-
+#include "atomkv/version.h"
+#include "atomkv/db.h"
 #include "util/test_util.h"
 
 namespace atomkv {
@@ -33,16 +33,11 @@ static std::string_view FLAGS_benchmarks =
     //"fillseq100K,"
 ;
 
-#define E(expr) CHECK((rc = (expr)) == MDB_SUCCESS, #expr)
-#define RES(err, expr) ((rc = expr) == (err) || (CHECK(!rc, #expr), 0))
-#define CHECK(test, msg) ((test) ? (void)0 : ((void)fprintf(stderr, \
-	"%s:%d: %s: %s\n", __FILE__, __LINE__, msg, mdb_strerror(rc)), abort()))
-
 class Benchmark {
 private:
-    MDB_env* env_ = nullptr;
-    int seed_ = 0 ;
-    int num_ = FLAGS_num;
+    std::unique_ptr<atomkv::DB> db_;
+    int seed_{ 0 };
+    int num_{ FLAGS_num };
     
     std::chrono::steady_clock::time_point start_;
     int64_t bytes_;
@@ -59,7 +54,7 @@ private:
     std::vector<std::string> rand_value_100k_;
 
     void PrintEnvironment() {
-        std::fprintf(stderr, "lmdb:     version %s\n", MDB_VERSION_STRING);
+        std::fprintf(stderr, "atomkv:     version %s\n", ATOMKV_VERSION_STR);
     }
 
     void PrintHeader() {
@@ -71,17 +66,16 @@ private:
     }
 
     void Open(bool sync) {
-        if (env_) {
-            mdb_env_close(env_);
-        }
-        std::string path = "./lmdb_benchmark";
-        std::filesystem::remove_all(path);
-        std::filesystem::create_directory(path);
-        int rc;
-        E(mdb_env_create(&env_));
-        E(mdb_env_set_maxreaders(env_, 1));
-        E(mdb_env_set_mapsize(env_, 1024 * 1024 * 256));
-        E(mdb_env_open(env_, path.c_str(), MDB_FIXEDMAP | sync ? 0 : MDB_NOSYNC, 0664));
+        db_ = {};
+        atomkv::Options options{
+            .sync = sync,
+            .max_wal_size = 64 * 1024 * 1024,
+        };
+        std::string path = "./atomkv_benchmark.ydb";
+        std::filesystem::remove(path);
+        std::filesystem::remove(path + "-shm");
+        std::filesystem::remove(path + "-wal");
+        db_ = atomkv::DB::Open(options, path);
     }
 
     void Start() {
@@ -178,17 +172,17 @@ public:
 
             bool write_sync = false;
             if (name == "fillseq") {
-                Write(write_sync, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_, 1);
+                Write(write_sync, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_ / 100, 1);
             } else if(name == "fillsync") {
                 Write(true, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_ / 100, 1);
             } else if(name == "fillseqbatch") {
-                Write(write_sync, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_, 1000);
+                Write(write_sync, SEQUENTIAL, FRESH, seq_key_, seq_value_, num_, 1000000);
             } else if (name == "fillrandom") {
-                Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_, 1);
+                Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_ / 100, 1);
             } else if (name == "fillrandbatch") {
                 Write(write_sync, RANDOM, FRESH, rand_key_, rand_value_, num_, num_);
             } else if (name == "overwrite") {
-                Write(write_sync, RANDOM, EXISTING, rand_key_, rand_value_, num_, 1);
+                Write(write_sync, RANDOM, EXISTING, rand_key_, rand_value_, num_ / 100, 1);
             } else if (name == "overwritebatch") {
                 Write(write_sync, RANDOM, EXISTING, rand_key_, rand_value_, num_, 1000);
             } else if (name == "readseq") {
@@ -205,6 +199,12 @@ public:
                 Read(RANDOM, rand_key_, rand_value_100k_, num_ / 1000, 1);
             }
             Stop(name);
+
+
+            if (name == "readseq") {
+                printf("??");
+            }
+
         }
     }
 
@@ -212,74 +212,39 @@ public:
         if (db_state == FRESH) {
             Open(write_sync);
         }
-
-        int rc;
-        MDB_dbi dbi;
-        MDB_val mdb_key, mdb_data;
-        MDB_txn* txn;
         for (int i = 0; i < num_entries; i += entries_per_batch) {
-            E(mdb_txn_begin(env_, NULL, 0, &txn));
-            E(mdb_dbi_open(txn, NULL, 0, &dbi));
+            auto tx = db_->Update();
+            auto bucket = tx.UserBucket();
             for (int j = 0; j < entries_per_batch; j++) {
-                mdb_key.mv_size = key[i + j].size();
-                mdb_key.mv_data = const_cast<void*>(reinterpret_cast<const void*>(key[i + j].data()));
-                mdb_data.mv_size = value[i + j].size();
-                mdb_data.mv_data = const_cast<void*>(reinterpret_cast<const void*>(value[i + j].data()));
-                RES(MDB_KEYEXIST, mdb_put(txn, dbi, &mdb_key, &mdb_data, 0 /*MDB_NOOVERWRITE*/));
+                bucket.Put(key[i+j].data(), key[i+j].size(), value[i+j].data(), value[i+j].size());
                 bytes_ += key[i+j].size() + value[i+j].size();
                 FinishedSingleOp();
             }
-            mdb_dbi_close(env_, dbi);
-            E(mdb_txn_commit(txn));
+            tx.Commit();
         }
     }
 
     void Read(Order order, const std::vector<std::string>& key, const std::vector<std::string>& value, int num_entries, int entries_per_batch) {
-        int rc;
-        MDB_dbi dbi;
-        MDB_val mdb_key, mdb_data;
-        MDB_txn* txn;
         for (int i = 0; i < num_entries; i += entries_per_batch) {
-            MDB_dbi dbi;
-            MDB_val mdb_key, mdb_data;
-            MDB_txn* txn;
-            MDB_stat mst;
-            E(mdb_txn_begin(env_, NULL, MDB_RDONLY, &txn));
-            E(mdb_dbi_open(txn, NULL, 0, &dbi));
+            auto tx = db_->View();
+            auto bucket = tx.UserBucket();
             for (int j = 0; j < entries_per_batch; j++) {
-                mdb_key.mv_size = key[i + j].size();
-                mdb_key.mv_data = const_cast<void*>(reinterpret_cast<const void*>(key[i + j].data()));
-                mdb_data.mv_size = value[i + j].size();
-                mdb_data.mv_data = const_cast<void*>(reinterpret_cast<const void*>(value[i + j].data()));
-                auto res = mdb_get(txn, dbi, &mdb_key, &mdb_data);
-                if (!res) {
-                    bytes_ += mdb_key.mv_size + mdb_data.mv_size;
+                auto iter = bucket.Get(key[i+j].data(), key[i+j].size());
+                if (iter != bucket.end()) {
+                    bytes_ += iter.key().size() + iter.value().size();
                 }
                 FinishedSingleOp();
             }
-            mdb_dbi_close(env_, dbi);
-            mdb_txn_abort(txn);
         }
     }
 
     void ReadSequential() {
-        int rc;
-        MDB_dbi dbi;
-        MDB_val mdb_key, mdb_data;
-        MDB_txn* txn;
-        MDB_cursor* cursor;
-
-        E(mdb_txn_begin(env_, NULL, MDB_RDONLY, &txn));
-        E(mdb_open(txn, NULL, 0, &dbi));
-
-        // �����α�
-        E(mdb_cursor_open(txn, dbi, &cursor));
-        while (mdb_cursor_get(cursor, &mdb_key, &mdb_data, MDB_NEXT) == MDB_SUCCESS) {
-            bytes_ += mdb_key.mv_size + mdb_data.mv_size;
+        auto tx = db_->View();
+        auto bucket = tx.UserBucket();
+        for (auto& iter : bucket) {
+            bytes_ += iter.key().size() + iter.value().size();
             FinishedSingleOp();
         }
-        mdb_dbi_close(env_, dbi);
-        mdb_txn_abort(txn);
     }
 };
 

@@ -9,7 +9,7 @@
 
 #include <string>
 
-namespace yudb {
+namespace atomkv {
 
 inline std::string RandomString(size_t min_size, size_t max_size) {
     int size;
@@ -39,4 +39,4 @@ inline std::string RandomByteArray(size_t min_size, size_t max_size) {
     return str;
 }
 
-} // namespace yudb
+} // namespace atomkv

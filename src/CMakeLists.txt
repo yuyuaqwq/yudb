@@ -1,5 +1,5 @@
 #The MIT License(MIT)
-#Copyright ? 2024 https://github.com/yuyuaqwq
+#Copyright © 2024 https://github.com/yuyuaqwq
 #
 #Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files(the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and /or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions :
 #
@@ -7,33 +7,34 @@
 #
 #THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# tests/CMakeLists.txt
 
-find_package(GTest QUIET)
-if(LMDB_FOUND OR WIN32)
-    message(STATUS "Building tests.")
-    set(SOURCES
-		btree_test.cpp
-		db_test.cpp
-		log_test.cpp
-		logger_test.cpp
-		node_test.cpp
-		pager_test.cpp
-		tx_manager_test.cpp
-	)
-    add_executable(tests ${SOURCES})
+# db/CMakeLists.txt
 
-    target_include_directories(tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
-    target_include_directories(tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
-    target_include_directories(tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../third_party)
-
-    target_include_directories(tests PRIVATE ${WAL_HEADER_DIR})
-    target_link_libraries(tests PRIVATE ${WAL_LIB})
-
-    target_link_libraries(tests PRIVATE atomkv)
-    if(GTEST_FOUND)
-        target_link_libraries(tests GTest::GTest)
-    endif()
-else()
-    message(WARNING "GTest not found. Skipping tests.")
+if(WIN32)
+    file(GLOB_RECURSE PRIVATE_HEADERS 
+        ./*.h
+        ./*.hpp
+        ./**/*.h
+        ./**/*.hpp)
+    source_group("Private Header Files" FILES ${PRIVATE_HEADERS})
+    
+    file(GLOB_RECURSE PUBLIC_HEADERS 
+        ../include/atomkv/*.h
+        ../include/atomkv/*.hpp
+        ../include/atomkv/**/*.h
+        ../include/atomkv/**/*.hpp)
+    source_group("Public Header Files" FILES ${PUBLIC_HEADERS})
 endif()
+
+file(GLOB SRC
+    ./*.cpp
+    ./**/*.cpp)
+
+add_library(atomkv ${SRC} ${PRIVATE_HEADERS} ${PUBLIC_HEADERS})
+
+target_include_directories(atomkv PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(atomkv PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+target_include_directories(atomkv PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../third_party)
+
+target_include_directories(atomkv PRIVATE ${WAL_HEADER_DIR})
+target_link_libraries(atomkv PRIVATE ${WAL_LIB})

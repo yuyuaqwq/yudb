@@ -7,50 +7,49 @@
 //
 //THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#include <gtest/gtest.h>
+#pragma once
 
-#include "src/db_impl.h"
+#include <vector>
+#include <shared_mutex>
+
+#include <atomkv/noncopyable.h>
+#include <atomkv/meta_format.h>
+#include <atomkv/bucket.h>
+#include <atomkv/tx_impl.h>
 
 namespace atomkv {
 
-class LoggerTest : public testing::Test {
+class TxManager;
+class TxImpl;
+
+class ViewTx : noncopyable {
 public:
-    std::unique_ptr<atomkv::DB> db_;
-    Pager* pager_{ nullptr };
-    Logger* logger_{ nullptr };
+    ViewTx(TxManager* tx_manager, const MetaStruct& meta, std::shared_mutex* mmap_mutex);
+    ~ViewTx();
 
-public:
-    LoggerTest() {
-        Open();
-    }
+    ViewBucket UserBucket();
 
-    void Open() {
-        atomkv::Options options{
-            .max_wal_size = 1024 * 1024 * 64,
-        };
-        db_.reset();
-        //std::string path = testing::TempDir() + "pager_test.ydb";
-        const std::string path = "Z:/logger_test.ydb";
-        std::filesystem::remove(path);
-        std::filesystem::remove(path + "-shm");
-        std::filesystem::remove(path + "-wal");
-        db_ = atomkv::DB::Open(options, path);
-        ASSERT_FALSE(!db_);
+private:
+    friend class TxManager;
 
-        auto db_impl = static_cast<DBImpl*>(db_.get());
-        pager_ = &db_impl->pager();
-        logger_ = &db_impl->logger();
-    }
-
+    std::shared_lock<std::shared_mutex> mmap_lock_;
+    // TxImpl* tx_;    // Can use stack object.
+    TxImpl tx_;
 };
 
-TEST_F(LoggerTest, CheckPoint) {
-    logger_->Checkpoint();
-}
+class UpdateTx : noncopyable {
+public:
+    explicit UpdateTx(TxImpl* tx);
+    ~UpdateTx();
 
-TEST_F(LoggerTest, Recover) {
-    logger_->Recover();
-}
+    UpdateTx(UpdateTx&& right) noexcept;
 
+    UpdateBucket UserBucket();
+    void RollBack();
+    void Commit();
+
+private:
+    TxImpl* tx_;
+};
 
 } // namespace atomkv
